@@ -8,17 +8,34 @@ import { cn } from "@/lib/utils";
 import { site } from "@/data/mock/site";
 import { FullscreenMenu } from "./FullscreenMenu";
 
+/** Routes connues disposant d'un Hero sombre immersif au sommet */
+const darkHeroRoutes = [
+  "/",
+  "/qui-sommes-nous",
+  "/communaute/groupes-de-maison",
+  "/communaute/parcours-nouveau",
+  "/communaute/priere-et-intercession",
+  "/communaute/temoignages",
+  "/vie-de-leglise/evenements",
+  "/publications/mediatheque",
+  "/organisation/responsables",
+  "/organisation/departements",
+];
+
 /**
- * Header contextuel : transparent au-dessus du Hero (accueil), solide dès qu'on
- * scrolle ou sur les pages internes. Le nom complet se replie vers le sigle
- * « CCJV » lorsque le header devient solide.
+ * Header contextuel :
+ * - Transparent au sommet de page (adapté au fond clair ou sombre du Hero)
+ * - Devient solide (`bg-ccjv-offwhite` + bordure fine) dès que l'on scrolle (> 24px)
+ * - Comportement fluide et unifié sur l'ensemble des pages du site.
  */
 export function Header() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
+  const [isDarkHero, setIsDarkHero] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
+  // Détection du scroll
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
     onScroll();
@@ -26,34 +43,53 @@ export function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Détection dynamique du thème du Hero au changement de page
+  useEffect(() => {
+    const isKnownDarkRoute = darkHeroRoutes.some(
+      (route) => pathname === route || (route !== "/" && pathname.startsWith(`${route}/`)),
+    );
+
+    if (isKnownDarkRoute) {
+      setIsDarkHero(true);
+      return;
+    }
+
+    // Détection via le DOM pour les pages dynamiques ou nouvellement ajoutées
+    const topSection = document.querySelector(
+      "main > section:first-of-type, section:first-of-type, [data-hero-dark]",
+    );
+
+    if (topSection) {
+      const cls = topSection.className || "";
+      const hasDarkClasses =
+        cls.includes("bg-ccjv-black") ||
+        cls.includes("bg-black") ||
+        cls.includes("text-white");
+      setIsDarkHero(hasDarkClasses);
+    } else {
+      setIsDarkHero(false);
+    }
+  }, [pathname]);
+
   const openMenu = () => setMenuOpen(true);
   const closeMenu = () => {
     setMenuOpen(false);
     menuButtonRef.current?.focus();
   };
 
-  // Pages avec un Hero sombre plein écran / immersif au sommet
-  const hasDarkHero =
-    pathname === "/" ||
-    pathname === "/qui-sommes-nous" ||
-    pathname.startsWith("/qui-sommes-nous/") ||
-    pathname === "/publications/mediatheque" ||
-    pathname === "/vie-de-leglise/evenements" ||
-    pathname.startsWith("/vie-de-leglise/evenements/") ||
-    pathname === "/organisation/responsables" ||
-    pathname.startsWith("/organisation/departements/") ||
-    pathname === "/communaute/temoignages";
-
-  const solid = !hasDarkHero || scrolled;
+  const isSolid = scrolled;
+  const isWhiteText = !isSolid && isDarkHero;
 
   return (
     <>
       <header
         className={cn(
-          "fixed inset-x-0 top-0 z-60 transition-[background-color,color,border-color] duration-250ms ease-ccjv",
-          solid
-            ? "border-b border-ccjv-line bg-ccjv-offwhite text-ccjv-ink"
-            : "bg-transparent text-white",
+          "fixed inset-x-0 top-0 z-60 transition-[background-color,color,border-color,box-shadow] duration-300 ease-out",
+          isSolid
+            ? "border-b border-ccjv-line bg-ccjv-offwhite/95 backdrop-blur-md text-ccjv-ink shadow-xs"
+            : isWhiteText
+              ? "bg-transparent text-white border-b border-transparent"
+              : "bg-transparent text-ccjv-ink border-b border-transparent",
         )}
       >
         <div className="container flex h-18 items-center justify-between">
@@ -69,8 +105,8 @@ export function Header() {
                 fill
                 priority
                 className={cn(
-                  "object-contain transition-[filter] duration-250 ease-ccjv",
-                  solid ? "invert" : "invert-0",
+                  "object-contain transition-[filter] duration-300 ease-out",
+                  isSolid || !isDarkHero ? "invert" : "invert-0",
                 )}
                 sizes="48px"
               />
@@ -80,7 +116,7 @@ export function Header() {
           <button
             ref={menuButtonRef}
             type="button"
-            className="inline-flex min-h-11 items-center gap-3 rounded-none px-3"
+            className="inline-flex min-h-11 items-center gap-3 rounded-none px-3 transition-opacity hover:opacity-80"
             aria-expanded={menuOpen}
             aria-controls="site-menu"
             onClick={openMenu}

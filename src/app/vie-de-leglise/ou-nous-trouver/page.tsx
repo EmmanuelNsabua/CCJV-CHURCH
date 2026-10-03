@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CrossMark } from "@/components/shared/CrossMark";
 import { VerseSection } from "@/components/shared/VerseSection";
 import { Reveal } from "@/components/shared/Reveal";
+import { ParallaxImage } from "@/components/shared/ParallaxImage";
 import { site, weeklyRhythm } from "@/data/mock/site";
 import { images } from "@/data/mock/images";
 import { pageMetadata } from "@/lib/seo";
@@ -65,19 +66,16 @@ export default function OuNousTrouverPage() {
       <section className="relative overflow-hidden pt-28 pb-16 lg:pt-36 lg:pb-24 border-b border-ccjv-line bg-white">
         <div className="container">
           <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-14 xl:gap-16">
-            {/* Colonne gauche : Grande photographie authentique */}
+            {/* Colonne gauche : Grande photographie authentique avec Parallax */}
             <div className="lg:col-span-6">
               <Reveal>
-                <div className="relative aspect-[4/3] w-full overflow-hidden bg-ccjv-line shadow-lg">
-                  <Image
-                    src={images.exterieur || "/media/ccjv-21.jpeg"}
-                    alt="Centre Chrétien Jésus ma Vie à Lubumbashi"
-                    fill
-                    priority
-                    sizes="(max-width: 1024px) 100vw, 50vw"
-                    className="object-cover transition-transform duration-700 hover:scale-105"
-                  />
-                </div>
+                <ParallaxImage
+                  src={images.exterieur || "/media/ccjv-21.jpeg"}
+                  alt="Centre Chrétien Jésus ma Vie à Lubumbashi"
+                  priority
+                  speed={0.10}
+                  className="aspect-[4/3] w-full shadow-lg"
+                />
               </Reveal>
             </div>
 

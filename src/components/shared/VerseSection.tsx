@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { images as defaultImages } from "@/data/mock/images";
+import { ParallaxImage } from "@/components/shared/ParallaxImage";
 
 export type VerseTone =
   | "dark"
@@ -156,53 +157,41 @@ export function VerseSection({
             ============================================================ */}
         {isLeft && (
           <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-16">
-            {/* Mosaïque photo gauche (strictement sans arrondis) */}
+            {/* Mosaïque photo gauche (strictement sans arrondis) avec effet Parallax */}
             <div className="grid grid-cols-2 gap-3 md:gap-4 lg:col-span-6">
               <div className="flex flex-col gap-3 md:gap-4">
-                <div className="relative aspect-[3/4] w-full overflow-hidden bg-ccjv-line">
-                  <Image
-                    src={displayPhotos[0]}
-                    alt="Vie d'église CCJV"
-                    fill
-                    sizes="(max-width: 768px) 50vw, 25vw"
-                    className="object-cover transition-transform duration-700 hover:scale-105"
-                  />
-                </div>
+                <ParallaxImage
+                  src={displayPhotos[0]}
+                  alt="Vie d'église CCJV"
+                  speed={0.10}
+                  className="aspect-[3/4] w-full"
+                />
                 {displayPhotos[1] && (
-                  <div className="relative aspect-[4/3] w-full overflow-hidden bg-ccjv-line">
-                    <Image
-                      src={displayPhotos[1]}
-                      alt="Rencontre fraternelle CCJV"
-                      fill
-                      sizes="(max-width: 768px) 50vw, 25vw"
-                      className="object-cover transition-transform duration-700 hover:scale-105"
-                    />
-                  </div>
+                  <ParallaxImage
+                    src={displayPhotos[1]}
+                    alt="Rencontre fraternelle CCJV"
+                    speed={0.14}
+                    className="aspect-[4/3] w-full"
+                  />
                 )}
               </div>
 
               <div className="flex flex-col gap-3 pt-4 md:gap-4 md:pt-6">
                 {displayPhotos[2] && (
-                  <div className="relative aspect-[4/3] w-full overflow-hidden bg-ccjv-line">
-                    <Image
-                      src={displayPhotos[2]}
-                      alt="Célébration et louange CCJV"
-                      fill
-                      sizes="(max-width: 768px) 50vw, 25vw"
-                      className="object-cover transition-transform duration-700 hover:scale-105"
-                    />
-                  </div>
+                  <ParallaxImage
+                    src={displayPhotos[2]}
+                    alt="Célébration et louange CCJV"
+                    speed={0.08}
+                    className="aspect-[4/3] w-full"
+                  />
                 )}
                 {displayPhotos[3] && (
-                  <div className="relative aspect-[3/4] w-full overflow-hidden bg-ccjv-line">
-                    <Image
-                      src={displayPhotos[3]}
-                      alt="Moment de culte CCJV"
-                      fill
-                      sizes="(max-width: 768px) 50vw, 25vw"
-                      className="object-cover transition-transform duration-700 hover:scale-105"
-                    />
-                  </div>
+                  <ParallaxImage
+                    src={displayPhotos[3]}
+                    alt="Moment de culte CCJV"
+                    speed={0.15}
+                    className="aspect-[3/4] w-full"
+                  />
                 )}
               </div>
             </div>
@@ -286,17 +275,14 @@ export function VerseSection({
             ============================================================ */}
         {isBoth && (
           <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-12 lg:gap-10">
-            {/* Image colonne gauche (sans arrondi) */}
+            {/* Image colonne gauche (sans arrondi) avec Parallax */}
             <div className="hidden lg:block lg:col-span-3">
-              <div className="relative aspect-[3/4] w-full overflow-hidden bg-ccjv-line shadow-sm">
-                <Image
-                  src={leftImg}
-                  alt="Vie de l'église CCJV"
-                  fill
-                  sizes="25vw"
-                  className="object-cover transition-transform duration-700 hover:scale-105"
-                />
-              </div>
+              <ParallaxImage
+                src={leftImg}
+                alt="Vie de l'église CCJV"
+                speed={0.10}
+                className="aspect-[3/4] w-full shadow-sm"
+              />
             </div>
 
             {/* Colonne centrale : Citation, verset et référence */}
@@ -333,17 +319,14 @@ export function VerseSection({
               </figcaption>
             </div>
 
-            {/* Image colonne droite (sans arrondi) */}
+            {/* Image colonne droite (sans arrondi) avec Parallax */}
             <div className="hidden lg:block lg:col-span-3">
-              <div className="relative aspect-[3/4] w-full overflow-hidden bg-ccjv-line shadow-sm">
-                <Image
-                  src={rightImg}
-                  alt="Célébration CCJV"
-                  fill
-                  sizes="25vw"
-                  className="object-cover transition-transform duration-700 hover:scale-105"
-                />
-              </div>
+              <ParallaxImage
+                src={rightImg}
+                alt="Célébration CCJV"
+                speed={0.12}
+                className="aspect-[3/4] w-full shadow-sm"
+              />
             </div>
 
             {/* Affichage des deux images sur mobile en diptyque compact sous le texte */}

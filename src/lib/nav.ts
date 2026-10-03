@@ -79,14 +79,14 @@ export const mainNav: NavItem[] = [
         ready: true,
       },
       {
-        href: "/communaute/parcours-nouveaux",
-        label: "Parcours nouveaux",
+        href: "/communaute/parcours-nouveau",
+        label: "Parcours nouveau",
         description: "Vos premiers pas parmi nous.",
         ready: true,
       },
       {
-        href: "/communaute/priere",
-        label: "Prière",
+        href: "/communaute/priere-et-intercession",
+        label: "Prière & intercession",
         description: "Déposer une demande de prière.",
         ready: true,
       },

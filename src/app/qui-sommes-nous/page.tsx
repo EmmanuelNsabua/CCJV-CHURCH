@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CrossMark } from "@/components/shared/CrossMark";
 import { Reveal } from "@/components/shared/Reveal";
 import { VerseSection } from "@/components/shared/VerseSection";
+import { ParallaxImage } from "@/components/shared/ParallaxImage";
 import { images } from "@/data/mock/images";
 import { site } from "@/data/mock/site";
 import { verses } from "@/data/mock/verses";
@@ -415,48 +416,36 @@ export default function QuiSommesNousPage() {
               </div>
             </Reveal>
 
-            {/* Mosaïque photographique narrative (angles droits / sans arrondis) */}
+            {/* Mosaïque photographique narrative avec effet Parallax */}
             <div className="grid grid-cols-2 gap-3 md:gap-4 lg:col-span-7">
               <div className="flex flex-col gap-3 md:gap-4">
-                <div className="relative aspect-[3/4] w-full overflow-hidden bg-ccjv-line">
-                  <Image
-                    src={images.louange}
-                    alt="Louange et adoration à CCJV"
-                    fill
-                    sizes="(max-width: 768px) 50vw, 25vw"
-                    className="object-cover transition-transform duration-700 hover:scale-105"
-                  />
-                </div>
-                <div className="relative aspect-[4/3] w-full overflow-hidden bg-ccjv-line">
-                  <Image
-                    src={images.fraternite}
-                    alt="Rencontre fraternelle après le culte"
-                    fill
-                    sizes="(max-width: 768px) 50vw, 25vw"
-                    className="object-cover transition-transform duration-700 hover:scale-105"
-                  />
-                </div>
+                <ParallaxImage
+                  src={images.louange}
+                  alt="Louange et adoration à CCJV"
+                  speed={0.10}
+                  className="aspect-[3/4] w-full"
+                />
+                <ParallaxImage
+                  src={images.fraternite}
+                  alt="Rencontre fraternelle après le culte"
+                  speed={0.14}
+                  className="aspect-[4/3] w-full"
+                />
               </div>
 
               <div className="flex flex-col gap-3 pt-6 md:gap-4 md:pt-8">
-                <div className="relative aspect-[4/3] w-full overflow-hidden bg-ccjv-line">
-                  <Image
-                    src={images.service}
-                    alt="Service et engagement communautaire"
-                    fill
-                    sizes="(max-width: 768px) 50vw, 25vw"
-                    className="object-cover transition-transform duration-700 hover:scale-105"
-                  />
-                </div>
-                <div className="relative aspect-[3/4] w-full overflow-hidden bg-ccjv-line">
-                  <Image
-                    src={images.predication}
-                    alt="Enseignement de la Parole"
-                    fill
-                    sizes="(max-width: 768px) 50vw, 25vw"
-                    className="object-cover transition-transform duration-700 hover:scale-105"
-                  />
-                </div>
+                <ParallaxImage
+                  src={images.service}
+                  alt="Service et engagement communautaire"
+                  speed={0.08}
+                  className="aspect-[4/3] w-full"
+                />
+                <ParallaxImage
+                  src={images.predication}
+                  alt="Enseignement de la Parole"
+                  speed={0.15}
+                  className="aspect-[3/4] w-full"
+                />
               </div>
             </div>
           </div>
@@ -556,7 +545,7 @@ export default function QuiSommesNousPage() {
                     alt={face.name}
                     fill
                     sizes="(max-width: 640px) 50vw, 20vw"
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="object-cover"
                   />
                 </div>
                 <h3 className="mt-3 font-serif text-base font-semibold text-ccjv-ink">
@@ -620,7 +609,7 @@ export default function QuiSommesNousPage() {
 
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <Link
-                href="/communaute/parcours-nouveaux"
+                href="/communaute/parcours-nouveau"
                 className="inline-flex items-center justify-center bg-white px-8 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-black uppercase transition-all duration-300 hover:bg-ccjv-cream"
               >
                 Planifier une visite

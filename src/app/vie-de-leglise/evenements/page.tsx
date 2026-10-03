@@ -118,7 +118,7 @@ export default function EvenementsPage() {
                         fill
                         priority
                         sizes="(max-width: 1024px) 70vw, 40vw"
-                        className="object-cover transition-transform duration-700 hover:scale-105"
+                        className="object-cover"
                       />
                     </div>
                   </div>
@@ -132,7 +132,7 @@ export default function EvenementsPage() {
                         fill
                         priority
                         sizes="(max-width: 1024px) 40vw, 25vw"
-                        className="object-cover transition-transform duration-700 hover:scale-105"
+                        className="object-cover"
                       />
                     </div>
                   </div>
@@ -145,7 +145,7 @@ export default function EvenementsPage() {
                         alt="Communion fraternelle"
                         fill
                         sizes="(max-width: 1024px) 55vw, 30vw"
-                        className="object-cover transition-transform duration-700 hover:scale-105"
+                        className="object-cover"
                       />
                     </div>
                   </div>
@@ -158,7 +158,7 @@ export default function EvenementsPage() {
                         alt="Enfants de l'Ecodim"
                         fill
                         sizes="(max-width: 1024px) 30vw, 18vw"
-                        className="object-cover transition-transform duration-700 hover:scale-105"
+                        className="object-cover"
                       />
                     </div>
                   </div>
@@ -208,7 +208,7 @@ export default function EvenementsPage() {
                     alt={leadEvent.title}
                     fill
                     sizes="(max-width: 1024px) 100vw, 60vw"
-                    className="object-cover transition-transform duration-700 hover:scale-105"
+                    className="object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent lg:hidden" />
 
@@ -313,7 +313,7 @@ export default function EvenementsPage() {
                             alt={firstUpcoming.title}
                             fill
                             sizes="(max-width: 1024px) 100vw, 66vw"
-                            className="object-cover transition-transform duration-700 group-hover:scale-105"
+                            className="object-cover"
                           />
                           <div className="absolute top-4 left-4 bg-black/85 px-3 py-1 font-sans text-xs font-semibold tracking-[0.14em] text-white uppercase backdrop-blur-xs">
                             {getDepartmentName(firstUpcoming.departmentId) || "Vie de l'église"}
@@ -373,7 +373,7 @@ export default function EvenementsPage() {
                                 alt={event.title}
                                 fill
                                 sizes="(max-width: 1024px) 100vw, 30vw"
-                                className="object-cover transition-transform duration-700 group-hover:scale-105"
+                                className="object-cover"
                               />
                               <div className="absolute top-2.5 left-2.5 bg-black/80 px-2.5 py-0.5 font-sans text-[0.62rem] font-semibold tracking-[0.14em] text-white uppercase backdrop-blur-xs">
                                 {dept || "Vie de l'église"}
@@ -451,7 +451,7 @@ export default function EvenementsPage() {
                         alt={pillar.title}
                         fill
                         sizes="(max-width: 768px) 100vw, 25vw"
-                        className="object-cover transition-transform duration-700 hover:scale-105"
+                        className="object-cover"
                       />
                     </div>
                     <span className="font-sans text-[0.7rem] font-bold tracking-[0.18em] text-ccjv-green uppercase">
@@ -613,7 +613,7 @@ export default function EvenementsPage() {
                         alt={dept.name}
                         fill
                         sizes="(max-width: 768px) 100vw, 33vw"
-                        className="object-cover transition-transform duration-700 hover:scale-105"
+                        className="object-cover"
                       />
                     </div>
 
@@ -681,7 +681,7 @@ export default function EvenementsPage() {
                         alt={event.title}
                         fill
                         sizes="(max-width: 768px) 100vw, 33vw"
-                        className="object-cover transition-transform duration-700 group-hover:scale-105"
+                        className="object-cover"
                       />
                     </div>
                     <span className="font-sans text-[0.7rem] font-semibold tracking-[0.14em] text-ccjv-green uppercase">

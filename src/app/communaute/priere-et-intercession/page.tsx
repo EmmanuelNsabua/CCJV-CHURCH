@@ -4,85 +4,78 @@ import Link from "next/link";
 import { CrossMark } from "@/components/shared/CrossMark";
 import { Reveal } from "@/components/shared/Reveal";
 import { ParallaxImage } from "@/components/shared/ParallaxImage";
+import { PrayerRequestForm } from "@/components/forms/PrayerRequestForm";
 import { images } from "@/data/mock/images";
 import { site } from "@/data/mock/site";
-import { houseGroups } from "@/data/mock/community";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Groupes de maison — Centre Chrétien Jésus ma Vie",
+  title: "Prière & intercession — Centre Chrétien Jésus ma Vie",
   description:
-    "Découvrez les groupes de maison du Centre Chrétien Jésus ma Vie à Lubumbashi : de petits espaces de proximité pour prier, partager la Bible et grandir ensemble.",
-  path: "/communaute/groupes-de-maison",
+    "Déposez votre demande de prière au Centre Chrétien Jésus ma Vie à Lubumbashi : un espace confidentiel, digne et bienveillant pour porter vos fardeaux ensemble devant Dieu.",
+  path: "/communaute/priere-et-intercession",
 });
 
 /**
- * 4 piliers narratifs de l'expérience en petit groupe
+ * 3 étapes simples du cheminement de la prière
  */
-const groupPillars = [
+const prayerSteps = [
   {
     step: "01",
-    title: "Se retrouver",
-    tagline: "L'accueil sans artifice",
+    title: "Vous déposez",
+    tagline: "Liberté & discrétion",
     description:
-      "Franchir le pas et être reçu simplement comme à la maison. Un cadre bienveillant où l'on est reconnu par son prénom, loin du bruit et de l'anonymat.",
+      "Vous partagez ce que vous vivez, avec vos propres mots et sans protocole. Votre demande peut être nominative ou totalement anonyme.",
   },
   {
     step: "02",
-    title: "Partager",
-    tagline: "La Parole & la vie",
+    title: "Nous prions",
+    tagline: "Engagement fidèle",
     description:
-      "Ouvrir la Bible à hauteur d'homme et échanger librement sur nos réalités du quotidien. Chacun a la parole pour poser ses questions en toute sincérité.",
+      "L'équipe pastorale et d'intercession du CCJV prend connaissance de votre intention et la porte fidèlement devant Dieu dans le secret.",
   },
   {
     step: "03",
-    title: "Prier",
-    tagline: "Porter les fardeaux réels",
+    title: "Nous espérons",
+    tagline: "Paix & accompagnement",
     description:
-      "Prier concrètement pour la famille, la santé, le travail, les projets et les épreuves. On ne prie pas « en général », mais les uns pour les autres.",
-  },
-  {
-    step: "04",
-    title: "Grandir",
-    tagline: "Des amitiés durables",
-    description:
-      "Tisser des liens profonds qui dépassent la réunion du soir : s'entraider, s'encourager mutuellement et mûrir ensemble dans la foi chrétienne.",
+      "Nous croyons que Dieu entend les cœurs sincères. Nous nous tenons à vos côtés dans l'espérance, la foi et la bienveillance fraternelle.",
   },
 ];
 
 /**
- * Liens croisés vers les autres aspects de la vie communautaire
+ * Liens croisés vers d'autres espaces communautaires
  */
 const relatedLinks = [
   {
-    title: "Prière & intercession",
-    description: "Déposer une demande de prière ou rejoindre nos temps d'intercession.",
-    href: "/communaute/priere-et-intercession",
+    title: "Groupes de maison",
+    description: "Prier et partager la Parole dans un petit groupe de quartier.",
+    href: "/communaute/groupes-de-maison",
   },
   {
-    title: "Première visite",
-    description: "Tout ce que vous devez savoir pour votre premier dimanche parmi nous.",
-    href: "/vie-de-leglise/premiere-visite",
+    title: "Parcours nouveau",
+    description: "Vos premiers pas au sein de notre communauté chrétienne.",
+    href: "/communaute/parcours-nouveau",
   },
   {
     title: "Où nous retrouver",
-    description: "Horaires, adresse au quartier Hewa Bora et plan d'accès à Lubumbashi.",
+    description: "Adresse au quartier Hewa Bora et horaires des cultes à Lubumbashi.",
     href: "/vie-de-leglise/ou-nous-trouver",
   },
 ];
 
-export default function GroupesDeMaisonPage() {
+export default function PriereEtIntercessionPage() {
   return (
     <div className="relative w-full overflow-hidden bg-ccjv-offwhite text-ccjv-ink selection:bg-ccjv-green selection:text-white">
       {/* =========================================================================
-          01 — HERO : « La foi se vit aussi ensemble. »
+          01 — HERO : « Vous pouvez déposer votre prière. »
           ========================================================================= */}
       <section className="relative flex min-h-[92svh] flex-col justify-end overflow-hidden bg-ccjv-black text-white">
-        {/* Composition photographique de fond avec voile sombre */}
+        {/* Photographie immersive de fond avec voile sombre */}
         <div className="absolute inset-0 z-0 opacity-30">
           <Image
-            src={images.communaute}
-            alt="Communion fraternelle au Centre Chrétien Jésus ma Vie"
+            src={images.louange || "/media/ccjv-08.jpeg"}
+            alt="Temps de louange et de prière au Centre Chrétien Jésus ma Vie"
             fill
             priority
             sizes="100vw"
@@ -100,21 +93,21 @@ export default function GroupesDeMaisonPage() {
             <div className="lg:col-span-8">
               <Reveal>
                 <h1 className="font-serif text-[clamp(2.6rem,1.8rem+4.2vw,5.6rem)] font-normal leading-[1.05] tracking-[-0.02em] text-white">
-                  La foi se vit <br />
-                  <span className="italic text-ccjv-cream">aussi</span> ensemble.
+                  Vous pouvez déposer <br />
+                  <span className="italic text-ccjv-cream">votre prière.</span>
                 </h1>
 
                 <p className="mt-7 max-w-[48ch] font-serif text-[clamp(1.12rem,0.95rem+0.75vw,1.55rem)] font-light leading-relaxed text-white/90">
-                  La vie avec Dieu n&apos;a jamais été pensée pour être vécue en
-                  solitaire, ni limitée au seul rassemblement du dimanche.
+                  Vous traversez une épreuve, une souffrance, une décision ou une
+                  action de grâce ? Vous n&apos;avez pas à porter cela seul.
                 </p>
 
                 <div className="mt-10 flex flex-wrap items-center gap-4 sm:gap-6">
                   <a
-                    href="#trouvez-votre-groupe"
+                    href="#deposer-une-priere"
                     className="inline-flex h-12 items-center justify-center border border-ccjv-green bg-ccjv-green px-8 font-sans text-xs font-semibold tracking-[0.16em] text-white uppercase transition-colors hover:bg-ccjv-green-dark"
                   >
-                    Trouver un groupe
+                    Déposer une demande
                   </a>
                   <a
                     href={site.whatsappHref}
@@ -134,8 +127,8 @@ export default function GroupesDeMaisonPage() {
                 <div className="relative aspect-[4/5] w-full border border-white/20 bg-ccjv-black/60 p-2 backdrop-blur-md">
                   <div className="relative h-full w-full overflow-hidden">
                     <Image
-                      src={images.fraternite}
-                      alt="Partage et prière en maison"
+                      src={images.predication || "/media/ccjv-11.jpeg"}
+                      alt="Recueillement et prière"
                       fill
                       sizes="30vw"
                       className="object-cover"
@@ -149,39 +142,40 @@ export default function GroupesDeMaisonPage() {
       </section>
 
       {/* =========================================================================
-          02 — POURQUOI LES GROUPES DE MAISON ?
+          02 — SECTION : VOUS POUVEZ VENIR COMME VOUS ÊTES (RÉASSURANCE)
           ========================================================================= */}
       <section className="relative border-b border-ccjv-line py-20 lg:py-32">
         <div className="container">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
             <Reveal className="lg:col-span-5">
               <ParallaxImage
-                src={images.identite}
-                alt="Échanges et prière fraternelle"
+                src={images.fraternite || "/media/ccjv-35.jpeg"}
+                alt="Moment de prière et communion"
                 speed={0.10}
                 className="aspect-[4/5] w-full"
               />
               <p className="mt-3 font-sans text-xs text-ccjv-ink-secondary">
-                Une communauté vivante, tissée de relations authentiques.
+                Une communauté unie pour porter les fardeaux de chacun.
               </p>
             </Reveal>
 
             <Reveal delay={120} className="lg:col-span-7">
               <h2 className="text-[clamp(1.9rem,1.2rem+2.3vw,3.3rem)] leading-[1.14]">
-                Parce que la communauté <br />
-                <span className="text-ccjv-green">commence à petite échelle.</span>
+                Vous pouvez venir <br />
+                <span className="text-ccjv-green">exactement comme vous êtes.</span>
               </h2>
 
               <div className="mt-8 space-y-5 font-sans text-[1.02rem] leading-[1.8] text-ccjv-ink-secondary">
                 <p>
-                  Un groupe de maison n&apos;est pas une réunion administrative de plus
-                  dans la semaine. C&apos;est un foyer où chacun peut être écouté,
-                  compris et accompagné dans ses joies comme dans ses épreuves.
+                  Que vous soyez un chrétien affermi, en recherche spirituelle ou
+                  simplement traversé par une épreuve douloureuse, vous n&apos;avez
+                  pas besoin d&apos;employer un langage codé ni une formulation
+                  parfaite.
                 </p>
                 <p>
-                  On y vient pour ouvrir la Bible sans complexe, prier pour des sujets
-                  qui touchent directement nos vies de famille, de couple ou d&apos;activité,
-                  et expérimenter l&apos;entraide chrétienne concrète.
+                  Partagez simplement votre situation en quelques mots. Nous
+                  croyons en un Dieu proche qui console les cœurs brisés et
+                  fortifie ceux qui espèrent en Lui.
                 </p>
               </div>
             </Reveal>
@@ -190,7 +184,7 @@ export default function GroupesDeMaisonPage() {
       </section>
 
       {/* =========================================================================
-          03 — RESPIRATION BIBLIQUE (Actes 2:46-47)
+          03 — RESPIRATION BIBLIQUE (Philippiens 4:6-7)
           ========================================================================= */}
       <section className="relative overflow-hidden bg-ccjv-cream py-20 text-ccjv-ink lg:py-28">
         <div className="pointer-events-none absolute right-1/2 top-1/2 -translate-y-1/2 translate-x-1/2 text-ccjv-ink/5">
@@ -204,157 +198,158 @@ export default function GroupesDeMaisonPage() {
             </div>
 
             <blockquote className="font-serif text-[clamp(1.35rem,1rem+1.6vw,2.3rem)] font-normal leading-[1.45] tracking-[-0.01em] text-ccjv-ink">
-              « Ils étaient chaque jour tous ensemble assidus au temple, ils
-              rompaient le pain dans les maisons, et prenaient leur nourriture avec
-              joie et simplicité de cœur, louant Dieu et ayant la faveur de tout le
-              peuple. »
+              « Ne vous inquiétez de rien ; mais en toute chose faites connaître vos
+              besoins à Dieu par des prières et des supplications, avec des
+              actions de grâces. Et la paix de Dieu, qui surpasse toute
+              intelligence, gardera vos cœurs et vos pensées en Jésus-Christ. »
             </blockquote>
 
             <figcaption className="mt-6 font-sans text-sm font-medium tracking-wide text-ccjv-ink-secondary">
-              — Actes 2:46-47
+              — Philippiens 4:6-7
             </figcaption>
           </Reveal>
         </div>
       </section>
 
       {/* =========================================================================
-          05 — TROUVEZ VOTRE GROUPE (SECTION FONCTIONNELLE RÉELLE)
+          04 — COMMENT ÇA SE PASSE ? (3 ÉTAPES NARRATIVES)
           ========================================================================= */}
-      <section
-        id="trouvez-votre-groupe"
-        className="relative scroll-mt-20 border-b border-ccjv-line bg-white py-20 lg:py-32"
-      >
+      <section className="relative border-b border-ccjv-line py-20 lg:py-32">
         <div className="container">
-          <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
-            <Reveal className="max-w-2xl">
-              <h2 className="text-[clamp(1.9rem,1.2rem+2.3vw,3.2rem)] leading-[1.15]">
-                Trouvez votre groupe
-              </h2>
-              <p className="mt-4 font-sans text-base leading-relaxed text-ccjv-ink-secondary">
-                Plusieurs cellules de quartier se réunissent chaque semaine à
-                Lubumbashi. Choisissez le groupe le plus proche de votre domicile ou
-                de votre lieu de travail.
-              </p>
-            </Reveal>
+          <Reveal className="max-w-2xl">
+            <h2 className="text-[clamp(1.9rem,1.2rem+2.3vw,3.2rem)] leading-[1.15]">
+              Comment votre prière est portée
+            </h2>
+            <p className="mt-4 font-sans text-base leading-relaxed text-ccjv-ink-secondary">
+              Un cheminement respectueux et digne, depuis le dépôt de votre intention
+              jusqu&apos;à son intercession régulière.
+            </p>
+          </Reveal>
 
-            <Reveal delay={100} className="shrink-0">
-              <a
-                href={site.whatsappHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex h-12 items-center justify-center border border-ccjv-line bg-ccjv-offwhite px-6 font-sans text-xs font-semibold tracking-[0.14em] text-ccjv-ink uppercase transition-colors hover:border-ccjv-green hover:text-ccjv-green"
-              >
-                Nous écrire
-              </a>
-            </Reveal>
-          </div>
-
-          {/* Grille des groupes de maison */}
-          <div className="mt-14 grid grid-cols-1 gap-8 md:grid-cols-2 items-stretch">
-            {houseGroups.map((group, index) => {
-              const whatsappUrl = `https://wa.me/243123456789?text=${encodeURIComponent(
-                `Bonjour CCJV, je souhaite des informations pour rejoindre le ${group.name} (${group.quarter}).`,
-              )}`;
-
-              return (
-                <Reveal key={group.id} delay={index * 120} className="h-full">
-                  <div className="flex h-full flex-col justify-between border border-ccjv-line bg-ccjv-offwhite p-6 sm:p-8 transition-colors hover:border-ccjv-green/40">
-                    <div>
-                      {group.image && (
-                        <div className="relative mb-6 aspect-[16/10] w-full overflow-hidden bg-ccjv-line">
-                          <Image
-                            src={group.image}
-                            alt={group.name}
-                            fill
-                            sizes="(max-width: 768px) 100vw, 50vw"
-                            className="object-cover"
-                          />
-                        </div>
-                      )}
-
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-sans text-xs font-semibold tracking-widest text-ccjv-green uppercase">
-                          {group.quarter}
-                        </span>
-                        <span className="font-sans text-xs text-ccjv-ink-secondary">
-                          {group.schedule}
-                        </span>
-                      </div>
-
-                      <h3 className="mt-3 font-serif text-2xl font-normal text-ccjv-ink">
-                        {group.name}
-                      </h3>
-
-                      <p className="mt-4 font-sans text-sm leading-relaxed text-ccjv-ink-secondary">
-                        {group.description}
-                      </p>
-
-                      <div className="mt-6 border-t border-ccjv-line pt-4">
-                        <p className="font-sans text-xs text-ccjv-ink-secondary">
-                          <strong className="font-medium text-ccjv-ink">Lieu :</strong>{" "}
-                          {group.host}
-                        </p>
-                      </div>
+          <div className="mt-16 grid grid-cols-1 gap-8 md:grid-cols-3 items-stretch">
+            {prayerSteps.map((item, index) => (
+              <Reveal key={item.step} delay={index * 100} className="h-full">
+                <div className="flex h-full flex-col justify-between border border-ccjv-line bg-white p-8 transition-colors hover:border-ccjv-green/40">
+                  <div>
+                    <div className="flex items-center justify-between border-b border-ccjv-line pb-4">
+                      <span className="font-serif text-3xl font-light text-ccjv-green">
+                        {item.step}
+                      </span>
+                      <span className="font-sans text-[0.7rem] uppercase tracking-[0.16em] text-ccjv-ink-secondary">
+                        Étape {index + 1}
+                      </span>
                     </div>
 
-                    <div className="mt-8 pt-4">
-                      <a
-                        href={whatsappUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex w-full items-center justify-center border border-ccjv-ink/20 bg-white py-3.5 font-sans text-xs font-semibold tracking-[0.14em] text-ccjv-ink uppercase transition-colors hover:border-ccjv-green hover:bg-ccjv-green hover:text-white"
-                      >
-                        Rejoindre
-                      </a>
-                    </div>
+                    <h3 className="mt-5 font-serif text-2xl font-normal text-ccjv-ink">
+                      {item.title}
+                    </h3>
+                    <p className="mt-1 font-sans text-xs font-semibold tracking-wider text-ccjv-green uppercase">
+                      {item.tagline}
+                    </p>
+
+                    <p className="mt-4 font-sans text-sm leading-relaxed text-ccjv-ink-secondary">
+                      {item.description}
+                    </p>
                   </div>
-                </Reveal>
-              );
-            })}
+
+                  <div className="mt-8 border-t border-ccjv-line/40 pt-4">
+                    <span className="text-[0.75rem] font-sans text-ccjv-ink-secondary">
+                      Fidélité & Discrétion
+                    </span>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
 
       {/* =========================================================================
-          06 — ET SI JE SUIS NOUVEAU ? (RÉASSURANCE & ACCUEIL)
+          05 — SECTION PRINCIPALE : DÉPOSER UNE DEMANDE DE PRIÈRE (FORMULAIRE)
+          ========================================================================= */}
+      <section
+        id="deposer-une-priere"
+        className="relative scroll-mt-20 border-b border-ccjv-line bg-white py-20 lg:py-32"
+      >
+        <div className="container">
+          <div className="mx-auto max-w-3xl">
+            <Reveal className="text-center">
+              <h2 className="text-[clamp(2rem,1.3rem+2.6vw,3.6rem)] leading-[1.12]">
+                Déposer une demande de prière
+              </h2>
+              <p className="mt-4 font-sans text-base leading-relaxed text-ccjv-ink-secondary sm:text-lg">
+                Remplissez ce formulaire en toute liberté. Votre intention sera
+                confiée à nos responsables d&apos;intercession.
+              </p>
+            </Reveal>
+
+            <div className="mt-12">
+              <Reveal delay={120}>
+                <PrayerRequestForm />
+              </Reveal>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          06 — SECTION : NOUS PRIONS LES UNS POUR LES AUTRES (INTERCESSION)
           ========================================================================= */}
       <section className="relative border-b border-ccjv-line py-20 lg:py-32">
         <div className="container">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
             <Reveal className="lg:col-span-6">
               <h2 className="text-[clamp(1.9rem,1.2rem+2.3vw,3.3rem)] leading-[1.14]">
-                Vous ne connaissez <br />
-                <span className="text-ccjv-green">encore personne ?</span>
+                Nous prions <br />
+                <span className="text-ccjv-green">les uns pour les autres.</span>
               </h2>
 
-              <p className="mt-6 font-serif text-lg text-ccjv-ink">
-                C&apos;est précisément pour cela que ces groupes existent: pour permettre à chacun de venir tel qu'il est, sans prérequis biblique ni engagement. Si vous hésitez à faire le premier pas seul, un membre de la communauté peut vous accueillir et vous accompagner lors de votre première visite.
+              <p className="mt-6 font-serif text-lg italic text-ccjv-ink">
+                « L&apos;intercession est le souffle vivant de notre communauté. »
               </p>
 
-              <div className="mt-8">
-                <a
-                  href={site.whatsappHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
+              <div className="mt-6 space-y-4 font-sans text-[1.02rem] leading-[1.8] text-ccjv-ink-secondary">
+                <p>
+                  Au Centre Chrétien Jésus ma Vie, la prière n&apos;est pas une
+                  formalité occasionnelle. Chaque semaine, lors de notre temps
+                  d&apos;intercession le mercredi à 17h00 et au sein de nos groupes de
+                  maison, nous portons les besoins concrets des familles, des
+                  malades et de notre ville de Lubumbashi.
+                </p>
+                <p>
+                  Vous pouvez également nous rejoindre sur place pour prier
+                  ensemble et expérimenter la puissance de la communion fraternelle.
+                </p>
+              </div>
+
+              <div className="mt-8 flex flex-wrap gap-4">
+                <Link
+                  href="/communaute/groupes-de-maison"
                   className="inline-flex h-12 items-center justify-center border border-ccjv-green bg-ccjv-green px-8 font-sans text-xs font-semibold tracking-[0.16em] text-white uppercase transition-colors hover:bg-ccjv-green-dark"
                 >
-                  Demander un guide
-                </a>
+                  Prier en groupe de maison
+                </Link>
+                <Link
+                  href="/vie-de-leglise/ou-nous-trouver"
+                  className="inline-flex h-12 items-center justify-center border border-ccjv-line bg-white px-6 font-sans text-xs font-semibold tracking-[0.14em] text-ccjv-ink uppercase transition-colors hover:border-ccjv-green hover:text-ccjv-green"
+                >
+                  Horaires des cultes
+                </Link>
               </div>
             </Reveal>
 
             <Reveal delay={140} className="lg:col-span-6">
               <div className="relative aspect-[4/3] w-full overflow-hidden border border-ccjv-line bg-ccjv-line">
                 <Image
-                  src={images.portraitA}
-                  alt="Accueil chaleureux au CCJV"
+                  src={images.assemblee || "/media/ccjv-09.jpeg"}
+                  alt="Assemblée réunie dans la prière au CCJV"
                   fill
                   sizes="(max-width: 1024px) 100vw, 50vw"
                   className="object-cover"
                 />
               </div>
               <p className="mt-3 font-sans text-xs text-ccjv-ink-secondary">
-                Un visage ami vous attend dès votre première visite.
+                Prière et intercession chaque mercredi à 17h00 à l&apos;église.
               </p>
             </Reveal>
           </div>
@@ -372,21 +367,21 @@ export default function GroupesDeMaisonPage() {
             </div>
 
             <h2 className="font-serif text-[clamp(2rem,1.3rem+2.6vw,3.8rem)] font-normal leading-[1.12] text-white">
-              Une place peut être <br />
-              <span className="italic text-ccjv-cream">la vôtre.</span>
+              Nous pouvons prier <br />
+              <span className="italic text-ccjv-cream">avec vous.</span>
             </h2>
 
             <p className="mt-6 font-sans text-base leading-relaxed text-white/80 md:text-lg">
-              Ne restez pas seul avec votre foi. Rejoignez un petit groupe dans votre
-              quartier et faites l&apos;expérience d&apos;une église proche et vivante.
+              Que ce soit par écrit, sur WhatsApp ou en personne lors de nos
+              rassemblements, notre porte et nos cœurs vous restent ouverts.
             </p>
 
             <div className="mt-10 flex flex-wrap justify-center gap-4 sm:gap-6">
               <a
-                href="#trouvez-votre-groupe"
+                href="#deposer-une-priere"
                 className="inline-flex h-12 items-center justify-center border border-ccjv-green bg-ccjv-green px-8 font-sans text-xs font-semibold tracking-[0.16em] text-white uppercase transition-colors hover:bg-ccjv-green-dark"
               >
-                Choisir un quartier
+                Déposer une intention
               </a>
               <a
                 href={site.whatsappHref}
@@ -394,12 +389,12 @@ export default function GroupesDeMaisonPage() {
                 rel="noopener noreferrer"
                 className="inline-flex h-12 items-center justify-center border border-white/30 bg-white/10 px-8 font-sans text-xs font-semibold tracking-[0.16em] text-white uppercase backdrop-blur-sm transition-colors hover:border-white hover:bg-white/20"
               >
-                Écrire à l&apos;accueil CCJV
+                Écrire à l&apos;équipe pastorale
               </a>
             </div>
           </Reveal>
 
-          {/* Liens croisés vers les autres pages */}
+          {/* Liens croisés */}
           <div className="mt-20 border-t border-white/15 pt-16">
             <Reveal>
               <h3 className="font-serif text-2xl font-normal text-white">

@@ -24,13 +24,13 @@ export const metadata = pageMetadata({
 
 const related: CrossLink[] = [
   {
-    href: "/communaute/priere",
-    label: "Prière",
+    href: "/communaute/priere-et-intercession",
+    label: "Prière & intercession",
     description: "Confier une demande, ou porter celle d'un autre.",
   },
   {
-    href: "/communaute/parcours-nouveaux",
-    label: "Parcours nouveaux",
+    href: "/communaute/parcours-nouveau",
+    label: "Parcours nouveau",
     description: "Vos premiers pas parmi nous, accompagnés.",
   },
   {

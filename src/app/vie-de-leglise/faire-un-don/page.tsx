@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { CrossMark } from "@/components/shared/CrossMark";
 import { Reveal } from "@/components/shared/Reveal";
+import { ParallaxImage } from "@/components/shared/ParallaxImage";
 import { site } from "@/data/mock/site";
 import { images } from "@/data/mock/images";
 import { pageMetadata } from "@/lib/seo";
@@ -132,19 +133,16 @@ export default function FaireUnDonPage() {
       <section className="relative overflow-hidden border-b border-ccjv-line bg-white pt-28 pb-16 lg:pt-36 lg:pb-24">
         <div className="container">
           <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-14 xl:gap-16">
-            {/* Colonne gauche : Grande photographie authentique CCJV */}
+            {/* Colonne gauche : Grande photographie authentique CCJV avec effet Parallax */}
             <div className="lg:col-span-6">
               <Reveal>
-                <div className="relative aspect-[4/3] w-full overflow-hidden bg-ccjv-line shadow-lg">
-                  <Image
-                    src={images.communaute || "/media/ccjv-30.jpeg"}
-                    alt="La communauté du Centre Chrétien Jésus ma Vie réunie"
-                    fill
-                    priority
-                    sizes="(max-width: 1024px) 100vw, 50vw"
-                    className="object-cover transition-transform duration-700 hover:scale-105"
-                  />
-                </div>
+                <ParallaxImage
+                  src={images.communaute || "/media/ccjv-30.jpeg"}
+                  alt="La communauté du Centre Chrétien Jésus ma Vie réunie"
+                  priority
+                  speed={0.10}
+                  className="aspect-[4/3] w-full shadow-lg"
+                />
               </Reveal>
             </div>
 
@@ -335,7 +333,7 @@ export default function FaireUnDonPage() {
                       alt={domain.title}
                       fill
                       sizes="(max-width: 768px) 100vw, 50vw"
-                      className="object-cover transition-transform duration-700 group-hover:scale-105"
+                      className="object-cover"
                     />
                   </div>
                   <div className="flex flex-1 flex-col justify-between p-7">
@@ -383,7 +381,7 @@ export default function FaireUnDonPage() {
       <section className="relative bg-white py-16 lg:py-24 border-b border-ccjv-line">
         <div className="container">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
-            <div className="lg:col-span-5">
+            <div className="lg:col-span-6">
               <Reveal>
                 <h2 className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight text-ccjv-ink">
                   Vous êtes libre de donner
@@ -405,40 +403,38 @@ export default function FaireUnDonPage() {
               </Reveal>
             </div>
 
-            <div className="lg:col-span-7">
+            <div className="lg:col-span-6">
               <Reveal delay={100}>
-                <div className="grid grid-cols-12 gap-3 sm:gap-4">
-                  {/* Image principale verticale */}
-                  <div className="col-span-7 relative aspect-[4/5] overflow-hidden bg-ccjv-line shadow-xs">
-                    <Image
+                {/* Mosaïque photo 4 images avec effet Parallax (comme dans le composant des versets) */}
+                <div className="grid grid-cols-2 gap-3 md:gap-4">
+                  <div className="flex flex-col gap-3 md:gap-4">
+                    <ParallaxImage
                       src={images.fraternite || "/media/ccjv-35.jpeg"}
-                      alt="Rencontre fraternelle et communauté"
-                      fill
-                      sizes="(max-width: 1024px) 100vw, 40vw"
-                      className="object-cover transition-transform duration-700 hover:scale-105"
+                      alt="Rencontre fraternelle CCJV"
+                      speed={0.10}
+                      className="aspect-[3/4] w-full shadow-xs"
+                    />
+                    <ParallaxImage
+                      src={images.louange || "/media/ccjv-08.jpeg"}
+                      alt="Temps de louange CCJV"
+                      speed={0.14}
+                      className="aspect-[4/3] w-full shadow-xs"
                     />
                   </div>
 
-                  {/* Deux images empilées à droite */}
-                  <div className="col-span-5 flex flex-col gap-3 sm:gap-4">
-                    <div className="relative aspect-square w-full overflow-hidden bg-ccjv-line shadow-xs">
-                      <Image
-                        src={images.louange || "/media/ccjv-08.jpeg"}
-                        alt="Adoration et célébration"
-                        fill
-                        sizes="(max-width: 1024px) 50vw, 20vw"
-                        className="object-cover transition-transform duration-700 hover:scale-105"
-                      />
-                    </div>
-                    <div className="relative aspect-square w-full overflow-hidden bg-ccjv-line shadow-xs">
-                      <Image
-                        src={images.service || "/media/ccjv-28.jpeg"}
-                        alt="Service et accueil des membres"
-                        fill
-                        sizes="(max-width: 1024px) 50vw, 20vw"
-                        className="object-cover transition-transform duration-700 hover:scale-105"
-                      />
-                    </div>
+                  <div className="flex flex-col gap-3 pt-4 md:gap-4 md:pt-6">
+                    <ParallaxImage
+                      src={images.service || "/media/ccjv-28.jpeg"}
+                      alt="Service et accueil CCJV"
+                      speed={0.08}
+                      className="aspect-[4/3] w-full shadow-xs"
+                    />
+                    <ParallaxImage
+                      src={images.assemblee || "/media/ccjv-09.jpeg"}
+                      alt="Assemblée en prière CCJV"
+                      speed={0.15}
+                      className="aspect-[3/4] w-full shadow-xs"
+                    />
                   </div>
                 </div>
               </Reveal>
@@ -529,24 +525,18 @@ export default function FaireUnDonPage() {
         <div className="container">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
             <div className="grid grid-cols-2 gap-4 lg:col-span-6">
-              <div className="relative aspect-[3/4] w-full overflow-hidden bg-ccjv-line">
-                <Image
-                  src={images.assemblee || "/media/ccjv-09.jpeg"}
-                  alt="Assemblée réunie lors du culte"
-                  fill
-                  sizes="(max-width: 768px) 50vw, 25vw"
-                  className="object-cover"
-                />
-              </div>
-              <div className="relative aspect-[3/4] w-full overflow-hidden bg-ccjv-line mt-6">
-                <Image
-                  src={images.fraternite || "/media/ccjv-35.jpeg"}
-                  alt="Échanges fraternels à CCJV"
-                  fill
-                  sizes="(max-width: 768px) 50vw, 25vw"
-                  className="object-cover"
-                />
-              </div>
+              <ParallaxImage
+                src={images.assemblee || "/media/ccjv-09.jpeg"}
+                alt="Assemblée réunie lors du culte"
+                speed={0.10}
+                className="aspect-[3/4] w-full"
+              />
+              <ParallaxImage
+                src={images.fraternite || "/media/ccjv-35.jpeg"}
+                alt="Échanges fraternels à CCJV"
+                speed={0.16}
+                className="aspect-[3/4] w-full mt-6"
+              />
             </div>
 
             <div className="flex flex-col justify-center lg:col-span-6">
