@@ -1,0 +1,290 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   CCJV — Design tokens (Tailwind CSS v4)
+   Source de vérité : docs/010-design_system.md
+   ========================================================================== */
+
+@theme {
+  /* ---- Couleurs ---- */
+  --color-ccjv-green: #1e7a1e;
+  --color-ccjv-green-strong: #176317;
+  --color-ccjv-green-soft: #eaf3ea;
+  --color-ccjv-cream: #ede4c8;
+  --color-ccjv-black: #121212;
+  --color-ccjv-offwhite: #fafaf7;
+  --color-ccjv-ink: #1a1a1a;
+  --color-ccjv-ink-secondary: #5e5d59;
+  --color-ccjv-line: #e5e2d9;
+
+  /* ---- Motion (easing) ---- */
+  --ease-ccjv: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-ccjv-in: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* Les polices référencent les variables `next/font` (définies à l'exécution sur
+   <html>). `@theme inline` inline la valeur directement dans les utilitaires ;
+   sinon Tailwind v4 retombe sur ses polices par défaut (polices système). */
+@theme inline {
+  --font-serif: var(--font-lora), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* ============================ Base ============================ */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-ccjv-offwhite font-sans text-ccjv-ink;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-serif font-semibold text-ccjv-ink;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 1rem + 2.5vw, 3rem);
+  }
+
+  h2 {
+    font-size: clamp(1.75rem, 0.75rem + 2vw, 2.5rem);
+  }
+
+  h3 {
+    font-size: clamp(1.25rem, 0.9rem + 1vw, 1.5rem);
+    font-weight: 500;
+  }
+
+  ::selection {
+    background-color: var(--color-ccjv-green);
+    color: #ffffff;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ccjv-green);
+    outline-offset: 2px;
+  }
+}
+
+/* ======================= Composants utilitaires ======================= */
+
+@layer components {
+  .container {
+    margin-inline: auto;
+    width: 100%;
+    max-width: 1200px;
+    padding-inline: clamp(16px, 4vw, 48px);
+  }
+
+  .overline {
+    @apply font-sans text-xs font-semibold uppercase tracking-[0.14em] text-ccjv-green;
+  }
+
+  .display {
+    font-size: clamp(2.2rem, 1rem + 4vw, 4.5rem);
+    line-height: 1.1;
+  }
+
+  .lead {
+    color: var(--color-ccjv-ink-secondary);
+    font-size: clamp(1.05rem, 0.3rem + 1vw, 1.25rem);
+    line-height: 1.6;
+  }
+
+  .skip-link {
+    @apply absolute top-[-100px] left-4 z-[200] bg-ccjv-green px-4 py-2.5 text-sm text-white;
+    transition: top 150ms var(--ease-ccjv);
+  }
+
+  .skip-link:focus {
+    top: 16px;
+  }
+
+  /* ---- Corps éditorial (composant Prose) ---- */
+
+  .prose-body > p + p,
+  .prose-body > ul + p,
+  .prose-body > p + ul {
+    margin-top: 1.15rem;
+  }
+
+  .prose-body > h3 {
+    margin-top: 2.25rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .prose-body ul {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .prose-body li {
+    position: relative;
+    padding-left: 1.5rem;
+  }
+
+  .prose-body li + li {
+    margin-top: 0.6rem;
+  }
+
+  .prose-body li::before {
+    content: "";
+    position: absolute;
+    top: 0.62em;
+    left: 0;
+    width: 0.5rem;
+    height: 1px;
+    background-color: var(--color-ccjv-green);
+  }
+
+  /* Lettrine — usage rare, sur les ouvertures éditoriales uniquement. */
+  .prose-dropcap > p:first-of-type::first-letter {
+    float: left;
+    margin-right: 0.75rem;
+    font-family: var(--font-serif);
+    font-size: 3.6rem;
+    font-weight: 600;
+    line-height: 0.82;
+    color: var(--color-ccjv-green);
+  }
+
+  /* ---- Mesure de lecture ---- */
+
+  .measure {
+    max-width: 68ch;
+  }
+
+  .measure-narrow {
+    max-width: 56ch;
+  }
+}
+
+/* ==================== Révélation au scroll ==================== */
+
+[data-reveal] {
+  transition:
+    opacity 400ms var(--ease-ccjv),
+    transform 400ms var(--ease-ccjv);
+  will-change: opacity, transform;
+}
+
+[data-reveal="pending"] {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+[data-reveal="visible"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* ==================== Reduced motion ==================== */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  [data-reveal="pending"] {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ============ Introduction & transitions (Direction artistique V3) ============ */
+
+/*
+ * Rideau d'introduction : rendu CÔTÉ SERVEUR (le contenu reste dans le DOM,
+ * aucun blocage du rendu), puis animé en CSS. Le script inline de `layout.tsx`
+ * ajoute `.intro-seen` sur <html> dès la 2ᵉ visite de la session.
+ * Le bloc `prefers-reduced-motion` ci-dessus rend l'animation instantanée.
+ */
+.intro-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-ccjv-black);
+  pointer-events: none;
+  animation: ccjv-intro-out 1900ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.intro-seen .intro-curtain {
+  display: none;
+}
+
+@keyframes ccjv-intro-out {
+  0%,
+  58% {
+    opacity: 1;
+    visibility: visible;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/*
+ * Transition d'entrée de page — rejouée à chaque navigation grâce à
+ * `template.tsx` (langage commun : fondu + léger déplacement, GPU-friendly).
+ */
+.page-enter {
+  animation: ccjv-page-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes ccjv-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * Légende des visages (section Communauté) : à chaque changement d'image, le
+ * nom et la description rejouent une entrée douce (fondu + léger glissement).
+ * Le composant remonte le bloc via `key`, ce qui relance l'animation.
+ */
+.face-caption {
+  animation: ccjv-face-in 480ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes ccjv-face-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
