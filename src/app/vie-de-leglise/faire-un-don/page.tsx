@@ -282,9 +282,9 @@ export default function FaireUnDonPage() {
             </div>
           </Reveal>
 
-          <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-12 grid grid-cols-1 items-stretch gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {impactFlow.map((item, index) => (
-              <Reveal key={item.step} delay={index * 100}>
+              <Reveal key={item.step} delay={index * 100} className="h-full">
                 <div className="relative flex h-full flex-col justify-between border-t-2 border-ccjv-green bg-ccjv-offwhite p-6 sm:p-7">
                   <div>
                     <div className="flex items-center justify-between">
@@ -325,10 +325,10 @@ export default function FaireUnDonPage() {
             </div>
           </Reveal>
 
-          <div className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-2">
+          <div className="mt-12 grid grid-cols-1 items-stretch gap-8 md:grid-cols-2">
             {impactDomains.map((domain, index) => (
-              <Reveal key={domain.title} delay={index * 100}>
-                <div className="group flex flex-col overflow-hidden border border-ccjv-line bg-white transition-all duration-300 hover:border-ccjv-ink">
+              <Reveal key={domain.title} delay={index * 100} className="h-full">
+                <div className="group flex h-full flex-col overflow-hidden border border-ccjv-line bg-white transition-all duration-300 hover:border-ccjv-ink">
                   <div className="relative aspect-[16/9] w-full overflow-hidden bg-ccjv-line">
                     <Image
                       src={domain.image}
@@ -455,9 +455,9 @@ export default function FaireUnDonPage() {
             </div>
           </Reveal>
 
-          <div className="mt-12 grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <div className="mt-12 grid grid-cols-1 items-stretch gap-8 lg:grid-cols-3">
             {givingMethods.map((method, index) => (
-              <Reveal key={method.title} delay={index * 100}>
+              <Reveal key={method.title} delay={index * 100} className="h-full">
                 <div className="flex h-full flex-col justify-between border border-ccjv-line bg-white p-7 sm:p-8">
                   <div>
                     <span className="inline-block bg-ccjv-cream px-3 py-1 font-sans text-[0.7rem] font-semibold tracking-wider text-ccjv-ink uppercase">
@@ -582,19 +582,21 @@ export default function FaireUnDonPage() {
             </h2>
           </Reveal>
 
-          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
+          <div className="mt-8 grid grid-cols-1 items-stretch gap-6 sm:grid-cols-3">
             {crossLinks.map((link, index) => (
-              <Reveal key={link.title} delay={index * 100}>
+              <Reveal key={link.title} delay={index * 100} className="h-full">
                 <Link
                   href={link.href}
-                  className="group block border border-ccjv-line bg-white p-7 transition-all duration-200 hover:border-ccjv-ink hover:shadow-xs"
+                  className="group flex h-full flex-col justify-between border border-ccjv-line bg-white p-7 transition-all duration-200 hover:border-ccjv-ink hover:shadow-xs"
                 >
-                  <h3 className="font-serif text-xl font-medium text-ccjv-ink group-hover:text-ccjv-green">
-                    {link.title} →
-                  </h3>
-                  <p className="mt-2 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
-                    {link.description}
-                  </p>
+                  <div>
+                    <h3 className="font-serif text-xl font-medium text-ccjv-ink group-hover:text-ccjv-green">
+                      {link.title} →
+                    </h3>
+                    <p className="mt-2 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
+                      {link.description}
+                    </p>
+                  </div>
                 </Link>
               </Reveal>
             ))}
