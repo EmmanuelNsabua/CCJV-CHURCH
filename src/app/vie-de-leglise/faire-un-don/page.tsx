@@ -383,7 +383,7 @@ export default function FaireUnDonPage() {
       <section className="relative bg-white py-16 lg:py-24 border-b border-ccjv-line">
         <div className="container">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
-            <div className="lg:col-span-6">
+            <div className="lg:col-span-5">
               <Reveal>
                 <h2 className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight text-ccjv-ink">
                   Vous êtes libre de donner
@@ -405,26 +405,41 @@ export default function FaireUnDonPage() {
               </Reveal>
             </div>
 
-            <div className="lg:col-span-5 lg:col-start-8">
+            <div className="lg:col-span-7">
               <Reveal delay={100}>
-                <div className="border-l-2 border-ccjv-green bg-ccjv-offwhite p-8">
-                  <h3 className="font-serif text-xl font-medium text-ccjv-ink">
-                    Notre engagement de clarté
-                  </h3>
-                  <ul className="mt-4 space-y-3 font-sans text-sm text-ccjv-ink-secondary">
-                    <li className="flex items-start gap-3">
-                      <span className="text-ccjv-green font-bold">✓</span>
-                      <span>Aucune obligation financière pour participer à la vie de l&apos;église.</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="text-ccjv-green font-bold">✓</span>
-                      <span>Affectation responsable des fonds aux besoins réels du ministère.</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="text-ccjv-green font-bold">✓</span>
-                      <span>Possibilité d&apos;échanger ouvertement avec les responsables.</span>
-                    </li>
-                  </ul>
+                <div className="grid grid-cols-12 gap-3 sm:gap-4">
+                  {/* Image principale verticale */}
+                  <div className="col-span-7 relative aspect-[4/5] overflow-hidden bg-ccjv-line shadow-xs">
+                    <Image
+                      src={images.fraternite || "/media/ccjv-35.jpeg"}
+                      alt="Rencontre fraternelle et communauté"
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 40vw"
+                      className="object-cover transition-transform duration-700 hover:scale-105"
+                    />
+                  </div>
+
+                  {/* Deux images empilées à droite */}
+                  <div className="col-span-5 flex flex-col gap-3 sm:gap-4">
+                    <div className="relative aspect-square w-full overflow-hidden bg-ccjv-line shadow-xs">
+                      <Image
+                        src={images.louange || "/media/ccjv-08.jpeg"}
+                        alt="Adoration et célébration"
+                        fill
+                        sizes="(max-width: 1024px) 50vw, 20vw"
+                        className="object-cover transition-transform duration-700 hover:scale-105"
+                      />
+                    </div>
+                    <div className="relative aspect-square w-full overflow-hidden bg-ccjv-line shadow-xs">
+                      <Image
+                        src={images.service || "/media/ccjv-28.jpeg"}
+                        alt="Service et accueil des membres"
+                        fill
+                        sizes="(max-width: 1024px) 50vw, 20vw"
+                        className="object-cover transition-transform duration-700 hover:scale-105"
+                      />
+                    </div>
+                  </div>
                 </div>
               </Reveal>
             </div>

@@ -67,8 +67,7 @@ export function Footer() {
           </div>
 
           {/* Colonne 3 (Centre) : Logo plus grand, Adresse, Réseaux & Actions (4 cols) */}
-          <div className="flex flex-col items-center text-center sm:col-span-2 lg:col-span-4 order-first lg:order-none mb-6 lg:mb-0 px-2 lg:px-4">
-            {/* Logo agrandi */}
+          <div className="flex flex-col items-center text-center sm:col-span-2 lg:col-span-4 order-first lg:order-none mb-6 lg:mb-0 px-2 lg:px-4 lg:-ml-8">
             <Link
               href="/"
               className="inline-block"
