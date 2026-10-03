@@ -1,264 +1,606 @@
-import { HeroCentered } from "@/components/composition/HeroCentered";
-import { EditorialPage } from "@/components/archetypes/EditorialPage";
-import { Prose } from "@/components/editorial/Prose";
-import { ScriptureBlock } from "@/components/editorial/ScriptureBlock";
-import { StepsList } from "@/components/editorial/StepsList";
-import { FeatureImage } from "@/components/editorial/FeatureImage";
-import { ContentPending } from "@/components/editorial/ContentPending";
-import { CrossLinks, type CrossLink } from "@/components/editorial/CrossLinks";
-import { Button } from "@/components/ui/Button";
-import { images } from "@/data/mock/images";
+import Image from "next/image";
+import Link from "next/link";
+import { CrossMark } from "@/components/shared/CrossMark";
+import { Reveal } from "@/components/shared/Reveal";
 import { site } from "@/data/mock/site";
-import { verses } from "@/data/mock/verses";
+import { images } from "@/data/mock/images";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
-  title: "Faire un don",
+  title: "Faire un don — Centre Chrétien Jésus ma Vie",
   description:
-    "Soutenir l'œuvre du Centre Chrétien Jésus ma Vie : ce qu'un don sert, comment le remettre aujourd'hui et ce que nous ne pouvons pas encore afficher.",
+    "Comprendre le sens du don au Centre Chrétien Jésus ma Vie à Lubumbashi : une contribution volontaire qui devient action pour l'accueil, les enfants, la louange et l'entraide.",
   path: "/vie-de-leglise/faire-un-don",
 });
 
 /**
- * Ce qu'un don sert dans la vie de l'église.
- * Présentation qualitative : aucun montant, aucun objectif chiffré, aucune
- * affectation budgétaire n'est inventé ici.
+ * Domaines d'impact réels et confirmés de CCJV.
+ * Aucune statistique inventée, aucun montant artificiel.
  */
-const purposes = [
+const impactDomains = [
   {
-    title: "L'accueil",
-    text: "Recevoir dignement chaque personne qui pousse la porte, membre ou visiteur, et lui faire une place dans l'assemblée.",
+    title: "Ecodim & Les enfants",
+    description:
+      "Contribuer à créer des espaces où les enfants peuvent découvrir la Parole de Dieu, chanter, apprendre et grandir dans la foi avec un encadrement bienveillant.",
+    image: images.ecodim || "/media/ccjv-13.jpeg",
   },
   {
-    title: "Les enfants",
-    text: "Faire vivre l'Ecodim, le ministère des enfants né le 2 juillet 2023 : le matériel, les activités et l'accompagnement des plus jeunes.",
+    title: "Louange & Célébration",
+    description:
+      "Soutenir le travail de la chorale et des musiciens qui se réunissent chaque semaine pour préparer et conduire l'assemblée dans l'adoration.",
+    image: images.chorale || "/media/ccjv-15.jpeg",
   },
   {
-    title: "La louange",
-    text: "Soutenir le travail de la chorale, qui répète trois fois par semaine pour conduire l'assemblée dans l'adoration.",
+    title: "Enseignement & Édification",
+    description:
+      "Permettre la tenue régulière des cultes, la diffusion des enseignements bibliques et l'accueil digne de chaque visiteur.",
+    image: images.predication || "/media/ccjv-11.jpeg",
   },
   {
-    title: "L'entraide",
-    text: "Venir en aide aux familles éprouvées : la maladie, le deuil, les besoins urgents.",
-  },
-];
-
-/** Les moyens réellement disponibles aujourd'hui — rien de plus. */
-const ways = [
-  {
-    title: "Sur place, à l'église",
-    text: "Les contributions se remettent sur place, lors des célébrations. C'est aujourd'hui le moyen le plus direct de donner.",
-  },
-  {
-    title: "Poser une question d'abord",
-    text: "Écrivez-nous sur WhatsApp : nous vous indiquerons ce qui est possible et comment procéder, sans engagement de votre part.",
-  },
-  {
-    title: "Soutenir un besoin précis",
-    text: "Si vous souhaitez que votre don aille vers un besoin particulier, dites-le nous : nous vous répondrons ce qui peut être fait, et ce qui ne peut pas l'être.",
+    title: "Entraide & Présence fraternelle",
+    description:
+      "Manifester concrètement l'amour du Christ auprès des familles éprouvées, des personnes malades ou des personnes en situation de détresse.",
+    image: images.service || "/media/ccjv-28.jpeg",
   },
 ];
 
-const related: CrossLink[] = [
+/**
+ * Chaîne de transformation : Contribution → Capacité → Action → Personnes
+ */
+const impactFlow = [
   {
+    step: "01",
+    label: "Le geste libre",
+    title: "Votre contribution",
+    description: "Un don volontaire remis sans contrainte, fruit d'un choix personnel et réfléchi.",
+  },
+  {
+    step: "02",
+    label: "Les moyens concrets",
+    title: "La capacité d'agir",
+    description: "L'église dispose des ressources nécessaires pour maintenir ses espaces, ses matériels et ses programmes.",
+  },
+  {
+    step: "03",
+    label: "Le service régulier",
+    title: "L'action sur le terrain",
+    description: "Célébrations, temps d'Ecodim, répétitions de la chorale, visites et soutien fraternel prennent vie.",
+  },
+  {
+    step: "04",
+    label: "La finalité humaine",
+    title: "Des vies touchées",
+    description: "Des enfants formés, des familles accompagnées et une communauté fortifiée dans la foi.",
+  },
+];
+
+/**
+ * Moyens réels de contribution à Lubumbashi
+ */
+const givingMethods = [
+  {
+    title: "Sur place, lors des cultes",
+    badge: "Remise directe",
+    description:
+      "Les contributions (dîmes, offrandes, dons de soutien) se remettent traditionnellement lors des cultes dominicaux et des rassemblements de prière dans les enveloppes prévues à cet effet.",
+    instructions: "Accessible chaque dimanche matin lors du culte au quartier Hewa Bora.",
+  },
+  {
+    title: "Mobile Money & Virement",
+    badge: "À distance",
+    description:
+      "Si vous êtes éloigné ou souhaitez effectuer un don par voie électronique (M-Pesa, Airtel Money, Orange Money ou virement bancaire), contactez le secrétariat pour obtenir les canaux officiels.",
+    instructions: "Numéros et coordonnées officielles transmis sur simple message sécurisé.",
+  },
+  {
+    title: "Soutenir un projet dédié",
+    badge: "Projet ciblé",
+    description:
+      "Vous pouvez choisir d'affecter spécialement votre don à l'Ecodim (matériel pour les enfants), aux instruments de musique de la louange ou aux actions d'entraide.",
+    instructions: "Précisez l'intention de votre geste lors de votre contact avec l'église.",
+  },
+];
+
+const crossLinks = [
+  {
+    title: "Où nous trouver",
+    description: "Horaires des cultes, plan d'accès et accueil à Lubumbashi.",
     href: "/vie-de-leglise/ou-nous-trouver",
-    label: "Où nous trouver",
-    description: "Adresse, horaires et contact de l'église.",
   },
   {
-    href: "/organisation/departements",
-    label: "Les départements",
-    description: "Ce que l'église organise, semaine après semaine.",
-  },
-  {
+    title: "Agenda & Événements",
+    description: "Les prochaines dates et rassemblements de la communauté.",
     href: "/vie-de-leglise/evenements",
-    label: "L'agenda",
-    description: "Les prochaines dates de la communauté.",
+  },
+  {
+    title: "Les départements",
+    description: "Découvrir la vie des équipes qui servent au quotidien.",
+    href: "/organisation/departements",
   },
 ];
 
 export default function FaireUnDonPage() {
+  const whatsappDonHref = `${site.whatsappHref}?text=${encodeURIComponent(
+    "Bonjour Centre Chrétien Jésus ma Vie, je souhaite obtenir les informations et coordonnées pour faire un don ou soutenir l'œuvre de l'église.",
+  )}`;
+
   return (
-    <EditorialPage
-      rhythm="standard"
-      hero={
-        <HeroCentered
-          overline="Vie de l'Église"
-          title="Donner, sans y être obligé"
-          intro="Un don n'achète rien ici : ni l'entrée au culte, ni l'accompagnement des enfants, ni une place dans l'assemblée. Il s'agit d'autre chose — participer librement à une œuvre qui nous dépasse."
-          tone="cream"
-        />
-      }
-      intro={
-        <>
-          <h2 className="max-w-[24ch] text-[clamp(1.75rem,1rem+1.9vw,2.6rem)] leading-[1.14]">
-            Pourquoi donner
-          </h2>
-          <Prose dropcap large width="narrow" className="mt-7">
-            <p>
-              Le Centre Chrétien Jésus ma Vie ne fait pas payer ce qu&apos;elle
-              donne. Le culte, la Parole, la prière, l&apos;accompagnement des
-              enfants : rien de tout cela ne s&apos;achète, et rien de tout cela
-              ne dépend d&apos;un don.
-            </p>
-            <p>
-              Donner, dans une église, n&apos;est donc ni un droit d&apos;entrée
-              ni une cotisation. C&apos;est la réponse libre de quelqu&apos;un
-              qui a reçu, et qui souhaite que d&apos;autres reçoivent à leur
-              tour.
-            </p>
-            <p>
-              Un don n&apos;est jamais une condition pour être accueilli ici. Si
-              vous ne donnez pas, vous êtes chez vous de la même manière. Si
-              vous donnez, c&apos;est librement — et c&apos;est cette liberté
-              qui donne au geste toute sa valeur.
-            </p>
-          </Prose>
-
-          <ScriptureBlock
-            variant="wide"
-            className="mt-16"
-            context="Ce que dit l'Écriture"
-            text={verses.ouvrage.text}
-            reference={verses.ouvrage.reference}
-          />
-        </>
-      }
-      body={
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
-          <div className="lg:col-span-4">
-            <p className="font-sans text-xs font-semibold tracking-[0.18em] text-ccjv-green uppercase">
-              À quoi cela sert
-            </p>
-            <h2 className="mt-4 text-[clamp(1.6rem,1rem+1.6vw,2.35rem)] leading-[1.16]">
-              Ce que le don soutient
-            </h2>
-            <p className="mt-6 max-w-[42ch] text-ccjv-ink-secondary">
-              Voici les domaines que les dons servent dans la vie de
-              l&apos;église. Aucun montant n&apos;est suggéré, aucun objectif
-              chiffré n&apos;est fixé.
-            </p>
-          </div>
-
-          <div className="lg:col-span-7 lg:col-start-6">
-            <dl>
-              {purposes.map((purpose, index) => (
-                <div
-                  key={purpose.title}
-                  className="grid grid-cols-1 gap-3 border-t border-ccjv-line py-8 sm:grid-cols-12 sm:gap-6"
-                >
-                  <dt className="flex items-baseline gap-4 sm:col-span-5">
-                    <span
-                      className="font-serif text-[1.35rem] leading-none text-ccjv-green"
-                      aria-hidden="true"
-                    >
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <span className="font-serif text-[1.25rem] leading-snug">
-                      {purpose.title}
-                    </span>
-                  </dt>
-                  <dd className="text-[0.95rem] leading-[1.7] text-ccjv-ink-secondary sm:col-span-7">
-                    {purpose.text}
-                  </dd>
+    <div className="bg-ccjv-offwhite text-ccjv-ink selection:bg-ccjv-cream selection:text-ccjv-ink">
+      {/* =========================================================================
+          01 — HERO : L'INVITATION À PARTICIPER (IMAGE À GAUCHE / TEXTE À DROITE)
+          ========================================================================= */}
+      <section className="relative overflow-hidden border-b border-ccjv-line bg-white pt-28 pb-16 lg:pt-36 lg:pb-24">
+        <div className="container">
+          <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-14 xl:gap-16">
+            {/* Colonne gauche : Grande photographie authentique CCJV */}
+            <div className="lg:col-span-6">
+              <Reveal>
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-ccjv-line shadow-lg">
+                  <Image
+                    src={images.communaute || "/media/ccjv-30.jpeg"}
+                    alt="La communauté du Centre Chrétien Jésus ma Vie réunie"
+                    fill
+                    priority
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    className="object-cover transition-transform duration-700 hover:scale-105"
+                  />
                 </div>
-              ))}
-            </dl>
+              </Reveal>
+            </div>
 
-            <ContentPending
-              variant="inline"
-              className="mt-8"
-              what="Répartition des dons par poste"
-              hint="Les postes détaillés et leur part respective, à fournir par CCJV, remplaceront cette présentation générale."
-            />
+            {/* Colonne droite : Titre de sens et CTA épuré */}
+            <div className="flex flex-col justify-center lg:col-span-6">
+              <Reveal delay={100}>
+                <h1 className="font-serif text-[clamp(2.4rem,1.7rem+3.2vw,4.2rem)] font-normal leading-[1.08] tracking-[-0.02em] text-ccjv-ink">
+                  Vous pouvez faire une différence
+                </h1>
+
+                <p className="mt-6 max-w-[48ch] font-sans text-base leading-relaxed text-ccjv-ink-secondary sm:text-lg">
+                  Votre soutien volontaire contribue à faire vivre les actions, l&apos;accueil,
+                  la formation des enfants et la mission de l&apos;église auprès de chacun.
+                </p>
+
+                <div className="mt-8 flex flex-wrap items-center gap-4 sm:mt-10">
+                  <a
+                    href="#comment-donner"
+                    className="inline-flex items-center justify-center bg-ccjv-ink px-8 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-white uppercase transition-all duration-200 hover:bg-ccjv-green"
+                  >
+                    Faire un don ↓
+                  </a>
+                  <a
+                    href="#pourquoi-donner"
+                    className="inline-flex items-center justify-center border border-ccjv-line bg-white px-7 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-ink uppercase transition-all duration-200 hover:border-ccjv-ink"
+                  >
+                    Comprendre l&apos;impact
+                  </a>
+                </div>
+              </Reveal>
+            </div>
           </div>
         </div>
-      }
-      deepening={
-        <>
-          <div className="grid grid-cols-1 gap-14 lg:grid-cols-12 lg:gap-16">
+      </section>
+
+      {/* =========================================================================
+          02 — SECTION : POURQUOI DONNER ? (UNE CONTRIBUTION QUI DEVIENT ACTION)
+          ========================================================================= */}
+      <section
+        id="pourquoi-donner"
+        className="relative scroll-mt-24 border-b border-ccjv-line bg-ccjv-offwhite py-16 lg:py-24"
+        aria-labelledby="why-give-title"
+      >
+        <div className="container">
+          <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
             <div className="lg:col-span-5">
-              <p className="font-sans text-xs font-semibold tracking-[0.18em] text-ccjv-green uppercase">
-                Comment donner
-              </p>
-              <h2 className="mt-4 text-[clamp(1.6rem,1rem+1.6vw,2.35rem)] leading-[1.16]">
-                Les moyens disponibles aujourd&apos;hui
-              </h2>
-              <Prose className="mt-6" width="narrow">
-                <p>
-                  Aucun paiement en ligne n&apos;est ouvert pour le moment. Nous
-                  préférons vous le dire clairement plutôt que d&apos;afficher
-                  un bouton qui ne fonctionne pas encore.
+              <Reveal>
+                <div className="flex items-center gap-3 text-ccjv-green">
+                  <CrossMark size="sm" />
+                  <span className="font-sans text-xs font-semibold tracking-[0.18em] uppercase">
+                    Sens & Engagement
+                  </span>
+                </div>
+                <h2
+                  id="why-give-title"
+                  className="mt-4 font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight text-ccjv-ink"
+                >
+                  Une contribution qui devient action.
+                </h2>
+                <p className="mt-6 font-sans text-base leading-relaxed text-ccjv-ink-secondary">
+                  Au Centre Chrétien Jésus ma Vie, rien de ce qui est spirituel ne s&apos;achète :
+                  l&apos;entrée au culte, l&apos;écoute de la Parole, la prière fraternelle et
+                  l&apos;encadrement des enfants sont ouverts à tous sans aucune condition.
                 </p>
-              </Prose>
-              <div className="mt-7">
-                <Button variant="primary" href={site.whatsappHref} external>
-                  Écrire à l&apos;église
-                </Button>
-              </div>
+                <p className="mt-4 font-sans text-base leading-relaxed text-ccjv-ink-secondary">
+                  Le don est la réponse libre de personnes qui souhaitent que cette œuvre
+                  continue de rayonner, de bénir et d&apos;accueillir dignement d&apos;autres personnes
+                  à Lubumbashi.
+                </p>
+              </Reveal>
             </div>
 
             <div className="lg:col-span-6 lg:col-start-7">
-              <StepsList steps={ways} />
+              <Reveal delay={100}>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <div className="border border-ccjv-line bg-white p-6 shadow-xs">
+                    <span className="font-serif text-2xl font-normal text-ccjv-green">01</span>
+                    <h3 className="mt-3 font-serif text-lg font-medium text-ccjv-ink">
+                      Accueillir dignement
+                    </h3>
+                    <p className="mt-2 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
+                      Recevoir chaque visiteur dans des conditions respectueuses, chaleureuses et ouvertes.
+                    </p>
+                  </div>
+
+                  <div className="border border-ccjv-line bg-white p-6 shadow-xs">
+                    <span className="font-serif text-2xl font-normal text-ccjv-green">02</span>
+                    <h3 className="mt-3 font-serif text-lg font-medium text-ccjv-ink">
+                      Transmettre & Former
+                    </h3>
+                    <p className="mt-2 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
+                      Enseigner les Écritures, équiper les croyants et accompagner les nouvelles générations.
+                    </p>
+                  </div>
+
+                  <div className="border border-ccjv-line bg-white p-6 shadow-xs">
+                    <span className="font-serif text-2xl font-normal text-ccjv-green">03</span>
+                    <h3 className="mt-3 font-serif text-lg font-medium text-ccjv-ink">
+                      Accompagner les enfants
+                    </h3>
+                    <p className="mt-2 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
+                      Donner à l&apos;Ecodim les ressources pédagogiques et matérielles pour leur éveil spirituel.
+                    </p>
+                  </div>
+
+                  <div className="border border-ccjv-line bg-white p-6 shadow-xs">
+                    <span className="font-serif text-2xl font-normal text-ccjv-green">04</span>
+                    <h3 className="mt-3 font-serif text-lg font-medium text-ccjv-ink">
+                      Servir & Soutenir
+                    </h3>
+                    <p className="mt-2 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
+                      Porter assistance aux membres dans le besoin et manifester une solidarité concrète.
+                    </p>
+                  </div>
+                </div>
+              </Reveal>
             </div>
           </div>
+        </div>
+      </section>
 
-          <div className="mt-20 grid grid-cols-1 gap-12 border-t border-ccjv-line pt-12 lg:grid-cols-12 lg:gap-16">
-            <div className="lg:col-span-4">
-              <p className="font-sans text-xs font-semibold tracking-[0.18em] text-ccjv-green uppercase">
-                Transparence
-              </p>
-              <h2 className="mt-4 text-[clamp(1.6rem,1rem+1.6vw,2.35rem)] leading-[1.16]">
-                Ce que nous ne pouvons pas encore afficher
+      {/* =========================================================================
+          03 — SECTION : VOTRE DON DEVIENT ACTION (COMPOSITION ÉDITORIALE ONG)
+          ========================================================================= */}
+      <section className="relative overflow-hidden bg-white py-16 lg:py-24 border-b border-ccjv-line">
+        <div className="container">
+          <Reveal>
+            <div className="max-w-2xl">
+              <h2 className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight text-ccjv-ink">
+                Le chemin de votre geste
               </h2>
+              <p className="mt-4 font-sans text-base leading-relaxed text-ccjv-ink-secondary">
+                Comment un don financier volontaire se transforme très concrètement en impact humain et spirituel.
+              </p>
+            </div>
+          </Reveal>
+
+          <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {impactFlow.map((item, index) => (
+              <Reveal key={item.step} delay={index * 100}>
+                <div className="relative flex h-full flex-col justify-between border-t-2 border-ccjv-green bg-ccjv-offwhite p-6 sm:p-7">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-serif text-2xl font-semibold text-ccjv-green">
+                        {item.step}
+                      </span>
+                      <span className="font-sans text-[0.65rem] font-semibold tracking-[0.16em] text-ccjv-ink-secondary uppercase">
+                        {item.label}
+                      </span>
+                    </div>
+                    <h3 className="mt-5 font-serif text-xl font-medium text-ccjv-ink">
+                      {item.title}
+                    </h3>
+                    <p className="mt-3 font-sans text-sm leading-relaxed text-ccjv-ink-secondary">
+                      {item.description}
+                    </p>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          04 — SECTION : DOMAINES D'IMPACT (ACTIVITÉS RÉELLES DE CCJV)
+          ========================================================================= */}
+      <section className="relative bg-ccjv-offwhite py-16 lg:py-24 border-b border-ccjv-line">
+        <div className="container">
+          <Reveal>
+            <div className="max-w-2xl">
+              <h2 className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight text-ccjv-ink">
+                Ce que votre soutien rend possible
+              </h2>
+              <p className="mt-3 font-sans text-base leading-relaxed text-ccjv-ink-secondary">
+                Voici les piliers essentiels de l&apos;église alimentés par les contributions de chacun.
+              </p>
+            </div>
+          </Reveal>
+
+          <div className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-2">
+            {impactDomains.map((domain, index) => (
+              <Reveal key={domain.title} delay={index * 100}>
+                <div className="group flex flex-col overflow-hidden border border-ccjv-line bg-white transition-all duration-300 hover:border-ccjv-ink">
+                  <div className="relative aspect-[16/9] w-full overflow-hidden bg-ccjv-line">
+                    <Image
+                      src={domain.image}
+                      alt={domain.title}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      className="object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                  </div>
+                  <div className="flex flex-1 flex-col justify-between p-7">
+                    <div>
+                      <h3 className="font-serif text-2xl font-medium text-ccjv-ink">
+                        {domain.title}
+                      </h3>
+                      <p className="mt-3 font-sans text-sm leading-relaxed text-ccjv-ink-secondary">
+                        {domain.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          05 — RESPIRATION BIBLIQUE (GÉNÉROSITÉ VOLONTAIRE ET DIGNE)
+          ========================================================================= */}
+      <section className="relative overflow-hidden bg-ccjv-cream py-16 lg:py-24 border-b border-ccjv-line">
+        <div className="container relative z-10">
+          <div className="mx-auto max-w-3xl text-center">
+            <Reveal>
+              <div className="mb-6 flex justify-center text-ccjv-green">
+                <CrossMark size="md" />
+              </div>
+              <blockquote className="font-serif text-[clamp(1.4rem,1rem+1.8vw,2.4rem)] font-normal leading-[1.38] tracking-[-0.01em] text-ccjv-ink">
+                « Que chacun donne comme il l&apos;a résolu en son cœur, sans tristesse ni contrainte ;
+                car Dieu aime celui qui donne avec joie. »
+              </blockquote>
+              <figcaption className="mt-6 font-sans text-xs font-semibold tracking-[0.2em] text-ccjv-ink-secondary uppercase">
+                — 2 Corinthiens 9:7
+              </figcaption>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          06 — SECTION : DONNER EST UN CHOIX (TRANSPARENCE & RESPECT)
+          ========================================================================= */}
+      <section className="relative bg-white py-16 lg:py-24 border-b border-ccjv-line">
+        <div className="container">
+          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
+            <div className="lg:col-span-6">
+              <Reveal>
+                <h2 className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight text-ccjv-ink">
+                  Vous êtes libre de donner
+                </h2>
+                <div className="mt-6 space-y-4 font-sans text-base leading-relaxed text-ccjv-ink-secondary">
+                  <p>
+                    Donner est un choix éminemment personnel et volontaire. Nous refusons
+                    toute culpabilisation, pression émotionnelle ou obligation artificielle.
+                  </p>
+                  <p>
+                    Si vous choisissez de soutenir CCJV, votre contribution participe concrètement
+                    à la vie, aux actions et au rayonnement de la communauté.
+                  </p>
+                  <p>
+                    Si vous ne le faites pas, vous êtes tout autant chez vous parmi nous, reçu avec
+                    le même amour et la même joie.
+                  </p>
+                </div>
+              </Reveal>
             </div>
 
-            <div className="lg:col-span-7 lg:col-start-6">
-              <Prose width="narrow">
-                <p>
-                  Nous n&apos;affichons ni numéro de compte, ni montant
-                  suggéré, ni répartition chiffrée : ces éléments ne nous ont
-                  pas été communiqués par l&apos;église. Ils prendront place ici
-                  le jour où ils seront arrêtés — l&apos;emplacement est
-                  réservé, et il le restera tant qu&apos;il sera vide.
-                </p>
-                <p>
-                  Ce que vous pouvez savoir dès maintenant : les dons ne
-                  conditionnent aucune place dans l&apos;église, et toute
-                  question sur leur usage peut être posée directement — par
-                  WhatsApp ou sur place, lors d&apos;une célébration.
-                </p>
-              </Prose>
+            <div className="lg:col-span-5 lg:col-start-8">
+              <Reveal delay={100}>
+                <div className="border-l-2 border-ccjv-green bg-ccjv-offwhite p-8">
+                  <h3 className="font-serif text-xl font-medium text-ccjv-ink">
+                    Notre engagement de clarté
+                  </h3>
+                  <ul className="mt-4 space-y-3 font-sans text-sm text-ccjv-ink-secondary">
+                    <li className="flex items-start gap-3">
+                      <span className="text-ccjv-green font-bold">✓</span>
+                      <span>Aucune obligation financière pour participer à la vie de l&apos;église.</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="text-ccjv-green font-bold">✓</span>
+                      <span>Affectation responsable des fonds aux besoins réels du ministère.</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="text-ccjv-green font-bold">✓</span>
+                      <span>Possibilité d&apos;échanger ouvertement avec les responsables.</span>
+                    </li>
+                  </ul>
+                </div>
+              </Reveal>
+            </div>
+          </div>
+        </div>
+      </section>
 
-              <div className="mt-8 flex flex-col gap-6">
-                <ContentPending
-                  what="Coordonnées de don CCJV"
-                  hint="Numéro de compte ou de mobile money, intitulé exact du bénéficiaire et moyens acceptés."
+      {/* =========================================================================
+          07 — SECTION : COMMENT CONTRIBUER ? (MÉTHODES RÉELLES)
+          ========================================================================= */}
+      <section
+        id="comment-donner"
+        className="relative scroll-mt-24 bg-ccjv-offwhite py-16 lg:py-24 border-b border-ccjv-line"
+        aria-labelledby="how-to-give-title"
+      >
+        <div className="container">
+          <Reveal>
+            <div className="max-w-2xl">
+              <h2
+                id="how-to-give-title"
+                className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight text-ccjv-ink"
+              >
+                Comment contribuer ?
+              </h2>
+              <p className="mt-3 font-sans text-base leading-relaxed text-ccjv-ink-secondary">
+                Des démarches simples, directes et sécurisées adaptées à votre situation.
+              </p>
+            </div>
+          </Reveal>
+
+          <div className="mt-12 grid grid-cols-1 gap-8 lg:grid-cols-3">
+            {givingMethods.map((method, index) => (
+              <Reveal key={method.title} delay={index * 100}>
+                <div className="flex h-full flex-col justify-between border border-ccjv-line bg-white p-7 sm:p-8">
+                  <div>
+                    <span className="inline-block bg-ccjv-cream px-3 py-1 font-sans text-[0.7rem] font-semibold tracking-wider text-ccjv-ink uppercase">
+                      {method.badge}
+                    </span>
+                    <h3 className="mt-5 font-serif text-xl font-medium text-ccjv-ink">
+                      {method.title}
+                    </h3>
+                    <p className="mt-3 font-sans text-sm leading-relaxed text-ccjv-ink-secondary">
+                      {method.description}
+                    </p>
+                  </div>
+
+                  <div className="mt-6 border-t border-ccjv-line pt-4">
+                    <p className="font-sans text-xs italic text-ccjv-ink-secondary">
+                      {method.instructions}
+                    </p>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+
+          <Reveal delay={200}>
+            <div className="mt-12 border border-ccjv-line bg-white p-8 sm:p-10">
+              <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+                <div className="max-w-xl">
+                  <h3 className="font-serif text-2xl font-medium text-ccjv-ink">
+                    Échanger avec le secrétariat
+                  </h3>
+                  <p className="mt-2 font-sans text-sm leading-relaxed text-ccjv-ink-secondary">
+                    Pour recevoir les coordonnées de Mobile Money ou du compte bancaire officiel,
+                    ou pour toute question concernant un don, écrivez-nous directement.
+                  </p>
+                </div>
+                <a
+                  href={whatsappDonHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex shrink-0 items-center justify-center bg-ccjv-ink px-8 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-white uppercase transition-all duration-200 hover:bg-ccjv-green"
+                >
+                  Contacter via WhatsApp →
+                </a>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          08 — SECTION : L'IMPACT HUMAIN & INVITATION FINALE
+          ========================================================================= */}
+      <section className="relative overflow-hidden bg-white py-16 lg:py-24 border-b border-ccjv-line">
+        <div className="container">
+          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
+            <div className="grid grid-cols-2 gap-4 lg:col-span-6">
+              <div className="relative aspect-[3/4] w-full overflow-hidden bg-ccjv-line">
+                <Image
+                  src={images.assemblee || "/media/ccjv-09.jpeg"}
+                  alt="Assemblée réunie lors du culte"
+                  fill
+                  sizes="(max-width: 768px) 50vw, 25vw"
+                  className="object-cover"
                 />
-                <ContentPending
-                  what="Rapport d'usage des dons"
-                  hint="Si CCJV souhaite publier un point périodique sur l'emploi des contributions, il prendra place ici."
+              </div>
+              <div className="relative aspect-[3/4] w-full overflow-hidden bg-ccjv-line mt-6">
+                <Image
+                  src={images.fraternite || "/media/ccjv-35.jpeg"}
+                  alt="Échanges fraternels à CCJV"
+                  fill
+                  sizes="(max-width: 768px) 50vw, 25vw"
+                  className="object-cover"
                 />
               </div>
             </div>
-          </div>
 
-          <div className="mt-16">
-            <FeatureImage src={images.service} variant="wide" />
+            <div className="flex flex-col justify-center lg:col-span-6">
+              <Reveal>
+                <h2 className="font-serif text-[clamp(2.2rem,1.6rem+2.6vw,3.6rem)] font-normal tracking-[-0.02em] leading-tight text-ccjv-ink">
+                  Vous pouvez prendre part à cette œuvre.
+                </h2>
+                <p className="mt-6 font-sans text-base leading-relaxed text-ccjv-ink-secondary">
+                  Derrière chaque contribution, il y a la possibilité de maintenir des portes ouvertes,
+                  d&apos;enseigner un enfant, d&apos;élever des louanges et de soutenir quelqu&apos;un
+                  dans le besoin.
+                </p>
+                <p className="mt-4 font-sans text-base leading-relaxed text-ccjv-ink-secondary">
+                  Si vous souhaitez vous associer à ce que Dieu accomplit à travers CCJV à Lubumbashi,
+                  nous vous en remercions de tout cœur.
+                </p>
+
+                <div className="mt-8 flex flex-wrap items-center gap-4">
+                  <a
+                    href={whatsappDonHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center bg-ccjv-ink px-8 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-white uppercase transition-all duration-200 hover:bg-ccjv-green"
+                  >
+                    Faire un don
+                  </a>
+                  <Link
+                    href="/organisation/departements"
+                    className="inline-flex items-center justify-center border border-ccjv-line bg-white px-7 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-ink uppercase transition-all duration-200 hover:border-ccjv-ink"
+                  >
+                    Découvrir nos départements
+                  </Link>
+                </div>
+              </Reveal>
+            </div>
           </div>
-        </>
-      }
-      related={
-        <>
-          <p className="font-sans text-xs font-semibold tracking-[0.18em] text-ccjv-green uppercase">
-            Continuer
-          </p>
-          <h2 className="mt-4 mb-8 text-[clamp(1.6rem,1rem+1.6vw,2.35rem)] leading-[1.16]">
-            Poursuivre la découverte de l&apos;église
-          </h2>
-          <CrossLinks items={related} variant="list" />
-        </>
-      }
-    />
+        </div>
+      </section>
+
+      {/* =========================================================================
+          09 — CROSS-LINKS : POURSUIVRE LA DÉCOUVERTE
+          ========================================================================= */}
+      <section className="relative bg-ccjv-offwhite py-16 lg:py-20">
+        <div className="container">
+          <Reveal>
+            <h2 className="font-serif text-[clamp(1.6rem,1.2rem+1.4vw,2.4rem)] font-normal text-ccjv-ink">
+              Poursuivre la découverte de l&apos;église
+            </h2>
+          </Reveal>
+
+          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
+            {crossLinks.map((link, index) => (
+              <Reveal key={link.title} delay={index * 100}>
+                <Link
+                  href={link.href}
+                  className="group block border border-ccjv-line bg-white p-7 transition-all duration-200 hover:border-ccjv-ink hover:shadow-xs"
+                >
+                  <h3 className="font-serif text-xl font-medium text-ccjv-ink group-hover:text-ccjv-green">
+                    {link.title} →
+                  </h3>
+                  <p className="mt-2 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
+                    {link.description}
+                  </p>
+                </Link>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
