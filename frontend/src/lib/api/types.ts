@@ -1,0 +1,183 @@
+/**
+ * Types de réponse de l'API REST CCJV (`/api/v1`).
+ *
+ * Principe : l'API est **déjà alignée** sur `src/types/index.ts` pour les trois
+ * ressources structurantes du site (`Department`, `Event`, `Publication`). Ces
+ * types sont donc réutilisés tels quels — jamais redéclarés — et ce module ne
+ * contient que :
+ *  - les enveloppes de transport de l'API (collection paginée, erreur) ;
+ *  - les ressources qui n'existaient pas encore dans `src/types` ;
+ *  - les quelques champs **additifs** que l'API expose en plus du contrat
+ *    frontend (`status` et `coverImage` des publications, `position` des listes
+ *    ordonnées), qui ne cassent aucun composant existant.
+ */
+
+import type {
+  Department,
+  Event,
+  EventStatus,
+  PageKey,
+  Publication,
+  PublicationType,
+} from "@/types";
+
+export type {
+  Department,
+  Event,
+  EventStatus,
+  PageKey,
+  Publication,
+  PublicationType,
+};
+
+/** Rubrique éditoriale d'une publication (actualité, enseignement, média, ressource). */
+export type PublicationCategory = NonNullable<Publication["category"]>;
+
+/** État de publication, visible du seul back-office (jamais exposé en lecture publique). */
+export type PublicationStatus = "DRAFT" | "PUBLISHED";
+
+/**
+ * Réponse de collection de l'API (`docs/004` §34) :
+ * `{ data: [], meta: { page, limit, total, totalPages } }`.
+ *
+ * Les endpoints acceptent aussi, par tolérance, un tableau nu : un proxy qui
+ * aplatirait l'enveloppe ne doit pas vider les pages du site.
+ */
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface CollectionResponse<T> {
+  data: T[];
+  meta: PaginationMeta;
+}
+
+/** Corps d'erreur normalisé : `{ error: { code, message, details? } }`. */
+export interface ApiErrorBody {
+  error: {
+    code: string;
+    message: string;
+    details?: unknown;
+  };
+}
+
+/**
+ * Publication telle que l'API la renvoie : le contrat `Publication` du
+ * frontend, complété des deux champs additifs du serializer serveur.
+ *
+ * - `status` : `DRAFT` / `PUBLISHED` — nécessaire au back-office ; la lecture
+ *   publique ne renvoie jamais que des publications publiées ;
+ * - `coverImage` : URL résolue du média de couverture, utile quand une
+ *   publication PHOTO n'a pas de `contentUrl`.
+ *
+ * Ce type reste assignable à `Publication` : les composants éditoriaux
+ * (`TeachingCard`, `MediaFeature`…) l'acceptent sans modification.
+ */
+export interface PublicationRecord extends Publication {
+  status: PublicationStatus;
+  coverImage?: string;
+}
+
+/** Responsable / serviteur de l'église (`GET /leaders`). */
+export interface Leader {
+  id: string;
+  name: string;
+  role: string;
+  /** Domaine veillé (département, service) — `null` si non renseigné. */
+  scope: string | null;
+  bio: string | null;
+  /** URL publique du portrait — `null` si aucune photo n'est rattachée. */
+  photo: string | null;
+  /** `null` = responsable transversal, hors département. */
+  departmentId: string | null;
+  position: number;
+}
+
+/**
+ * Témoignage publié (`GET /testimonies`).
+ *
+ * `photo` est déclarée non nulle ici : l'API la renvoie `string | null`, et
+ * `getTestimonies()` **écarte** les entrées sans portrait, car un témoignage
+ * s'affiche sur cette page sous la forme « visage + parole » (le composant
+ * `Image` refuse une source absente).
+ */
+export interface Testimony {
+  id: string;
+  photo: string;
+  quote: string;
+  name: string;
+  role: string | null;
+  position?: number;
+}
+
+/** Visage de la communauté (`GET /community-faces`) — même règle que `Testimony`. */
+export interface CommunityFace {
+  id: string;
+  photo: string;
+  name: string;
+  caption: string;
+  position?: number;
+}
+
+/** Verset éditorial (`GET /scriptures`). */
+export interface Scripture {
+  id: string;
+  /** Clé stable consommée par le frontend (`rassemblement`, `parole`…). */
+  key: string;
+  text: string;
+  reference: string;
+  translation: string;
+  context: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Entrée du rythme hebdomadaire (`GET /schedule`). */
+export interface ScheduleEntry {
+  id: string;
+  day: string;
+  title: string;
+  /** Libellé d'horaire déjà mis en forme (ex. « 16h30 – 18h30 »). */
+  timeLabel: string;
+  audience: string | null;
+  /** Horaire confirmé par CCJV, par opposition à un horaire provisoire. */
+  isConfirmed: boolean;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Lien social affiché dans le pied de page (`label` / `href`). */
+export interface SocialLink {
+  label: string;
+  href: string;
+}
+
+/**
+ * Réglages institutionnels (`GET /settings`) : scalaires clé/valeur de
+ * `site_settings` et liste ordonnée des liens sociaux, regroupés en une seule
+ * réponse par le serializer serveur.
+ */
+export interface SiteSettings {
+  settings: Record<string, string>;
+  socialLinks: SocialLink[];
+}
+
+/**
+ * Page éditable du site (`GET /pages/:pageKey`).
+ *
+ * À ne pas confondre avec `StaticPage` de `src/types` (dont `content` est une
+ * simple chaîne) : ici `content` est un objet de **champs textuels nommés**,
+ * tel que le stocke le registre `domain/content/page-content.ts` du backend.
+ */
+export interface EditablePage {
+  id: string;
+  pageKey: PageKey | string;
+  content: Record<string, unknown>;
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

@@ -1,11 +1,10 @@
-import Link from "next/link";
 import NextImage from "next/image";
-import { departments } from "@/data/mock/departments";
-import { leaders, leadPastor } from "@/data/mock/leaders";
+import { getDepartments, getLeaders } from "@/lib/api";
 import { images } from "@/data/mock/images";
 import { site } from "@/data/mock/site";
 import { pageMetadata } from "@/lib/seo";
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { CrossMark } from "@/components/shared/CrossMark";
 import { OrganisationExplorer } from "./OrganisationExplorer";
 
@@ -16,8 +15,14 @@ export const metadata = pageMetadata({
   path: "/organisation",
 });
 
-export default function OrganisationPage() {
-  const teamLeaders = leaders.filter((l) => l.id !== leadPastor.id);
+export default async function OrganisationPage() {
+  const [departments, leaders] = await Promise.all([
+    getDepartments(),
+    getLeaders(),
+  ]);
+
+  /** Le responsable mis en avant est le premier de la liste ordonnée par l'API. */
+  const [leadPastor, ...teamLeaders] = leaders;
 
   return (
     <main className="bg-ccjv-offwhite text-ccjv-ink">
@@ -143,33 +148,42 @@ export default function OrganisationPage() {
 
             <div className="lg:col-span-7 lg:col-start-6">
               {/* Carte éditoriale du Pasteur Visionnaire */}
-              <div className="relative border border-ccjv-line bg-ccjv-cream p-8 sm:p-12">
-                <div className="grid grid-cols-1 gap-8 sm:grid-cols-12 sm:items-center">
-                  <div className="relative aspect-4/5 w-full overflow-hidden bg-ccjv-line sm:col-span-5">
-                    <NextImage
-                      src={leadPastor.photo ?? images.portraitLarge}
-                      alt={leadPastor.name}
-                      fill
-                      sizes="(max-width: 640px) 100vw, 30vw"
-                      className="object-cover"
-                    />
-                  </div>
-                  <div className="sm:col-span-7 sm:pl-4">
-                    <span className="font-sans text-[0.7rem] font-semibold tracking-[0.2em] text-ccjv-green uppercase">
-                      {leadPastor.scope}
-                    </span>
-                    <h3 className="mt-2 font-serif text-2xl sm:text-3xl text-ccjv-ink">
-                      {leadPastor.name}
-                    </h3>
-                    <p className="mt-1 font-sans text-sm text-ccjv-green font-medium">
-                      {leadPastor.role}
-                    </p>
-                    <p className="mt-4 font-sans text-[0.95rem] leading-[1.7] text-ccjv-ink-secondary">
-                      {leadPastor.bio}
-                    </p>
+              {leadPastor ? (
+                <div className="relative border border-ccjv-line bg-ccjv-cream p-8 sm:p-12">
+                  <div className="grid grid-cols-1 gap-8 sm:grid-cols-12 sm:items-center">
+                    <div className="relative aspect-4/5 w-full overflow-hidden bg-ccjv-line sm:col-span-5">
+                      <NextImage
+                        src={leadPastor.photo ?? images.portraitLarge}
+                        alt={leadPastor.name}
+                        fill
+                        sizes="(max-width: 640px) 100vw, 30vw"
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="sm:col-span-7 sm:pl-4">
+                      <span className="font-sans text-[0.7rem] font-semibold tracking-[0.2em] text-ccjv-green uppercase">
+                        {leadPastor.scope ?? "Direction"}
+                      </span>
+                      <h3 className="mt-2 font-serif text-2xl sm:text-3xl text-ccjv-ink">
+                        {leadPastor.name}
+                      </h3>
+                      <p className="mt-1 font-sans text-sm text-ccjv-green font-medium">
+                        {leadPastor.role}
+                      </p>
+                      {leadPastor.bio && (
+                        <p className="mt-4 font-sans text-[0.95rem] leading-[1.7] text-ccjv-ink-secondary">
+                          {leadPastor.bio}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <EmptyState
+                  title="Les responsables ne sont pas disponibles pour le moment"
+                  description="La présentation de l'équipe de direction sera affichée dès que les données seront accessibles."
+                />
+              )}
             </div>
           </div>
         </div>
@@ -214,7 +228,15 @@ export default function OrganisationPage() {
             </p>
           </div>
 
-          <OrganisationExplorer departments={departments} />
+          {departments.length > 0 ? (
+            <OrganisationExplorer departments={departments} />
+          ) : (
+            <EmptyState
+              className="mt-12"
+              title="Les départements ne sont pas disponibles pour le moment"
+              description="La liste des pôles et ministères sera affichée dès que les données seront accessibles."
+            />
+          )}
         </div>
       </section>
 
@@ -255,32 +277,39 @@ export default function OrganisationPage() {
             </div>
 
             <div className="lg:col-span-7">
-              <div className="border-t border-ccjv-line">
-                {teamLeaders.map((ldr) => (
-                  <div
-                    key={ldr.id}
-                    className="flex flex-col justify-between gap-4 border-b border-ccjv-line py-6 sm:flex-row sm:items-center"
-                  >
-                    <div>
-                      <span className="font-sans text-[0.7rem] font-semibold tracking-[0.2em] text-ccjv-green uppercase">
-                        {ldr.scope ?? "Ministère"}
-                      </span>
-                      <h3 className="mt-1 font-serif text-xl text-ccjv-ink">
-                        {ldr.name}
-                      </h3>
-                      <p className="mt-0.5 font-sans text-sm text-ccjv-ink-secondary">
-                        {ldr.role}
-                      </p>
-                    </div>
+              {teamLeaders.length > 0 ? (
+                <div className="border-t border-ccjv-line">
+                  {teamLeaders.map((ldr) => (
+                    <div
+                      key={ldr.id}
+                      className="flex flex-col justify-between gap-4 border-b border-ccjv-line py-6 sm:flex-row sm:items-center"
+                    >
+                      <div>
+                        <span className="font-sans text-[0.7rem] font-semibold tracking-[0.2em] text-ccjv-green uppercase">
+                          {ldr.scope ?? "Ministère"}
+                        </span>
+                        <h3 className="mt-1 font-serif text-xl text-ccjv-ink">
+                          {ldr.name}
+                        </h3>
+                        <p className="mt-0.5 font-sans text-sm text-ccjv-ink-secondary">
+                          {ldr.role}
+                        </p>
+                      </div>
 
-                    {ldr.bio && (
-                      <p className="max-w-[34ch] font-sans text-xs leading-relaxed text-ccjv-ink-secondary sm:text-right">
-                        {ldr.bio}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
+                      {ldr.bio && (
+                        <p className="max-w-[34ch] font-sans text-xs leading-relaxed text-ccjv-ink-secondary sm:text-right">
+                          {ldr.bio}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  title="La coordination n'est pas disponible pour le moment"
+                  description="L'équipe d'accueil reste joignable pour vous orienter vers le bon interlocuteur."
+                />
+              )}
             </div>
           </div>
         </div>

@@ -15,6 +15,12 @@ export interface EventsSectionProps {
   ctaHref?: string;
   /** Liste des événements à afficher */
   events?: Event[];
+  /**
+   * Noms de départements indexés par identifiant, pour les événements venus de
+   * l'API (qui référence les départements par UUID). Absent, on retombe sur le
+   * référentiel de démonstration.
+   */
+  departmentNames?: Record<string, string>;
   /** Nombre maximum d'événements affichés */
   maxEvents?: number;
   /** Ton de fond */
@@ -62,6 +68,7 @@ export function EventsSection({
   ctaLabel = "VOIR TOUT L'AGENDA",
   ctaHref = "/vie-de-leglise/evenements",
   events = upcomingEvents,
+  departmentNames,
   maxEvents = 3,
   tone = "offwhite",
   backgroundColor,
@@ -136,7 +143,9 @@ export function EventsSection({
             >
               {displayedEvents.map((event) => {
                 const { month, day } = getEventDateParts(event.eventDate);
-                const department = getDepartmentName(event.departmentId);
+                const department =
+                  departmentNames?.[event.departmentId ?? ""] ??
+                  getDepartmentName(event.departmentId);
 
                 return (
                   <Link

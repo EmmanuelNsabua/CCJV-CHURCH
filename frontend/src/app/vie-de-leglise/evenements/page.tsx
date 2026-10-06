@@ -3,8 +3,7 @@ import Link from "next/link";
 import { CrossMark } from "@/components/shared/CrossMark";
 import { VerseSection } from "@/components/shared/VerseSection";
 import { Reveal } from "@/components/shared/Reveal";
-import { upcomingEvents, archivedEvents } from "@/data/mock/events";
-import { getDepartmentName, departments } from "@/data/mock/departments";
+import { getDepartments, getEvents } from "@/lib/api";
 import { images } from "@/data/mock/images";
 import { pageMetadata } from "@/lib/seo";
 import { formatLongDate, formatDay, formatMonthShort, formatYear } from "@/lib/utils";
@@ -16,9 +15,27 @@ export const metadata = pageMetadata({
   path: "/vie-de-leglise/evenements",
 });
 
-export default function EvenementsPage() {
+export default async function EvenementsPage() {
+  /*
+   * `status` est calculé par l'API depuis la date : le frontend ne recalcule
+   * plus « à venir / passé ». Les collections arrivent vides si l'API est
+   * injoignable, et les sections concernées sont alors simplement omises.
+   */
+  const [upcomingEvents, archivedEvents, departments] = await Promise.all([
+    getEvents({ status: "UPCOMING", limit: 50 }),
+    getEvents({ status: "ARCHIVED", sort: "-event_date", limit: 50 }),
+    getDepartments(),
+  ]);
+
   const [leadEvent, ...otherEvents] = upcomingEvents;
   const [firstUpcoming, ...subsequentEvents] = otherEvents;
+
+  /** Les événements de l'API référencent les départements par identifiant. */
+  const departmentNames = Object.fromEntries(
+    departments.map((dept) => [dept.id, dept.name]),
+  );
+  const departmentName = (id?: string | null): string | undefined =>
+    id ? departmentNames[id] : undefined;
 
   // 4 Pôles d'expériences éditoriales
   const experiencePillars = [
@@ -214,7 +231,7 @@ export default function EvenementsPage() {
 
                   {/* Badge département sur l'image */}
                   <div className="absolute top-5 left-5 bg-ccjv-black px-3.5 py-1.5 font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-cream uppercase">
-                    {getDepartmentName(leadEvent.departmentId) || "Événement Majeur"}
+                    {departmentName(leadEvent.departmentId) || "Événement Majeur"}
                   </div>
                 </div>
 
@@ -316,7 +333,7 @@ export default function EvenementsPage() {
                             className="object-cover"
                           />
                           <div className="absolute top-4 left-4 bg-black/85 px-3 py-1 font-sans text-xs font-semibold tracking-[0.14em] text-white uppercase backdrop-blur-xs">
-                            {getDepartmentName(firstUpcoming.departmentId) || "Vie de l'église"}
+                            {departmentName(firstUpcoming.departmentId) || "Vie de l'église"}
                           </div>
                         </div>
                       )}
@@ -357,7 +374,7 @@ export default function EvenementsPage() {
               {subsequentEvents.length > 0 && (
                 <div className="w-full lg:w-[30%] shrink-0 flex flex-col gap-6">
                   {subsequentEvents.map((event, idx) => {
-                    const dept = getDepartmentName(event.departmentId);
+                    const dept = departmentName(event.departmentId);
 
                     return (
                       <Reveal key={event.id} delay={idx * 50}>
@@ -642,6 +659,14 @@ export default function EvenementsPage() {
               </Reveal>
             ))}
           </div>
+
+          {departments.length === 0 && (
+            <p className="mt-12 border-t border-ccjv-line pt-8 font-sans text-sm text-ccjv-ink-secondary">
+              La présentation des ministères n&apos;est pas disponible pour le
+              moment. Vous pouvez nous écrire : nous vous orienterons vers le
+              département qui correspond à votre place.
+            </p>
+          )}
         </div>
       </section>
 

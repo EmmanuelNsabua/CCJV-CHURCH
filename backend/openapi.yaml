@@ -1,0 +1,4020 @@
+openapi: "3.1.0"
+info:
+  title: "API CCJV — Centre Chrétien Jésus ma Vie"
+  version: v1
+  description: "API REST Express + TypeScript servant les contenus publics du site et le\nback-office d'administration.\n\n### Préfixe\nToutes les routes métier sont montées sous `/api/v1`. Seul\n`GET /api/v1/health` échappe au rate limiting global. Une URL\ninconnue sous ce préfixe produit `404 NOT_FOUND`, au format d'erreur standard.\n\n### Authentification\nJeton porteur Supabase (`Authorization: Bearer <jeton>`), vérifié par\n`presentation/middlewares/auth.ts`. L'authentification auprès du fournisseur\nd'identité **ne confère aucun droit** : l'utilisateur doit en plus posséder un\nprofil dans `admin_profiles`, actif, et le rôle `ROLE_ADMIN` pour les routes\nd'administration. Chaque opération déclare son exigence : `security: []` pour\nune route publique, `bearerAuth` pour une route d'administration.\n\n### Enveloppes de réponse\n- collection : `{ data: [...], meta: { page, limit, total, totalPages } }` ;\n- ressource : la ressource directement, jamais enveloppée ;\n- erreur : `{ error: { code, message, details? } }` — forme unique, y compris\n  pour une erreur non maîtrisée ou une route inconnue.\n\nTrois listes bornées font exception à l'enveloppe de collection et renvoient\n`{ data: [...] }` **sans** `meta`, car elles ne sont pas paginées :\n`GET /scriptures`, `GET /schedule` et `GET /social-links`.\n\nUn corps JSON **mal formé** sort en `500 INTERNAL_ERROR` (et non en 400) :\n`express.json()` échoue avant le middleware `validate`. Comportement vérifié\nsur l'API en fonctionnement.\n\n### Limites\n- rate limiting global : 120 requêtes par minute et par IP (`RATE_LIMIT_MAX`),\n  soit `429 RATE_LIMITED` ;\n- écriture publique `POST /prayer-requests` : 5 dépôts par heure et par IP ;\n- pagination : `page` ≥ 1 (défaut 1), `limit` 1–100 (défaut 20) ;\n- corps JSON et `urlencoded` : 1 Mo maximum ; téléversement : limite de\n  `MAX_UPLOAD_BYTES` (5 Mio par défaut), type réel du fichier vérifié.\n\n### Source de vérité\nDocument **généré** depuis l'implémentation : `npm run openapi` (script\n`src/presentation/openapi/generate.ts`), qui produit `openapi.json` et\n`openapi.yaml`. Les chemins et méthodes reprennent le montage réel de\n`src/app.ts` et des `*.routes.ts` ; les corps de requête sont les schémas Zod\ndes modules eux-mêmes ; les codes d'erreur sont les 24 valeurs de l'union\n`ErrorCode` de `shared/errors/app-error.ts`."
+servers:
+  - url: "/"
+    description: "Origine courante. Les chemins documentés incluent déjà le préfixe /api/v1 : l'URL effective est donc <origine>/api/v1/…"
+  - url: "http://localhost:4000"
+    description: "Développement local : `PORT` vaut 4000 par défaut (`config/env.ts`)."
+tags:
+  - name: "Système"
+    description: "Contrôle de santé, hors routers métier et hors rate limiting."
+  - name: departments
+    description: "Départements de l'église : lecture publique, écriture administration."
+  - name: events
+    description: "Événements : lecture publique (statut calculé), écriture administration."
+  - name: publications
+    description: "Médiathèque, actualités, enseignements et ressources, filtrés par `category`. Les brouillons ne sont jamais visibles publiquement."
+  - name: leaders
+    description: "Responsables : lecture publique, écriture administration."
+  - name: testimonies
+    description: "Témoignages : lecture publique, écriture administration."
+  - name: "community-faces"
+    description: "Visages de la communauté : lecture publique, écriture administration."
+  - name: scriptures
+    description: "Versets identifiés par une clé d'URL. Liste non paginée."
+  - name: schedule
+    description: "Rythme hebdomadaire. Liste non paginée, sans lecture d'entrée isolée."
+  - name: "social-links"
+    description: "Réseaux sociaux ordonnés. Liste non paginée ; les liens sont aussi exposés par `GET /settings`."
+  - name: settings
+    description: "Réglages institutionnels : document unique, clés d'écriture fermées."
+  - name: pages
+    description: "Contenus éditables des pages statiques, par clé de page."
+  - name: media
+    description: "Registre des médias téléversés. Entièrement administratif : aucune de ces routes n'est publique."
+  - name: "prayer-requests"
+    description: "Demandes de prière. Dépôt public rate-limité ; toute lecture est réservée à l'administration."
+  - name: admin
+    description: "Identité administrative et annuaire des profils. Aucune route publique."
+security: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Jeton d'accès Supabase (`Authorization: Bearer <jeton>`), vérifié par `presentation/middlewares/auth.ts` (`verifyAccessToken`). Le jeton identifie l'utilisateur auprès du fournisseur d'identité ; il ne confère aucun droit à lui seul : `requireAdmin` charge ensuite le profil `admin_profiles` et exige qu'il existe, qu'il soit actif, et `requireRole` qu'il porte `ROLE_ADMIN` pour les routes d'administration."
+  schemas:
+    AdminProfile:
+      type: object
+      description: "Profil administratif courant (`admin.serializer.ts`). Aucune information d'authentification : ni jeton, ni secret, ni adresse d'authentification."
+      required:
+        - id
+        - username
+        - displayName
+        - role
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        displayName:
+          type:
+            - string
+            - "null"
+        role:
+          type: string
+          enum:
+            - ROLE_ADMIN
+    AdminProfileCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/AdminProfileSummary"
+        meta:
+          "$ref": "#/components/schemas/PaginationMeta"
+    AdminProfileSummary:
+      type: object
+      description: "Entrée de l'annuaire administratif : le profil courant complété de l'état d'activation et de la date de création."
+      required:
+        - id
+        - username
+        - displayName
+        - role
+        - isActive
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        displayName:
+          type:
+            - string
+            - "null"
+        role:
+          type: string
+          enum:
+            - ROLE_ADMIN
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: "date-time"
+    CommunityFace:
+      type: object
+      description: "Visage de la communauté (`community-face.serializer.ts`) : `name` ← `personName`."
+      required:
+        - id
+        - photo
+        - name
+        - caption
+        - position
+      properties:
+        id:
+          type: string
+          format: uuid
+        photo:
+          type:
+            - string
+            - "null"
+        name:
+          type: string
+        caption:
+          type: string
+        position:
+          type: integer
+          minimum: 0
+    CommunityFaceCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/CommunityFace"
+        meta:
+          "$ref": "#/components/schemas/PaginationMeta"
+    Department:
+      type: object
+      description: "Département (`department.serializer.ts`). Les champs facultatifs sont **omis** lorsqu'ils sont nuls, jamais émis à `null`."
+      required:
+        - id
+        - name
+        - slug
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        responsibleName:
+          type: string
+        bannerImage:
+          type: string
+          description: "URL publique résolue du média de bandeau."
+        meetingSchedule:
+          type: string
+        keyPoints:
+          type: array
+          items:
+            type: string
+        gallery:
+          type: array
+          items:
+            type: string
+          description: "URLs publiques ; omis lorsque la galerie est vide."
+        tagline:
+          type: string
+    DepartmentCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Department"
+        meta:
+          "$ref": "#/components/schemas/PaginationMeta"
+    ErrorResponse:
+      type: object
+      description: "Enveloppe d'erreur unique de l'API. Toute erreur, y compris non maîtrisée, sort sous cette forme (`shared/http/respond.ts`, `presentation/middlewares/error-handler.ts`)."
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: "Code métier. Liste fermée des 24 codes de `shared/errors/app-error.ts`."
+              enum:
+                - AUTH_REQUIRED
+                - FORBIDDEN
+                - UNAUTHENTICATED_ADMIN
+                - VALIDATION_ERROR
+                - EVENT_NOT_FOUND
+                - DEPARTMENT_NOT_FOUND
+                - PUBLICATION_NOT_FOUND
+                - PAGE_NOT_FOUND
+                - LEADER_NOT_FOUND
+                - TESTIMONY_NOT_FOUND
+                - COMMUNITY_FACE_NOT_FOUND
+                - SCRIPTURE_NOT_FOUND
+                - SCHEDULE_ENTRY_NOT_FOUND
+                - SOCIAL_LINK_NOT_FOUND
+                - PRAYER_REQUEST_NOT_FOUND
+                - MEDIA_NOT_FOUND
+                - SETTING_NOT_FOUND
+                - DUPLICATE_SLUG
+                - CONFLICT
+                - FILE_TOO_LARGE
+                - INVALID_FILE_TYPE
+                - RATE_LIMITED
+                - NOT_FOUND
+                - INTERNAL_ERROR
+            message:
+              type: string
+              description: "Message lisible. En production, un message non exposable est remplacé par « Une erreur interne est survenue »."
+            details:
+              description: "Précisions exploitables, présent uniquement lorsque l'erreur en porte. Tableau `{ champ, message }` pour `VALIDATION_ERROR`, objet libre sinon (par exemple `{ slug }`, `{ maxBytes }`, `{ accepted }`, `{ key }`, `{ total, usages }`)."
+              oneOf:
+                - type: array
+                  items:
+                    "$ref": "#/components/schemas/ValidationIssue"
+                  description: "Détail d'une erreur de validation Zod."
+                - type: object
+                  additionalProperties: true
+                  description: "Détail propre au code d'erreur."
+    Event:
+      type: object
+      description: "Événement (`event.serializer.ts`). `eventDate` est une chaîne `AAAA-MM-JJ` et `eventTime` une chaîne `HH:MM` : jamais d'objet `Date`, pour éviter tout décalage de fuseau entre le serveur et Lubumbashi. `status` est **calculé** depuis `eventDate`, jamais stocké."
+      required:
+        - id
+        - title
+        - slug
+        - eventDate
+        - departmentId
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        eventDate:
+          type: string
+          format: date
+        eventTime:
+          type: string
+          pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
+        location:
+          type: string
+        imageUrl:
+          type: string
+        departmentId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "`null` = événement général de l'église. Toujours présent, y compris à `null`."
+        status:
+          type: string
+          enum:
+            - UPCOMING
+            - ARCHIVED
+          description: "`UPCOMING` si `eventDate` ≥ aujourd'hui, sinon `ARCHIVED`."
+        excerpt:
+          type: string
+        bannerImage:
+          type: string
+        gallery:
+          type: array
+          items:
+            type: string
+        practicalInfo:
+          type: array
+          items:
+            type: string
+    EventCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Event"
+        meta:
+          "$ref": "#/components/schemas/PaginationMeta"
+    HealthStatus:
+      type: object
+      description: "État du service. Le contrôle interroge réellement PostgreSQL : un conteneur qui répond « ok » alors que la base est injoignable serait un faux positif."
+      required:
+        - status
+        - version
+        - environment
+        - database
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+            - error
+        version:
+          type: string
+          description: "Valeur de `API_VERSION` (préfixe des routes)."
+        environment:
+          type: string
+          enum:
+            - development
+            - test
+            - production
+        database:
+          type: string
+          enum:
+            - up
+            - down
+    Leader:
+      type: object
+      description: "Responsable (`leader.serializer.ts`). Tous les champs sont toujours présents : `scope`, `bio`, `photo` et `departmentId` valent `null` lorsqu'ils sont vides."
+      required:
+        - id
+        - name
+        - role
+        - scope
+        - bio
+        - photo
+        - departmentId
+        - position
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        role:
+          type: string
+        scope:
+          type:
+            - string
+            - "null"
+        bio:
+          type:
+            - string
+            - "null"
+        photo:
+          type:
+            - string
+            - "null"
+          description: "URL publique du portrait."
+        departmentId:
+          type:
+            - string
+            - "null"
+          format: uuid
+        position:
+          type: integer
+          minimum: 0
+    LeaderCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Leader"
+        meta:
+          "$ref": "#/components/schemas/PaginationMeta"
+    Media:
+      type: object
+      description: "Média (`media.serializer.ts`). `mimeType` est déduit des **octets** du fichier, jamais du `Content-Type` ni du nom de fichier envoyés par le client."
+      required:
+        - id
+        - url
+        - bucket
+        - path
+        - folder
+        - mimeType
+        - sizeBytes
+        - width
+        - height
+        - alt
+        - uploadedBy
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          description: "URL publique du fichier."
+        bucket:
+          type: string
+        path:
+          type: string
+          description: "Chemin interne, généré par le serveur."
+        folder:
+          type:
+            - string
+            - "null"
+          enum:
+            - events
+            - departments
+            - publications
+            - leaders
+            - testimonies
+            - community
+            - pages
+            - null
+          description: "Premier segment du chemin, ou `null`."
+        mimeType:
+          type: string
+          description: "Types acceptés : image/jpeg, image/png, image/webp, image/gif."
+        sizeBytes:
+          type: integer
+          minimum: 0
+        width:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+        height:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+        alt:
+          type:
+            - string
+            - "null"
+          description: "Texte alternatif, requis pour l'accessibilité (WCAG 2.2 AA)."
+        uploadedBy:
+          type:
+            - string
+            - "null"
+          format: uuid
+        createdAt:
+          type: string
+          format: "date-time"
+    MediaCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Media"
+        meta:
+          "$ref": "#/components/schemas/PaginationMeta"
+    MediaUsageReport:
+      type: object
+      description: "Où un média est utilisé (`media.serializer.ts`). `usages` ne contient que les emplacements qui le référencent réellement."
+      required:
+        - media
+        - total
+        - usages
+      properties:
+        media:
+          "$ref": "#/components/schemas/Media"
+        total:
+          type: integer
+          minimum: 0
+        usages:
+          type: array
+          items:
+            type: object
+            required:
+              - source
+              - label
+              - count
+            properties:
+              source:
+                type: string
+                description: "Identifiant technique de l'usage."
+              label:
+                type: string
+                description: "Libellé lisible de l'usage."
+              count:
+                type: integer
+                minimum: 1
+    PaginationMeta:
+      type: object
+      description: "Métadonnées de pagination, présentes sur les seules réponses de collection (`buildPaginationMeta`). `totalPages` vaut 0 lorsque la collection est vide."
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+          description: "Nombre total d'éléments, tous filtres appliqués."
+        totalPages:
+          type: integer
+          minimum: 0
+    PrayerRequest:
+      type: object
+      description: "Vue **administrative** d'une demande de prière (`prayer-request.serializer.ts`). Seule forme à porter le texte de l'intention et les coordonnées ; elle n'est produite que par des routes montées derrière `requireAnyAdmin`."
+      required:
+        - id
+        - requestText
+        - requesterName
+        - requesterContact
+        - confidentiality
+        - status
+        - handledAt
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        requestText:
+          type: string
+          maxLength: 1000
+        requesterName:
+          type:
+            - string
+            - "null"
+          maxLength: 120
+        requesterContact:
+          type:
+            - string
+            - "null"
+          maxLength: 120
+        confidentiality:
+          type: string
+          enum:
+            - private
+            - community
+        status:
+          type: string
+          enum:
+            - NEW
+            - PRAYED
+        handledAt:
+          type:
+            - string
+            - "null"
+          format: "date-time"
+        createdAt:
+          type: string
+          format: "date-time"
+        updatedAt:
+          type: string
+          format: "date-time"
+    PrayerRequestCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/PrayerRequest"
+        meta:
+          "$ref": "#/components/schemas/PaginationMeta"
+    PrayerRequestCreated:
+      type: object
+      description: "Accusé de réception minimal renvoyé au visiteur qui vient de déposer sa demande. Il ne contient **ni le texte, ni le prénom, ni le contact** : ces données personnelles ne sont jamais renvoyées au client."
+      required:
+        - id
+        - createdAt
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: "date-time"
+        status:
+          type: string
+          enum:
+            - NEW
+            - PRAYED
+    Publication:
+      type: object
+      description: "Publication (`publication.serializer.ts`) : médiathèque, actualités, enseignements et ressources partagent une seule collection filtrée par `category`."
+      required:
+        - id
+        - title
+        - slug
+        - type
+        - publishedAt
+        - status
+        - category
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        slug:
+          type: string
+        type:
+          type: string
+          enum:
+            - VIDEO
+            - PHOTO
+            - TEXTE
+        contentUrl:
+          type: string
+          description: "Lien vidéo externe (YouTube/Facebook) ou chemin d'image."
+        description:
+          type: string
+        publishedAt:
+          type: string
+          format: date
+        category:
+          type: string
+          enum:
+            - ACTUALITE
+            - ENSEIGNEMENT
+            - MEDIA
+            - RESSOURCE
+        author:
+          type: string
+        body:
+          type: array
+          items:
+            type: string
+          description: "Corps éditorial des publications TEXTE (paragraphes)."
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+        coverImage:
+          type: string
+          description: "URL résolue du média de couverture."
+    PublicationCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Publication"
+        meta:
+          "$ref": "#/components/schemas/PaginationMeta"
+    ScheduleEntry:
+      type: object
+      description: "Entrée du rythme hebdomadaire (`schedule.serializer.ts`). `timeLabel` est un libellé libre (« 16h30 – 18h30 », « Dans la nuit »), pas une heure."
+      required:
+        - id
+        - day
+        - title
+        - timeLabel
+        - audience
+        - isConfirmed
+        - position
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        day:
+          type: string
+        title:
+          type: string
+        timeLabel:
+          type: string
+        audience:
+          type:
+            - string
+            - "null"
+        isConfirmed:
+          type: boolean
+          description: "`false` = horaire encore provisoire."
+        position:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: "date-time"
+        updatedAt:
+          type: string
+          format: "date-time"
+    ScheduleEntryList:
+      type: object
+      description: "Liste **non paginée** : `{ data }` sans `meta` (`schedule.controller.ts:17`)."
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/ScheduleEntry"
+    Scripture:
+      type: object
+      description: "Verset (`scripture.serializer.ts`). Horodatages en ISO 8601 complet."
+      required:
+        - id
+        - key
+        - text
+        - reference
+        - translation
+        - context
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          maxLength: 60
+        text:
+          type: string
+        reference:
+          type: string
+        translation:
+          type: string
+        context:
+          type:
+            - string
+            - "null"
+        createdAt:
+          type: string
+          format: "date-time"
+        updatedAt:
+          type: string
+          format: "date-time"
+    ScriptureList:
+      type: object
+      description: "Liste **non paginée** : le controller renvoie `{ data }` sans `meta` (`scripture.controller.ts:20`)."
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Scripture"
+    Settings:
+      type: object
+      description: "Réglages institutionnels (`setting.serializer.ts`) : regroupement de deux sources, les scalaires de `site_settings` et la liste ordonnée des liens sociaux."
+      required:
+        - settings
+        - socialLinks
+      properties:
+        settings:
+          type: object
+          description: "Objet clé/valeur. Clés écrivables : `site.name`, `site.acronym`, `site.location`, `site.foundedAt`, `site.ecodimFoundedAt`, `site.visionary`, `site.visionaryRole`, `site.address`, `site.addressLine1`, `site.addressLine2`, `site.addressLine3`, `site.scheduleAdults`, `site.scheduleChildren`, `site.whatsappNumber`, `site.whatsappHref`. Cette liste est fermée : toute autre clé est refusée en `VALIDATION_ERROR`."
+          additionalProperties:
+            type: string
+        socialLinks:
+          type: array
+          items:
+            type: object
+            required:
+              - label
+              - href
+            properties:
+              label:
+                type: string
+              href:
+                type: string
+                format: uri
+    SocialLink:
+      type: object
+      description: "Lien social (`social-link.serializer.ts`), ordonné par `position`."
+      required:
+        - id
+        - label
+        - href
+        - position
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+        href:
+          type: string
+          format: uri
+        position:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: "date-time"
+        updatedAt:
+          type: string
+          format: "date-time"
+    SocialLinkList:
+      type: object
+      description: "Liste **non paginée** : `{ data }` sans `meta` (`social-link.controller.ts:17`)."
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/SocialLink"
+    StaticPage:
+      type: object
+      description: "Page éditable (`static-page.serializer.ts`). `content` est un objet de champs textuels nommés — jamais du HTML : le schéma du contenu dépend de `pageKey` (`domain/content/page-content.ts`) et est validé par le service."
+      required:
+        - id
+        - pageKey
+        - content
+        - updatedBy
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        pageKey:
+          type: string
+        content:
+          type: object
+          additionalProperties: true
+        updatedBy:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "Administrateur de la dernière modification (traçabilité, jamais affiché)."
+        createdAt:
+          type: string
+          format: "date-time"
+        updatedAt:
+          type: string
+          format: "date-time"
+    Testimony:
+      type: object
+      description: "Témoignage (`testimony.serializer.ts`) : `name` ← `personName`, `role` ← `personRole`, `photo` ← `photoUrl`."
+      required:
+        - id
+        - photo
+        - quote
+        - name
+        - role
+        - position
+      properties:
+        id:
+          type: string
+          format: uuid
+        photo:
+          type:
+            - string
+            - "null"
+        quote:
+          type: string
+        name:
+          type: string
+        role:
+          type:
+            - string
+            - "null"
+        position:
+          type: integer
+          minimum: 0
+    TestimonyCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Testimony"
+        meta:
+          "$ref": "#/components/schemas/PaginationMeta"
+    UploadMediaRequest:
+      type: object
+      description: "Formulaire de téléversement : un fichier unique sous le nom de champ `file`, un dossier de destination `folder`, et un texte alternatif facultatif `alt`."
+      required:
+        - file
+        - folder
+      properties:
+        file:
+          type: string
+          format: binary
+          description: "Fichier binaire, un seul. Limite `MAX_UPLOAD_BYTES` (5 Mio par défaut) ; le type réel est déduit des octets, jamais du `Content-Type` ni du nom."
+        folder:
+          type: string
+          enum:
+            - events
+            - departments
+            - publications
+            - leaders
+            - testimonies
+            - community
+            - pages
+          description: "Dossier de destination dans le bucket. Liste fermée : un dossier hors de cette liste produit un 400, il ne vient jamais d'une chaîne libre."
+        alt:
+          type: string
+          maxLength: 300
+          description: "Texte alternatif (accessibilité WCAG 2.2 AA), facultatif."
+    ValidationIssue:
+      type: object
+      description: "Un champ fautif tel que produit par `middlewares/validate.ts` et par le traducteur d'erreurs."
+      required:
+        - champ
+        - message
+      properties:
+        champ:
+          type: string
+          description: "Chemin du champ fautif, en notation pointée ; `(racine)` pour le corps entier."
+        message:
+          type: string
+          description: "Message de Zod, en français."
+  responses:
+    ValidationError:
+      description: "`VALIDATION_ERROR` — données invalides. Le `details` est un tableau `{ champ, message }` produit par le middleware `validate` (ou par Zod en dernier recours). Un paramètre de chemin ou de requête hors bornes, un corps non conforme au schéma ou une clé inconnue produisent cette réponse.\n\nDeux précisions vérifiées à l'exécution :\n- un corps **vide** `{}` n'est refusé que là où le schéma l'impose par un `refine` (« Aucun champ à mettre à jour » : responsables, témoignages, visages, versets, rythme, liens sociaux) ; les mises à jour de départements, d'événements et de publications n'ont pas cette contrainte et acceptent `{}` ;\n- un corps JSON **mal formé** ne produit pas cette réponse : `express.json()` échoue avant `validate`, ce qui donne un `500 INTERNAL_ERROR` (voir `InternalError`)."
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    AuthenticationRequired:
+      description: "`AUTH_REQUIRED` — en-tête `Authorization: Bearer <jeton>` absent, mal formé ou jeton Supabase invalide/expiré."
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: "`FORBIDDEN` — jeton valide mais compte non administrable : utilisateur absent de `admin_profiles`, compte désactivé (`isActive = false`), ou rôle insuffisant. Le code `UNAUTHENTICATED_ADMIN` est déclaré pour ce cas dans `shared/errors/app-error.ts` mais n'est pas émis par l'implémentation V1, qui répond toujours `FORBIDDEN`."
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    RateLimited:
+      description: "`RATE_LIMITED` — limite globale dépassée : 120 requêtes par minute et par IP (`RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_MS`, valeurs par défaut de `config/env.ts`), appliquée à toutes les routes sous `/api/v1` sauf `/api/v1/health`. Deux en-têtes au format draft-8 sont émis (`standardHeaders: \"draft-8\"`), sans `X-RateLimit-*` (`legacyHeaders: false`)."
+      headers:
+        RateLimit:
+          description: "Politique, quota restant et secondes avant réinitialisation. Forme relevée sur l'API : `\"120-in-1min\"; r=111; t=59`."
+          schema:
+            type: string
+        "RateLimit-Policy":
+          description: "Politique appliquée. Forme relevée sur l'API : `\"120-in-1min\"; q=120; w=60; pk=:…:`. Sur `POST /prayer-requests`, le limiteur dédié de la route écrase cet en-tête avec sa propre politique."
+          schema:
+            type: string
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    RateLimitedPublicWrite:
+      description: "`RATE_LIMITED` — limite dédiée à l'écriture publique dépassée : **5 dépôts par heure et par IP** (`prayer-request.routes.ts`). Le message invite à réessayer dans une heure ou à écrire directement à l'équipe. La limite globale (120/minute) s'applique en amont et peut produire la même réponse.\n\nPrécision vérifiée à l'exécution : le compteur décompte **toutes** les requêtes de cette route, y compris celles refusées en `400 VALIDATION_ERROR` — les en-têtes ci-dessous sont donc présents bien avant le 429. Ils accompagnent l'en-tête `RateLimit` du limiteur global."
+      headers:
+        "RateLimit-Limit":
+          schema:
+            type: integer
+          description: "Quota : 5."
+        "RateLimit-Remaining":
+          schema:
+            type: integer
+          description: "Dépôts restants dans la fenêtre (relevé : `2` après trois appels)."
+        "RateLimit-Reset":
+          schema:
+            type: integer
+          description: "Secondes avant réinitialisation de la fenêtre (relevé : `3587`)."
+        "RateLimit-Policy":
+          schema:
+            type: string
+          description: "Politique du limiteur de la route (relevé : `5;w=3600`)."
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    DuplicateSlug:
+      description: "`DUPLICATE_SLUG` — le slug explicite fourni est déjà utilisé. Un slug imposé par un administrateur est une intention, pas une suggestion : il n'est jamais suffixé automatiquement. `details: { slug }`."
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: "`CONFLICT` — conflit métier. `details` précise la cause (par exemple `{ total, usages }` pour un média encore référencé, `{ key }` pour une clé de verset déjà prise)."
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    FileTooLarge:
+      description: "`FILE_TOO_LARGE` — le fichier dépasse la limite de téléversement. `details: { maxBytes }`. La taille est contrôlée deux fois : par multer (`LIMIT_FILE_SIZE`, traduit en 413) puis par `StorageService`, qui ne fait confiance à aucune métadonnée de la requête."
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    InvalidFileType:
+      description: "`INVALID_FILE_TYPE` — le type **réel** du fichier, déduit de ses octets, n'est pas une image acceptée. Un fichier vide produit la même réponse. `details: { accepted }`."
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    InternalError:
+      description: "`INTERNAL_ERROR` — erreur inattendue : ni `AppError`, ni `ZodError`. En production, le message technique reste dans les journaux serveur (corrélés par `requestId`) et le client ne reçoit qu'un message générique ; hors production, le message d'origine est renvoyé.\n\nCas **vérifié à l'exécution** : un corps JSON mal formé (par exemple `{\"name\": }`) produit cette réponse — et non un `400 VALIDATION_ERROR` — car `express.json()` échoue avant le middleware `validate`. Exemple relevé : `Unexpected token '}', \"{\\\"name\\\": }\" is not valid JSON` hors production."
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+  parameters: {}
+paths:
+  "/api/v1/health":
+    get:
+      operationId: getHealth
+      tags:
+        - "Système"
+      summary: "Contrôle de santé"
+      description: "Interroge réellement PostgreSQL (`select 1`). Cette route est montée **avant** le rate limiter global et n'est donc jamais limitée : Railway l'interroge souvent. Elle ne fait pas partie des routers métier et ne suit pas l'enveloppe `{ data, meta }`."
+      security: []
+      responses:
+        "200":
+          description: "Service et base disponibles."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/HealthStatus"
+        "503":
+          description: "`database: \"down\"` — la base est injoignable. Aucune erreur applicative `{ error }` n'est produite : la réponse garde la forme du contrôle de santé."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/HealthStatus"
+  "/api/v1/departments":
+    get:
+      operationId: departmentsList
+      tags:
+        - departments
+      summary: "Lister les départements"
+      description: "Collection paginée, ordonnée par `position` côté serveur. Aucun filtre métier en V1 : seuls `page` et `limit` sont acceptés."
+      security: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: "Numéro de page (commence à 1). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          description: "Taille de page (1 à 100 inclus). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: "Collection paginée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/DepartmentCollection"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    post:
+      operationId: departmentsCreate
+      tags:
+        - departments
+      summary: "Créer un département"
+      description: "Administration (`ROLE_ADMIN`). Le slug est dérivé du nom et suffixé jusqu'à être libre ; un slug explicite déjà pris est refusé en `DUPLICATE_SLUG`."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                description:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 5000
+                responsibleName:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 120
+                tagline:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 200
+                meetingSchedule:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 255
+                keyPoints:
+                  type:
+                    - array
+                    - "null"
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 300
+                  maxItems: 20
+                bannerMediaId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                galleryMediaIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  maxItems: 60
+                position:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                  maximum: 10000
+                slug:
+                  type: string
+                  minLength: 2
+                  maxLength: 160
+              required:
+                - name
+      responses:
+        "201":
+          description: "Ressource créée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Department"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "409":
+          "$ref": "#/components/responses/DuplicateSlug"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/departments/{idOrSlug}":
+    get:
+      operationId: departmentsGet
+      tags:
+        - departments
+      summary: "Lire un département"
+      description: "Accepte un UUID ou un slug. Un identifiant inconnu produit `DEPARTMENT_NOT_FOUND`."
+      security: []
+      parameters:
+        - name: idOrSlug
+          in: path
+          required: true
+          description: "Identifiant UUID **ou** slug du département. C'est ce qui permet au frontend de conserver ses URL actuelles (`/departements/chorale`) sans requête supplémentaire."
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+      responses:
+        "200":
+          description: "Ressource trouvée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Department"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "404":
+          description: "DEPARTMENT_NOT_FOUND — aucun département ne correspond à l'identifiant ou au slug fourni. `details` absent."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    patch:
+      operationId: departmentsUpdate
+      tags:
+        - departments
+      summary: "Mettre à jour un département"
+      description: "Administration. Mise à jour partielle : `slug` en est volontairement absent, une URL publique ne doit pas changer. Le schéma est `.partial()` **sans** contrainte de non-vacuité : un corps vide `{}` est accepté par la validation."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: idOrSlug
+          in: path
+          required: true
+          description: "Identifiant UUID **ou** slug du département. C'est ce qui permet au frontend de conserver ses URL actuelles (`/departements/chorale`) sans requête supplémentaire."
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                description:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 5000
+                responsibleName:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 120
+                tagline:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 200
+                meetingSchedule:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 255
+                keyPoints:
+                  type:
+                    - array
+                    - "null"
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 300
+                  maxItems: 20
+                bannerMediaId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                galleryMediaIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  maxItems: 60
+                position:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                  maximum: 10000
+      responses:
+        "200":
+          description: "Ressource mise à jour."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Department"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "DEPARTMENT_NOT_FOUND — aucun département ne correspond à l'identifiant ou au slug fourni. `details` absent."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    delete:
+      operationId: departmentsDelete
+      tags:
+        - departments
+      summary: "Supprimer un département"
+      description: "Administration. Les événements rattachés ne sont pas supprimés : la clé étrangère `events.department_id` est `onDelete: set null`, ils redeviennent généraux."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: idOrSlug
+          in: path
+          required: true
+          description: "Identifiant UUID **ou** slug du département. C'est ce qui permet au frontend de conserver ses URL actuelles (`/departements/chorale`) sans requête supplémentaire."
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+      responses:
+        "204":
+          description: "Ressource supprimée : corps vide."
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "DEPARTMENT_NOT_FOUND — aucun département ne correspond à l'identifiant ou au slug fourni. `details` absent."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/events":
+    get:
+      operationId: eventsList
+      tags:
+        - events
+      summary: "Lister les événements"
+      description: "Collection publique paginée et filtrée. `status` et `departmentId` sont les deux seuls filtres ; aucune borne de date fournie par le client n'est acceptée : la notion d'« à venir » est calculée par le serveur."
+      security: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: "Numéro de page (commence à 1). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          description: "Taille de page (1 à 100 inclus). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          required: false
+          description: "État **calculé** depuis `eventDate` : `UPCOMING` (aujourd'hui ou plus tard) ou `ARCHIVED` (passé). Le statut n'existe pas en base ; il est traduit en comparaison de dates par le repository. Omis ⇒ tous les événements."
+          schema:
+            type: string
+            enum:
+              - UPCOMING
+              - ARCHIVED
+        - name: departmentId
+          in: query
+          required: false
+          description: "Ne renvoyer que les événements d'un département donné (UUID)."
+          schema:
+            type: string
+            format: uuid
+        - name: sort
+          in: query
+          required: false
+          description: "Tri. Colonnes autorisées : `event_date`, `created_at` ; préfixe `-` pour l'ordre décroissant. Défaut : `event_date` croissant — appelé avec `status=UPCOMING`, l'écran public obtient l'événement le plus proche en premier. Toute autre colonne ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: string
+            enum:
+              - event_date
+              - "-event_date"
+              - created_at
+              - "-created_at"
+            default: event_date
+      responses:
+        "200":
+          description: "Collection paginée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/EventCollection"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    post:
+      operationId: eventsCreate
+      tags:
+        - events
+      summary: "Créer un événement"
+      description: "Administration. `departmentId` peut valoir `null` (événement général) ; s'il est fourni, le service vérifie que le département existe réellement."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  minLength: 3
+                  maxLength: 150
+                description:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 5000
+                excerpt:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 500
+                eventDate:
+                  type: string
+                  format: date
+                eventTime:
+                  type:
+                    - string
+                    - "null"
+                  pattern: "^([01]\\d|2[0-3]):[0-5]\\d(:[0-5]\\d)?$"
+                location:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 150
+                imageMediaId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                bannerMediaId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                departmentId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                practicalInfo:
+                  type:
+                    - array
+                    - "null"
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 300
+                  maxItems: 20
+                galleryMediaIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  maxItems: 60
+                slug:
+                  type: string
+                  minLength: 2
+                  maxLength: 180
+              required:
+                - title
+                - eventDate
+      responses:
+        "201":
+          description: "Ressource créée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Event"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`DEPARTMENT_NOT_FOUND` — le `departmentId` fourni ne correspond à aucun département. Le service vérifie l'intégrité référentielle avant écriture."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "409":
+          "$ref": "#/components/responses/DuplicateSlug"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/events/{idOrSlug}":
+    get:
+      operationId: eventsGet
+      tags:
+        - events
+      summary: "Lire un événement"
+      description: "Accepte un UUID ou un slug. Un identifiant inconnu produit `EVENT_NOT_FOUND`."
+      security: []
+      parameters:
+        - name: idOrSlug
+          in: path
+          required: true
+          description: "Identifiant UUID **ou** slug de l'événement."
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+      responses:
+        "200":
+          description: "Ressource trouvée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Event"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "404":
+          description: "EVENT_NOT_FOUND — aucun événement ne correspond à l'identifiant ou au slug fourni."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    patch:
+      operationId: eventsUpdate
+      tags:
+        - events
+      summary: "Mettre à jour un événement"
+      description: "Administration. Mise à jour partielle ; `slug` n'y figure pas. Un `departmentId` inexistant est refusé avant écriture."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: idOrSlug
+          in: path
+          required: true
+          description: "Identifiant UUID **ou** slug de l'événement."
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  minLength: 3
+                  maxLength: 150
+                description:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 5000
+                excerpt:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 500
+                eventDate:
+                  type: string
+                  format: date
+                eventTime:
+                  type:
+                    - string
+                    - "null"
+                  pattern: "^([01]\\d|2[0-3]):[0-5]\\d(:[0-5]\\d)?$"
+                location:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 150
+                imageMediaId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                bannerMediaId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                departmentId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                practicalInfo:
+                  type:
+                    - array
+                    - "null"
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 300
+                  maxItems: 20
+                galleryMediaIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  maxItems: 60
+      responses:
+        "200":
+          description: "Ressource mise à jour."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Event"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`EVENT_NOT_FOUND` ou `DEPARTMENT_NOT_FOUND` — l'événement est introuvable, ou le `departmentId` fourni ne correspond à aucun département."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    delete:
+      operationId: eventsDelete
+      tags:
+        - events
+      summary: "Supprimer un événement"
+      description: "Administration. Suppression définitive, sans effet de bord sur les médias référencés."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: idOrSlug
+          in: path
+          required: true
+          description: "Identifiant UUID **ou** slug de l'événement."
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+      responses:
+        "204":
+          description: "Ressource supprimée : corps vide."
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "EVENT_NOT_FOUND — aucun événement ne correspond à l'identifiant ou au slug fourni."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/publications":
+    get:
+      operationId: publicationsList
+      tags:
+        - publications
+      summary: "Lister les publications"
+      description: "Collection publique paginée. **Le filtre de statut n'existe pas** : le service force `PUBLISHED` côté base, un client ne peut donc pas demander les brouillons, même en forgeant la *query*. Le champ `status` reste exposé dans la réponse (utile au back-office)."
+      security: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: "Numéro de page (commence à 1). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          description: "Taille de page (1 à 100 inclus). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: type
+          in: query
+          required: false
+          description: "Type de publication. Omis ⇒ tous les types."
+          schema:
+            type: string
+            enum:
+              - VIDEO
+              - PHOTO
+              - TEXTE
+        - name: category
+          in: query
+          required: false
+          description: "Rubrique éditoriale, qui pilote le routage du frontend. Omis ⇒ toutes les rubriques."
+          schema:
+            type: string
+            enum:
+              - ACTUALITE
+              - ENSEIGNEMENT
+              - MEDIA
+              - RESSOURCE
+        - name: sort
+          in: query
+          required: false
+          description: "Tri. Colonnes autorisées : `published_at`, `created_at` ; préfixe `-` pour l'ordre décroissant. Défaut : `-published_at` (chronologie décroissante). Toute autre colonne ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: string
+            enum:
+              - published_at
+              - "-published_at"
+              - created_at
+              - "-created_at"
+            default: "-published_at"
+      responses:
+        "200":
+          description: "Collection paginée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/PublicationCollection"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    post:
+      operationId: publicationsCreate
+      tags:
+        - publications
+      summary: "Créer une publication"
+      description: "Administration. `status` vaut `PUBLISHED` par défaut ; `DRAFT` dépublie sans supprimer. `publishedAt` a pour valeur par défaut la date du jour. Le service vérifie la cohérence entre `type` et contenu : `VIDEO` exige un `contentUrl` http(s), `PHOTO` un `contentUrl` ou un `coverMediaId`, `TEXTE` un `body` non vide — sinon `VALIDATION_ERROR`."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  minLength: 3
+                  maxLength: 150
+                type:
+                  type: string
+                  enum:
+                    - VIDEO
+                    - PHOTO
+                    - TEXTE
+                category:
+                  type: string
+                  enum:
+                    - ACTUALITE
+                    - ENSEIGNEMENT
+                    - MEDIA
+                    - RESSOURCE
+                status:
+                  type: string
+                  enum:
+                    - DRAFT
+                    - PUBLISHED
+                contentUrl:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 1000
+                coverMediaId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                description:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 5000
+                body:
+                  type:
+                    - array
+                    - "null"
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 5000
+                  maxItems: 50
+                author:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 120
+                publishedAt:
+                  type: string
+                  format: date
+                  default: "2026-10-06"
+                slug:
+                  type: string
+                  minLength: 2
+                  maxLength: 180
+              required:
+                - title
+                - type
+                - category
+      responses:
+        "201":
+          description: "Ressource créée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Publication"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "409":
+          "$ref": "#/components/responses/DuplicateSlug"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/publications/{idOrSlug}":
+    get:
+      operationId: publicationsGet
+      tags:
+        - publications
+      summary: "Lire une publication"
+      description: "Accepte un UUID ou un slug. Une publication en brouillon est traitée comme inexistante et produit `PUBLICATION_NOT_FOUND`."
+      security: []
+      parameters:
+        - name: idOrSlug
+          in: path
+          required: true
+          description: "Identifiant UUID **ou** slug de la publication."
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+      responses:
+        "200":
+          description: "Ressource trouvée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Publication"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "404":
+          description: "PUBLICATION_NOT_FOUND — aucune publication publiée ne correspond à l'identifiant ou au slug fourni."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    patch:
+      operationId: publicationsUpdate
+      tags:
+        - publications
+      summary: "Mettre à jour une publication"
+      description: "Administration. Mise à jour partielle ; `slug` n'y figure pas et `publishedAt` n'a **pas** de valeur par défaut : un `PATCH` qui ne parle pas de la date de publication ne la réécrit pas. La cohérence `type`/contenu est arbitrée par le service, qui dispose de la ressource existante."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: idOrSlug
+          in: path
+          required: true
+          description: "Identifiant UUID **ou** slug de la publication."
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  minLength: 3
+                  maxLength: 150
+                type:
+                  type: string
+                  enum:
+                    - VIDEO
+                    - PHOTO
+                    - TEXTE
+                category:
+                  type: string
+                  enum:
+                    - ACTUALITE
+                    - ENSEIGNEMENT
+                    - MEDIA
+                    - RESSOURCE
+                status:
+                  type: string
+                  enum:
+                    - DRAFT
+                    - PUBLISHED
+                contentUrl:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 1000
+                coverMediaId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                description:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 5000
+                body:
+                  type:
+                    - array
+                    - "null"
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 5000
+                  maxItems: 50
+                author:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 120
+                publishedAt:
+                  type: string
+                  format: date
+      responses:
+        "200":
+          description: "Ressource mise à jour."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Publication"
+        "400":
+          description: "`VALIDATION_ERROR` — corps de forme valide (Zod) mais contenu incohérent avec le `type` déclaré, une fois la mise à jour partielle appliquée à la ressource existante : `VIDEO` sans `contentUrl` http(s), `PHOTO` sans `contentUrl` ni couverture, `TEXTE` sans `body` non vide. `details: { champ }`."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "PUBLICATION_NOT_FOUND — aucune publication publiée ne correspond à l'identifiant ou au slug fourni."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    delete:
+      operationId: publicationsDelete
+      tags:
+        - publications
+      summary: "Supprimer une publication"
+      description: "Administration. Suppression définitive."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: idOrSlug
+          in: path
+          required: true
+          description: "Identifiant UUID **ou** slug de la publication."
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+      responses:
+        "204":
+          description: "Ressource supprimée : corps vide."
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "PUBLICATION_NOT_FOUND — aucune publication publiée ne correspond à l'identifiant ou au slug fourni."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/leaders":
+    get:
+      operationId: leadersList
+      tags:
+        - leaders
+      summary: "Lister les responsables"
+      description: "Collection paginée. Aucun filtre serveur : la collection est seulement paginée."
+      security: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: "Numéro de page (commence à 1). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          description: "Taille de page (1 à 100 inclus). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: "Collection paginée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/LeaderCollection"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    post:
+      operationId: leadersCreate
+      tags:
+        - leaders
+      summary: "Créer un responsable"
+      description: "Administration. `photoMediaId` référence la table `media` : le portrait est un média téléversé, jamais une URL libre."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                role:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                scope:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 120
+                bio:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 5000
+                photoMediaId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                departmentId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                position:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                  maximum: 9999
+              required:
+                - name
+                - role
+      responses:
+        "201":
+          description: "Ressource créée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Leader"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/leaders/{id}":
+    get:
+      operationId: leadersGet
+      tags:
+        - leaders
+      summary: "Lire un responsable"
+      description: "Un identifiant inconnu produit `LEADER_NOT_FOUND`."
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID du responsable : `leaders` n'a pas de slug."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "Ressource trouvée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Leader"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "404":
+          description: "LEADER_NOT_FOUND — aucun responsable ne correspond à cet identifiant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    patch:
+      operationId: leadersUpdate
+      tags:
+        - leaders
+      summary: "Mettre à jour un responsable"
+      description: "Administration. Mise à jour partielle ; un corps vide est refusé (`Aucun champ à mettre à jour`)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID du responsable : `leaders` n'a pas de slug."
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                role:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                scope:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 120
+                bio:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 5000
+                photoMediaId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                departmentId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                position:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                  maximum: 9999
+      responses:
+        "200":
+          description: "Ressource mise à jour."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Leader"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "LEADER_NOT_FOUND — aucun responsable ne correspond à cet identifiant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    delete:
+      operationId: leadersDelete
+      tags:
+        - leaders
+      summary: "Supprimer un responsable"
+      description: "Administration. Suppression définitive."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID du responsable : `leaders` n'a pas de slug."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: "Ressource supprimée : corps vide."
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "LEADER_NOT_FOUND — aucun responsable ne correspond à cet identifiant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/testimonies":
+    get:
+      operationId: testimoniesList
+      tags:
+        - testimonies
+      summary: "Lister les témoignages"
+      description: "Collection paginée, ordonnée par `position`. Aucun filtre serveur."
+      security: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: "Numéro de page (commence à 1). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          description: "Taille de page (1 à 100 inclus). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: "Collection paginée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/TestimonyCollection"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    post:
+      operationId: testimoniesCreate
+      tags:
+        - testimonies
+      summary: "Créer un témoignage"
+      description: "Administration. `photoMediaId` référence la table `media`."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                quote:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                personName:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                personRole:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 120
+                photoMediaId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                position:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                  maximum: 9999
+              required:
+                - quote
+                - personName
+      responses:
+        "201":
+          description: "Ressource créée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Testimony"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/testimonies/{id}":
+    get:
+      operationId: testimoniesGet
+      tags:
+        - testimonies
+      summary: "Lire un témoignage"
+      description: "Un identifiant inconnu produit `TESTIMONY_NOT_FOUND`."
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID du témoignage : aucun slug."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "Ressource trouvée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Testimony"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "404":
+          description: "TESTIMONY_NOT_FOUND — aucun témoignage ne correspond à cet identifiant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    patch:
+      operationId: testimoniesUpdate
+      tags:
+        - testimonies
+      summary: "Mettre à jour un témoignage"
+      description: "Administration. Mise à jour partielle ; un corps vide est refusé."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID du témoignage : aucun slug."
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                quote:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                personName:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                personRole:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 120
+                photoMediaId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                position:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                  maximum: 9999
+      responses:
+        "200":
+          description: "Ressource mise à jour."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Testimony"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "TESTIMONY_NOT_FOUND — aucun témoignage ne correspond à cet identifiant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    delete:
+      operationId: testimoniesDelete
+      tags:
+        - testimonies
+      summary: "Supprimer un témoignage"
+      description: "Administration. Suppression définitive."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID du témoignage : aucun slug."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: "Ressource supprimée : corps vide."
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "TESTIMONY_NOT_FOUND — aucun témoignage ne correspond à cet identifiant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/community-faces":
+    get:
+      operationId: "community-facesList"
+      tags:
+        - "community-faces"
+      summary: "Lister les visages de la communauté"
+      description: "Collection paginée, ordonnée par `position`. Aucun filtre serveur."
+      security: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: "Numéro de page (commence à 1). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          description: "Taille de page (1 à 100 inclus). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: "Collection paginée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/CommunityFaceCollection"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    post:
+      operationId: "community-facesCreate"
+      tags:
+        - "community-faces"
+      summary: "Créer un visage de la communauté"
+      description: "Administration. `photoMediaId` référence la table `media`."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                personName:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                caption:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                photoMediaId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                position:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                  maximum: 9999
+              required:
+                - personName
+                - caption
+      responses:
+        "201":
+          description: "Ressource créée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/CommunityFace"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/community-faces/{id}":
+    get:
+      operationId: "community-facesGet"
+      tags:
+        - "community-faces"
+      summary: "Lire un visage de la communauté"
+      description: "Un identifiant inconnu produit `COMMUNITY_FACE_NOT_FOUND`."
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID du visage : aucun slug."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "Ressource trouvée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/CommunityFace"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "404":
+          description: "COMMUNITY_FACE_NOT_FOUND — aucun visage ne correspond à cet identifiant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    patch:
+      operationId: "community-facesUpdate"
+      tags:
+        - "community-faces"
+      summary: "Mettre à jour un visage de la communauté"
+      description: "Administration. Mise à jour partielle ; un corps vide est refusé."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID du visage : aucun slug."
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                personName:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                caption:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                photoMediaId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                position:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                  maximum: 9999
+      responses:
+        "200":
+          description: "Ressource mise à jour."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/CommunityFace"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "COMMUNITY_FACE_NOT_FOUND — aucun visage ne correspond à cet identifiant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    delete:
+      operationId: "community-facesDelete"
+      tags:
+        - "community-faces"
+      summary: "Supprimer un visage de la communauté"
+      description: "Administration. Suppression définitive."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID du visage : aucun slug."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: "Ressource supprimée : corps vide."
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "COMMUNITY_FACE_NOT_FOUND — aucun visage ne correspond à cet identifiant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/scriptures":
+    get:
+      operationId: scripturesList
+      tags:
+        - scriptures
+      summary: "Lister les versets"
+      description: "Liste complète, **non paginée** : le controller renvoie `{ data }` sans `meta` (`scripture.controller.ts:20`). Aucun paramètre de requête n'est validé ni lu."
+      security: []
+      responses:
+        "200":
+          description: "Versets enregistrés."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ScriptureList"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    post:
+      operationId: scripturesCreate
+      tags:
+        - scriptures
+      summary: "Créer un verset"
+      description: "Administration. `key` est unique : le service détecte le conflit **avant** l'écriture pour renvoyer une erreur métier plutôt qu'une violation de contrainte SQL. `translation` vaut « Louis Segond 1910 » par défaut."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                key:
+                  type: string
+                  minLength: 1
+                  maxLength: 60
+                  pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                reference:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                translation:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                  default: "Louis Segond 1910"
+                context:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 200
+              required:
+                - key
+                - text
+                - reference
+      responses:
+        "201":
+          description: "Verset créé."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Scripture"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/scriptures/{key}":
+    get:
+      operationId: scripturesGet
+      tags:
+        - scriptures
+      summary: "Lire un verset par clé"
+      description: "Une clé inconnue produit `SCRIPTURE_NOT_FOUND` avec `details: { key }`."
+      security: []
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: "Clé du verset : minuscules, chiffres et tirets (ex. « rassemblement »), 1 à 60 caractères. La `key` est l'identifiant d'URL — les pages référencent leurs versets par clé — et n'est pas modifiable par `PATCH`."
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 60
+            pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      responses:
+        "200":
+          description: "Verset trouvé."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Scripture"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "404":
+          description: "`SCRIPTURE_NOT_FOUND` — aucun verset n'est enregistré pour cette clé. `details: { key }`."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    patch:
+      operationId: scripturesUpdate
+      tags:
+        - scriptures
+      summary: "Mettre à jour un verset"
+      description: "Administration. Mise à jour partielle ; `key` n'est pas modifiable et un corps vide (`{}`) est refusé (`Aucun champ à mettre à jour`)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: "Clé du verset : minuscules, chiffres et tirets (ex. « rassemblement »), 1 à 60 caractères. La `key` est l'identifiant d'URL — les pages référencent leurs versets par clé — et n'est pas modifiable par `PATCH`."
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 60
+            pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                reference:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                translation:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                  default: "Louis Segond 1910"
+                context:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 200
+      responses:
+        "200":
+          description: "Verset mis à jour."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Scripture"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`SCRIPTURE_NOT_FOUND` — clé inconnue. `details: { key }`."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    delete:
+      operationId: scripturesDelete
+      tags:
+        - scriptures
+      summary: "Supprimer un verset"
+      description: "Administration. Suppression définitive."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: "Clé du verset : minuscules, chiffres et tirets (ex. « rassemblement »), 1 à 60 caractères. La `key` est l'identifiant d'URL — les pages référencent leurs versets par clé — et n'est pas modifiable par `PATCH`."
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 60
+            pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      responses:
+        "204":
+          description: "Verset supprimé : corps vide."
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`SCRIPTURE_NOT_FOUND` — clé inconnue."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/schedule":
+    get:
+      operationId: scheduleList
+      tags:
+        - schedule
+      summary: "Lister le rythme hebdomadaire"
+      description: "Liste complète, **non paginée** et ordonnée par `position` : `{ data }` sans `meta` (`schedule.controller.ts:17`). Il n'existe **aucune** route `GET /schedule/{id}` : la lecture d'une entrée isolée n'est pas exposée."
+      security: []
+      responses:
+        "200":
+          description: "Entrées du rythme hebdomadaire."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ScheduleEntryList"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    post:
+      operationId: scheduleCreate
+      tags:
+        - schedule
+      summary: "Créer une entrée du rythme"
+      description: "Administration. `isConfirmed` vaut `false` et `position` vaut `0` par défaut."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                day:
+                  type: string
+                  minLength: 1
+                  maxLength: 20
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                timeLabel:
+                  type: string
+                  minLength: 1
+                  maxLength: 60
+                audience:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 120
+                isConfirmed:
+                  type: boolean
+                  default: false
+                position:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                  maximum: 9999
+                  default: 0
+              required:
+                - day
+                - title
+                - timeLabel
+      responses:
+        "201":
+          description: "Entrée créée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ScheduleEntry"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/schedule/{id}":
+    patch:
+      operationId: scheduleUpdate
+      tags:
+        - schedule
+      summary: "Mettre à jour une entrée du rythme"
+      description: "Administration. Mise à jour partielle ; un corps vide est refusé."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID de l'entrée du rythme."
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                day:
+                  type: string
+                  minLength: 1
+                  maxLength: 20
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                timeLabel:
+                  type: string
+                  minLength: 1
+                  maxLength: 60
+                audience:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 120
+                isConfirmed:
+                  type: boolean
+                  default: false
+                position:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                  maximum: 9999
+                  default: 0
+      responses:
+        "200":
+          description: "Entrée mise à jour."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ScheduleEntry"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`SCHEDULE_ENTRY_NOT_FOUND` — aucune entrée ne correspond à cet identifiant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    delete:
+      operationId: scheduleDelete
+      tags:
+        - schedule
+      summary: "Supprimer une entrée du rythme"
+      description: "Administration. Suppression définitive."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID de l'entrée du rythme."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: "Entrée supprimée : corps vide."
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`SCHEDULE_ENTRY_NOT_FOUND` — aucune entrée ne correspond à cet identifiant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/social-links":
+    get:
+      operationId: socialLinksList
+      tags:
+        - "social-links"
+      summary: "Lister les réseaux sociaux"
+      description: "Liste complète, **non paginée** et ordonnée par `position` : `{ data }` sans `meta` (`social-link.controller.ts:17`). Les liens affichés dans le pied de page et sur la page « nous trouver » proviennent de cette route et sont aussi exposés dans `GET /settings`."
+      security: []
+      responses:
+        "200":
+          description: "Liens sociaux ordonnés."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/SocialLinkList"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    post:
+      operationId: socialLinksCreate
+      tags:
+        - "social-links"
+      summary: "Créer un lien social"
+      description: "Administration. `href` doit être une URL `http`/`https` valide : ces liens sont affichés tels quels, un `href` arbitraire (`javascript:`, `data:`) est refusé par Zod. `position` vaut `0` par défaut."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+                  minLength: 1
+                  maxLength: 60
+                href:
+                  type: string
+                  format: uri
+                position:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                  maximum: 9999
+                  default: 0
+              required:
+                - label
+                - href
+      responses:
+        "201":
+          description: "Lien créé."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/SocialLink"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/social-links/{id}":
+    patch:
+      operationId: socialLinksUpdate
+      tags:
+        - "social-links"
+      summary: "Mettre à jour un lien social"
+      description: "Administration. Mise à jour partielle ; un corps vide est refusé."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID du lien social."
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+                  minLength: 1
+                  maxLength: 60
+                href:
+                  type: string
+                  format: uri
+                position:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                  maximum: 9999
+                  default: 0
+      responses:
+        "200":
+          description: "Lien mis à jour."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/SocialLink"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`SOCIAL_LINK_NOT_FOUND` — aucun lien ne correspond à cet identifiant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    delete:
+      operationId: socialLinksDelete
+      tags:
+        - "social-links"
+      summary: "Supprimer un lien social"
+      description: "Administration. Suppression définitive."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID du lien social."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: "Lien supprimé : corps vide."
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`SOCIAL_LINK_NOT_FOUND` — aucun lien ne correspond à cet identifiant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/settings":
+    get:
+      operationId: settingsGet
+      tags:
+        - settings
+      summary: "Lire les réglages du site"
+      description: "Document unique, sans identifiant : regroupe les scalaires de `site_settings` (exposés en objet clé/valeur) et la liste ordonnée des liens sociaux. Les deux sources sont lues en parallèle."
+      security: []
+      responses:
+        "200":
+          description: "Réglages courants."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Settings"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    patch:
+      operationId: settingsUpdate
+      tags:
+        - settings
+      summary: "Mettre à jour les réglages du site"
+      description: "Administration. Mise à jour en masse de scalaires. La liste des clés écrivables est **fermée** : une clé inconnue fait échouer toute l'opération plutôt que d'être ignorée silencieusement. La réponse est l'état **complet relu**, qui contient donc aussi les clés absentes de la requête."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                settings:
+                  type: object
+                  additionalProperties:
+                    type: string
+                    minLength: 1
+                    maxLength: 500
+              required:
+                - settings
+      responses:
+        "200":
+          description: "Réglages mis à jour et relus."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Settings"
+        "400":
+          description: "`VALIDATION_ERROR` — objet `settings` vide (`Aucun réglage à mettre à jour`, `details: { allowedKeys }`), ou clé non autorisée (`Clé de réglage non autorisée : …`, `details: { unknownKeys, allowedKeys }`). Une valeur vide ou blanche est refusée par Zod (1 à 500 caractères)."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/pages/{pageKey}":
+    get:
+      operationId: pagesGet
+      tags:
+        - pages
+      summary: "Lire le contenu d'une page éditable"
+      description: "Il n'existe pas de route de collection : l'énumération des clés éditables vient du registre `domain/content/page-content.ts`, pas de la base. Une clé hors registre produit `PAGE_NOT_FOUND`."
+      security: []
+      parameters:
+        - name: pageKey
+          in: path
+          required: true
+          description: "Clé de la page (1 à 60 caractères), telle que le frontend la connaît. Volontairement permissive : une clé inconnue produit un 404 métier (`PAGE_NOT_FOUND`), pas un 400 de forme."
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 60
+      responses:
+        "200":
+          description: "Contenu de la page."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/StaticPage"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "404":
+          description: "`PAGE_NOT_FOUND` — aucune page ne correspond à cette `pageKey`."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    patch:
+      operationId: pagesUpdate
+      tags:
+        - pages
+      summary: "Mettre à jour le contenu d'une page éditable"
+      description: "Administration. La validation est faite **en deux temps** : forme générale (`{ content: objet }`) par Zod, puis contenu par le schéma de la page dans le service — c'est la seule façon de rejeter une `pageKey` inconnue en `PAGE_NOT_FOUND` et un contenu non conforme en `VALIDATION_ERROR`. `updatedBy` est déduit du jeton vérifié, jamais du corps de la requête : un client ne peut pas falsifier l'auteur de la modification."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: pageKey
+          in: path
+          required: true
+          description: "Clé de la page (1 à 60 caractères), telle que le frontend la connaît. Volontairement permissive : une clé inconnue produit un 404 métier (`PAGE_NOT_FOUND`), pas un 400 de forme."
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 60
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                content:
+                  type: object
+                  additionalProperties: {}
+              required:
+                - content
+      responses:
+        "200":
+          description: "Contenu mis à jour."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/StaticPage"
+        "400":
+          description: "`VALIDATION_ERROR` — `content` n'est pas un objet, ou son contenu ne respecte pas le schéma de la page concernée. `details` décrit les champs fautifs."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`PAGE_NOT_FOUND` — la `pageKey` n'est pas une page éditable."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/media":
+    get:
+      operationId: mediaList
+      tags:
+        - media
+      summary: "Lister les médias"
+      description: "Administration : le registre des fichiers téléversés n'est **jamais** public. Collection paginée, sans filtre serveur."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: "Numéro de page (commence à 1). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          description: "Taille de page (1 à 100 inclus). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: "Collection paginée de médias."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/MediaCollection"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    post:
+      operationId: mediaUpload
+      tags:
+        - media
+      summary: "Téléverser un média"
+      description: "Administration. Corps `multipart/form-data` : un champ fichier `file` et un champ texte `folder`, plus un `alt` facultatif.\n\nLe téléversement est fait **en mémoire** (`multer.memoryStorage()`) : rien n'est jamais écrit sur le disque du serveur, éphémère sur l'hébergement. Type et taille sont contrôlés par `StorageService` à partir des **octets** du fichier — jamais du `Content-Type` ni du nom de fichier envoyés par le client — et le nom du fichier stocké est généré par le serveur (UUID + extension), ce qui élimine les traversées de chemin et les collisions."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          "multipart/form-data":
+            schema:
+              "$ref": "#/components/schemas/UploadMediaRequest"
+      responses:
+        "201":
+          description: "Média téléversé et enregistré."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Media"
+        "400":
+          description: "`VALIDATION_ERROR` — champ `folder` absent ou hors de la liste autorisée, `alt` trop long, aucun fichier reçu sous le nom de champ `file` (« Aucun fichier reçu : le champ de formulaire « file » est requis »), ou plusieurs fichiers envoyés. `details` indique le champ fautif."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "413":
+          "$ref": "#/components/responses/FileTooLarge"
+        "415":
+          "$ref": "#/components/responses/InvalidFileType"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/media/{id}/usage":
+    get:
+      operationId: mediaUsage
+      tags:
+        - media
+      summary: "Lister les usages d'un média"
+      description: "Administration. Renvoie le média, le nombre total de références et la liste des emplacements qui le référencent réellement. Le calcul passe par une seule requête SQL, jamais par une boucle."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID du média."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "Rapport d'usages."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/MediaUsageReport"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`MEDIA_NOT_FOUND` — aucun média ne correspond à cet identifiant. `details: { id }`."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/media/{id}":
+    get:
+      operationId: mediaGet
+      tags:
+        - media
+      summary: "Lire un média"
+      description: "Administration. Aucun champ interne n'est exposé : ni clé, ni jeton."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID du média."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "Média trouvé."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Media"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`MEDIA_NOT_FOUND` — aucun média ne correspond à cet identifiant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    delete:
+      operationId: mediaDelete
+      tags:
+        - media
+      summary: "Supprimer un média"
+      description: "Administration. Refusée par défaut si le fichier est encore référencé : la réponse est alors `CONFLICT` avec le détail des usages. `?force=true` détache d'abord les références, puis supprime la ligne **et** le fichier du Storage. Seule la chaîne littérale `true` autorise la suppression forcée : `false` ou toute autre valeur est refusée par Zod (une valeur quelconque ne doit pas être convertie en booléen, `Boolean(\"false\")` valant `true`)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID du média."
+          schema:
+            type: string
+            format: uuid
+        - name: force
+          in: query
+          required: false
+          description: "`true` pour supprimer un média encore référencé (les références sont détachées). Défaut : `false`."
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+            default: "false"
+      responses:
+        "204":
+          description: "Média supprimé du registre et du Storage : corps vide."
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`MEDIA_NOT_FOUND` — aucun média ne correspond à cet identifiant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "409":
+          description: "`CONFLICT` — le média est encore utilisé et `force` n'est pas `true`. `details: { total, usages }`."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/prayer-requests":
+    post:
+      operationId: prayerRequestsSubmit
+      tags:
+        - "prayer-requests"
+      summary: "Déposer une demande de prière"
+      description: "**Route publique** : c'est le seul point d'écriture ouvert à un visiteur non authentifié. Le corps est un objet **strict** : toute clé inconnue provoque un 400 plutôt que d'être ignorée, et un champ non prévu ne peut pas être injecté dans la ligne.\n\nLa route est **rate-limitée à 5 dépôts par heure et par IP** (`prayer-request.routes.ts`), en plus de la limite globale. Le compteur est indexé sur l'adresse IP réelle (`trust proxy` activé pour Railway).\n\nLa réponse est volontairement minimale : ni le texte de l'intention, ni le prénom, ni le contact ne sont renvoyés — ces données personnelles sensibles ne circulent pas une seconde fois."
+      security: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                requestText:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                requesterName:
+                  type: string
+                  maxLength: 120
+                requesterContact:
+                  type: string
+                  maxLength: 120
+                confidentiality:
+                  type: string
+                  enum:
+                    - private
+                    - community
+                  default: private
+              required:
+                - requestText
+              additionalProperties: false
+      responses:
+        "201":
+          description: "Demande enregistrée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/PrayerRequestCreated"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "429":
+          "$ref": "#/components/responses/RateLimitedPublicWrite"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    get:
+      operationId: prayerRequestsList
+      tags:
+        - "prayer-requests"
+      summary: "Lister les demandes de prière"
+      description: "**Administration uniquement.** Lecture jamais publique : le formulaire affirme au visiteur que sa demande « ne sera jamais publiée sur Internet ni sur les réseaux sociaux ». Ordre fixé par le serveur (date décroissante) ; aucun paramètre de tri n'existe."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: "Numéro de page (commence à 1). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          description: "Taille de page (1 à 100 inclus). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          required: false
+          description: "Filtrer par état. Omis ⇒ toutes les demandes."
+          schema:
+            type: string
+            enum:
+              - NEW
+              - PRAYED
+      responses:
+        "200":
+          description: "Collection paginée de demandes."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/PrayerRequestCollection"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/prayer-requests/{id}":
+    get:
+      operationId: prayerRequestsGet
+      tags:
+        - "prayer-requests"
+      summary: "Lire une demande de prière"
+      description: "Administration. Le message d'erreur est volontairement identique quelle que soit la cause : rien à deviner pour un appelant non autorisé."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID de la demande de prière (jamais un slug)."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "Demande trouvée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/PrayerRequest"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`PRAYER_REQUEST_NOT_FOUND` — cette demande de prière est introuvable."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    patch:
+      operationId: prayerRequestsUpdate
+      tags:
+        - "prayer-requests"
+      summary: "Marquer une demande comme portée"
+      description: "Administration. Une seule transition existe en V1 : `NEW → PRAYED`. Le corps est un objet strict dont le seul champ autorisé est `status`, avec la seule valeur littérale `PRAYED` — accepter `NEW` laisserait croire à un retour arrière que la persistance ne sait pas exprimer. Renseigne `handledAt`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID de la demande de prière (jamais un slug)."
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - PRAYED
+              required:
+                - status
+              additionalProperties: false
+      responses:
+        "200":
+          description: "Demande marquée comme portée."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/PrayerRequest"
+        "400":
+          description: "`VALIDATION_ERROR` — corps non conforme : clé inconnue, champ `status` absent, ou valeur autre que la chaîne littérale `PRAYED`."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`PRAYER_REQUEST_NOT_FOUND` — cette demande de prière est introuvable."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    delete:
+      operationId: prayerRequestsDelete
+      tags:
+        - "prayer-requests"
+      summary: "Supprimer une demande de prière"
+      description: "Administration. Suppression définitive."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID de la demande de prière (jamais un slug)."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: "Demande supprimée : corps vide."
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`PRAYER_REQUEST_NOT_FOUND` — cette demande de prière est introuvable."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/admin/me":
+    get:
+      operationId: adminMe
+      tags:
+        - admin
+      summary: "Profil de l'administrateur connecté"
+      description: "Exige seulement d'être un **administrateur actif** (jeton valide + profil `admin_profiles` présent et `isActive`), sans rôle supplémentaire : c'est l'appel par lequel l'interface sait qui est connecté. Aucun identifiant n'est reçu — le profil est déduit du jeton vérifié, jamais d'un paramètre d'URL, ce qui interdit de lire le profil d'un autre administrateur."
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Profil courant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminProfile"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/admin/profiles":
+    get:
+      operationId: adminProfilesList
+      tags:
+        - admin
+      summary: "Lister les profils administratifs"
+      description: "Administration au sens plein (`ROLE_ADMIN`) : expose l'annuaire administratif, avec l'état d'activation et la date de création de chaque profil. Collection paginée, sans filtre serveur."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: "Numéro de page (commence à 1). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          description: "Taille de page (1 à 100 inclus). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: "Collection paginée de profils."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminProfileCollection"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+webhooks: {}

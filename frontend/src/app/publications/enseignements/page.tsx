@@ -8,7 +8,7 @@ import { ScriptureBlock } from "@/components/editorial/ScriptureBlock";
 import { ContentPending } from "@/components/editorial/ContentPending";
 import { CrossLinks, type CrossLink } from "@/components/editorial/CrossLinks";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { getPublicationsByCategory } from "@/data/mock/publications";
+import { getPublications } from "@/lib/api";
 import { photoPool } from "@/data/mock/images";
 import { verses } from "@/data/mock/verses";
 import { formatLongDate } from "@/lib/utils";
@@ -39,8 +39,8 @@ const related: CrossLink[] = [
   },
 ];
 
-export default function EnseignementsPage() {
-  const items = getPublicationsByCategory("ENSEIGNEMENT");
+export default async function EnseignementsPage() {
+  const items = await getPublications({ category: "ENSEIGNEMENT", limit: 50 });
   const featured = items[0];
   const featuredVideo =
     featured?.type === "VIDEO" && featured.contentUrl

@@ -7,15 +7,32 @@ import { KeyFacts } from "@/components/editorial/KeyFacts";
 import { PhotoGallery } from "@/components/editorial/PhotoGallery";
 import { Badge } from "@/components/ui/Badge";
 import { EventRow } from "@/features/events/EventRow";
-import { events, getEventBySlug, upcomingEvents } from "@/data/mock/events";
-import { getDepartmentName } from "@/data/mock/departments";
+import { getDepartments, getEvent, getEvents } from "@/lib/api";
 import { site } from "@/data/mock/site";
 import { formatLongDate, formatTime } from "@/lib/utils";
 import { pageMetadata } from "@/lib/seo";
 
-/** Pré-génère une page par événement (aucune requête au runtime). */
-export function generateStaticParams() {
-  return events.map((event) => ({ slug: event.slug }));
+/**
+ * Pré-génère une fiche par événement publié.
+ *
+ * ⚠️ Cette fonction s'exécute **au build** : si l'API est injoignable à ce
+ * moment-là (conteneur Railway endormi, réseau coupé), elle doit renvoyer `[]`
+ * sans jamais échouer — sinon le déploiement Vercel casse. Les fiches restent
+ * servies à la demande (`dynamicParams` par défaut) et seront pré-générées au
+ * build suivant.
+ */
+export async function generateStaticParams() {
+  try {
+    const events = await getEvents({ limit: 100 });
+    return events.map((event) => ({ slug: event.slug }));
+  } catch (error) {
+    // `getEvents` ne lève pas : ce filet couvre toute erreur imprévue.
+    console.warn(
+      "[evenements] generateStaticParams : API indisponible, repli sur une liste vide",
+      error,
+    );
+    return [];
+  }
 }
 
 export async function generateMetadata({
@@ -24,7 +41,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const event = getEventBySlug(slug);
+  const event = await getEvent(slug);
   if (!event) return {};
 
   return pageMetadata({
@@ -43,10 +60,23 @@ export default async function EventDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const event = getEventBySlug(slug);
+  const event = await getEvent(slug);
   if (!event) notFound();
 
-  const departmentName = getDepartmentName(event.departmentId);
+  const [departments, upcomingEvents] = await Promise.all([
+    getDepartments(),
+    getEvents({ status: "UPCOMING", limit: 4 }),
+  ]);
+
+  /** Les événements de l'API référencent les départements par identifiant. */
+  const departmentNames = Object.fromEntries(
+    departments.map((dept) => [dept.id, dept.name]),
+  );
+  const departmentName = event.departmentId
+    ? departmentNames[event.departmentId]
+    : undefined;
+
+  /** `status` est calculé par l'API : le frontend ne le recalcule jamais. */
   const isUpcoming = event.status === "UPCOMING";
 
   const related = upcomingEvents
@@ -204,7 +234,11 @@ export default async function EventDetailPage({
                 >
                   <EventRow
                     event={item}
-                    departmentName={getDepartmentName(item.departmentId)}
+                    departmentName={
+                      item.departmentId
+                        ? departmentNames[item.departmentId]
+                        : undefined
+                    }
                   />
                 </Link>
               ))}

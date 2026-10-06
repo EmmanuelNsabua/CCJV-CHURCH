@@ -9,7 +9,8 @@ import { ScriptureBlock } from "@/components/editorial/ScriptureBlock";
 import { ContentPending } from "@/components/editorial/ContentPending";
 import { CrossLinks, type CrossLink } from "@/components/editorial/CrossLinks";
 import { Button } from "@/components/ui/Button";
-import { testimonies } from "@/data/mock/testimonies";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { getTestimonies } from "@/lib/api";
 import { images } from "@/data/mock/images";
 import { site } from "@/data/mock/site";
 import { verses } from "@/data/mock/verses";
@@ -45,12 +46,13 @@ const related: CrossLink[] = [
   },
 ];
 
-export default function TemoignagesPage() {
-  /**
-   * ⚠️ Contenus de DÉMONSTRATION (`src/data/mock/testimonies.ts`) : ces récits
-   * ne sont pas réels et servent à montrer le format (visage + parole). Ils sont
-   * signalés comme tels dans la page et attendent les témoignages réels.
+export default async function TemoignagesPage() {
+  /*
+   * Témoignages servis par l'API (`GET /testimonies`). La collection arrive
+   * vide si l'API est injoignable : la page affiche alors son état vide, elle
+   * ne rend jamais une erreur.
    */
+  const testimonies = await getTestimonies();
   const [lead, ...others] = testimonies;
 
   return (
@@ -103,90 +105,99 @@ export default function TemoignagesPage() {
         </div>
       }
       chapters={
-        <>
-          {/* Témoignage principal — portrait + parole, en grand */}
-          <article className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
-            <figure className="lg:col-span-5">
-              <div className="relative aspect-4/5 w-full overflow-hidden bg-ccjv-line">
-                <Image
-                  src={lead.photo}
-                  alt=""
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 38vw"
-                  className="object-cover"
+        lead ? (
+          <>
+            {/* Témoignage principal — portrait + parole, en grand */}
+            <article className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
+              <figure className="lg:col-span-5">
+                <div className="relative aspect-4/5 w-full overflow-hidden bg-ccjv-line">
+                  <Image
+                    src={lead.photo}
+                    alt=""
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 38vw"
+                    className="object-cover"
+                  />
+                </div>
+              </figure>
+
+              <div className="lg:col-span-6 lg:col-start-7">
+                <p className="font-sans text-xs font-semibold tracking-[0.18em] text-ccjv-green uppercase">
+                  Témoignage
+                </p>
+                <h2 className="mt-5 font-serif text-[clamp(1.9rem,1.1rem+2.2vw,3rem)] leading-[1.1]">
+                  {lead.name}
+                </h2>
+                <p className="mt-3 font-sans text-[0.98rem] text-ccjv-ink-secondary">
+                  {lead.role}
+                </p>
+
+                <PullQuote
+                  className="mt-10"
+                  align="left"
+                  text={`« ${lead.quote} »`}
                 />
               </div>
-            </figure>
+            </article>
 
-            <div className="lg:col-span-6 lg:col-start-7">
-              <p className="font-sans text-xs font-semibold tracking-[0.18em] text-ccjv-green uppercase">
-                Témoignage
-              </p>
-              <h2 className="mt-5 font-serif text-[clamp(1.9rem,1.1rem+2.2vw,3rem)] leading-[1.1]">
-                {lead.name}
-              </h2>
-              <p className="mt-3 font-sans text-[0.98rem] text-ccjv-ink-secondary">
-                {lead.role}
-              </p>
+            {/* Témoignages secondaires — liste éditoriale à filets */}
+            {others.length > 0 && (
+              <div>
+                <p className="font-sans text-xs font-semibold tracking-[0.18em] text-ccjv-green uppercase">
+                  D&apos;autres voix
+                </p>
+                <h2 className="mt-4 max-w-[30ch] text-[clamp(1.6rem,1rem+1.6vw,2.35rem)] leading-[1.16]">
+                  Des récits courts, chacun avec ses mots
+                </h2>
 
-              <PullQuote
-                className="mt-10"
-                align="left"
-                text={`« ${lead.quote} »`}
-              />
-            </div>
-          </article>
+                <ul className="mt-12 border-t border-ccjv-line">
+                  {others.map((testimony) => (
+                    <li
+                      key={testimony.id}
+                      className="grid grid-cols-1 gap-7 border-b border-ccjv-line py-10 sm:grid-cols-12 sm:gap-8"
+                    >
+                      <figure className="sm:col-span-3">
+                        <div className="relative aspect-3/4 w-full overflow-hidden bg-ccjv-line">
+                          <Image
+                            src={testimony.photo}
+                            alt=""
+                            fill
+                            sizes="(max-width: 640px) 100vw, 22vw"
+                            className="object-cover"
+                          />
+                        </div>
+                      </figure>
 
-          {/* Témoignages secondaires — liste éditoriale à filets */}
-          <div>
-            <p className="font-sans text-xs font-semibold tracking-[0.18em] text-ccjv-green uppercase">
-              D&apos;autres voix
-            </p>
-            <h2 className="mt-4 max-w-[30ch] text-[clamp(1.6rem,1rem+1.6vw,2.35rem)] leading-[1.16]">
-              Des récits courts, chacun avec ses mots
-            </h2>
+                      <div className="sm:col-span-8 sm:col-start-5">
+                        <blockquote className="font-serif text-[clamp(1.15rem,0.8rem+1.1vw,1.6rem)] leading-[1.5] text-ccjv-ink italic">
+                          « {testimony.quote} »
+                        </blockquote>
+                        <p className="mt-5 font-sans text-[0.95rem] font-semibold">
+                          {testimony.name}
+                        </p>
+                        <p className="font-sans text-[0.78rem] font-semibold tracking-[0.14em] text-ccjv-ink-secondary uppercase">
+                          {testimony.role}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
 
-            <ul className="mt-12 border-t border-ccjv-line">
-              {others.map((testimony) => (
-                <li
-                  key={testimony.id}
-                  className="grid grid-cols-1 gap-7 border-b border-ccjv-line py-10 sm:grid-cols-12 sm:gap-8"
-                >
-                  <figure className="sm:col-span-3">
-                    <div className="relative aspect-3/4 w-full overflow-hidden bg-ccjv-line">
-                      <Image
-                        src={testimony.photo}
-                        alt=""
-                        fill
-                        sizes="(max-width: 640px) 100vw, 22vw"
-                        className="object-cover"
-                      />
-                    </div>
-                  </figure>
-
-                  <div className="sm:col-span-8 sm:col-start-5">
-                    <blockquote className="font-serif text-[clamp(1.15rem,0.8rem+1.1vw,1.6rem)] leading-[1.5] text-ccjv-ink italic">
-                      « {testimony.quote} »
-                    </blockquote>
-                    <p className="mt-5 font-sans text-[0.95rem] font-semibold">
-                      {testimony.name}
-                    </p>
-                    <p className="font-sans text-[0.78rem] font-semibold tracking-[0.14em] text-ccjv-ink-secondary uppercase">
-                      {testimony.role}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-
-            <ContentPending
-              className="mt-10"
-              variant="inline"
-              what="Témoignages réels"
-              hint="Ces récits, comme le précédent, sont des contenus de démonstration : les témoignages définitifs doivent être recueillis auprès des personnes elles-mêmes."
-            />
-          </div>
-        </>
+                <ContentPending
+                  className="mt-10"
+                  variant="inline"
+                  what="Témoignages réels"
+                  hint="Ces récits, comme le précédent, sont des contenus de démonstration : les témoignages définitifs doivent être recueillis auprès des personnes elles-mêmes."
+                />
+              </div>
+            )}
+          </>
+        ) : (
+          <EmptyState
+            title="Aucun témoignage publié pour le moment"
+            description="Les récits publiés depuis le back-office apparaîtront ici. Si vous souhaitez raconter le vôtre, écrivez-nous : il sera publié avec votre accord."
+          />
+        )
       }
       feature={
         <FeatureImage

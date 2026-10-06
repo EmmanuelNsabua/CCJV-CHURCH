@@ -1,0 +1,2748 @@
+/**
+ * Construction du document OpenAPI 3.1 de l'API CCJV.
+ *
+ * ## Principe : la documentation n'est pas un second contrat
+ *
+ * Le cahier du projet impose que « la documentation OpenAPI corresponde au
+ * comportement réel de l'API ». Ce fichier est donc écrit **contre
+ * l'implémentation**, pas contre une intention :
+ *
+ * - les **chemins** et les **méthodes** sont ceux réellement montés dans
+ *   `src/app.ts` et déclarés dans les `*.routes.ts` de chaque module ;
+ * - les **corps de requête** sont les schémas Zod des modules eux-mêmes,
+ *   importés et convertis par `@asteasolutions/zod-to-openapi` : Zod reste la
+ *   source de vérité, un schéma qui change change la documentation. Ils sont
+ *   inscrits **dans l'opération** (le générateur ne peut associer un `refId` à
+ *   un schéma Zod que via `extendZodWithOpenApi`, dont le correctif de prototype
+ *   n'atteint pas les classes de Zod 4.6 sous `tsx` : le document reste exact,
+ *   seule la mise en facteur dans `components/schemas` est perdue) ;
+ * - les **codes d'erreur** sont les 24 valeurs de l'union `ErrorCode` de
+ *   `shared/errors/app-error.ts` — aucune n'est inventée, et la couverture est
+ *   vérifiée à la compilation (`ERROR_CODES` ci-dessous) ;
+ * - les **bornes** de pagination, les valeurs d'énumération et les tailles
+ *   maximales sont importées des constantes de l'implémentation
+ *   (`DEFAULT_PAGE_SIZE`, `MAX_PAGE_SIZE`, `MEDIA_FOLDERS`, …).
+ *
+ * ## Ce qui est écrit à la main, et pourquoi
+ *
+ * - Les **DTO de réponse** : l'API n'a pas de schéma Zod de sortie, la réponse
+ *   est produite par les `*.serializer.ts`. Chaque schéma de ce fichier est
+ *   donc la transcription exacte du serializer correspondant (champs toujours
+ *   présents, champs omis lorsqu'ils valent `null` en domaine, énumérations).
+ * - Les **paramètres** (chemin et requête) : les schémas Zod de *query*
+ *   utilisent `.transform()` et `z.preprocess()` (`createSortSchema`,
+ *   `deleteMediaQuerySchema`), qui ne se projettent pas en paramètres OpenAPI.
+ *   Chaque paramètre reprend néanmoins les bornes réelles du schéma Zod.
+ *
+ * ## Enveloppes (docs/004 §34)
+ *
+ * - collection : `{ data: [...], meta: { page, limit, total, totalPages } }`
+ * - ressource  : la ressource directement (jamais enveloppée)
+ * - erreur     : `{ error: { code, message, details? } }`
+ *
+ * Trois exceptions à l'enveloppe de collection existent réellement dans le code
+ * et sont documentées comme telles : `GET /scriptures`, `GET /schedule` et
+ * `GET /social-links` renvoient `{ data: [...] }` **sans `meta`**, car ces
+ * listes sont bornées et non paginées (`scripture.controller.ts:20`,
+ * `schedule.controller.ts:17`, `social-link.controller.ts:17`).
+ */
+
+import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
+import type {
+  ResponseConfig,
+  RouteConfig,
+  ZodRequestBody,
+} from "@asteasolutions/zod-to-openapi";
+import type { ZodType } from "zod";
+
+import type { ErrorCode } from "@/shared/errors/app-error";
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "@/shared/http/pagination";
+
+/* -------------------------------------------------------------------------- */
+/*  Schémas Zod réels des modules — importés, jamais recopiés                 */
+/* -------------------------------------------------------------------------- */
+
+import {
+  createDepartmentSchema,
+  updateDepartmentSchema,
+} from "@/modules/departments/department.schema";
+import {
+  createEventSchema,
+  updateEventSchema,
+} from "@/modules/events/event.schema";
+import {
+  createPublicationSchema,
+  updatePublicationSchema,
+} from "@/modules/publications/publication.schema";
+import {
+  createLeaderSchema,
+  updateLeaderSchema,
+} from "@/modules/leaders/leader.schema";
+import {
+  createTestimonySchema,
+  updateTestimonySchema,
+} from "@/modules/testimonies/testimony.schema";
+import {
+  createCommunityFaceSchema,
+  updateCommunityFaceSchema,
+} from "@/modules/community-faces/community-face.schema";
+import {
+  scriptureCreateSchema,
+  scriptureUpdateSchema,
+} from "@/modules/scriptures/scripture.schema";
+import {
+  scheduleCreateSchema,
+  scheduleUpdateSchema,
+} from "@/modules/schedule/schedule.schema";
+import {
+  socialLinkCreateSchema,
+  socialLinkUpdateSchema,
+} from "@/modules/social-links/social-link.schema";
+import {
+  ALLOWED_SETTING_KEYS,
+  settingsPatchSchema,
+} from "@/modules/settings/setting.schema";
+import { pageContentUpdateSchema } from "@/modules/static-pages/static-page.schema";
+import { MEDIA_FOLDERS } from "@/modules/media/media.schema";
+import {
+  PRAYER_REQUEST_CONTACT_MAX_LENGTH,
+  PRAYER_REQUEST_NAME_MAX_LENGTH,
+  PRAYER_REQUEST_TEXT_MAX_LENGTH,
+  createPrayerRequestSchema,
+  updatePrayerRequestSchema,
+} from "@/modules/prayer-requests/prayer-request.schema";
+
+/* -------------------------------------------------------------------------- */
+/*  Constantes reprises de l'implémentation                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Préfixe commun de toutes les routes métier.
+ *
+ * Il est figé sur `/api/v1` : c'est la valeur par défaut d'`API_VERSION`
+ * (`config/env.ts`) et le préfixe sous lequel les routers sont montés dans
+ * `app.ts`. Changer `API_VERSION` demande de régénérer ce document.
+ */
+const API_BASE_PATH = "/api/v1";
+
+/** Schéma d'authentification : jeton porteur Supabase (`middlewares/auth.ts`). */
+const SECURITY_SCHEME_NAME = "bearerAuth";
+
+/**
+ * Les 24 codes d'erreur déclarés dans `shared/errors/app-error.ts`.
+ *
+ * Une union TypeScript n'existe pas à l'exécution : la liste est donc écrite
+ * ici, mais les deux vérifications ci-dessous rendent toute dérive impossible
+ * **à la compilation** :
+ *
+ * - `satisfies readonly ErrorCode[]` interdit d'inventer un code ;
+ * - `MissingErrorCodes` interdit d'en oublier un.
+ */
+const ERROR_CODES = [
+  // Authentification / autorisation
+  "AUTH_REQUIRED",
+  "FORBIDDEN",
+  "UNAUTHENTICATED_ADMIN",
+  // Validation
+  "VALIDATION_ERROR",
+  // Ressources
+  "EVENT_NOT_FOUND",
+  "DEPARTMENT_NOT_FOUND",
+  "PUBLICATION_NOT_FOUND",
+  "PAGE_NOT_FOUND",
+  "LEADER_NOT_FOUND",
+  "TESTIMONY_NOT_FOUND",
+  "COMMUNITY_FACE_NOT_FOUND",
+  "SCRIPTURE_NOT_FOUND",
+  "SCHEDULE_ENTRY_NOT_FOUND",
+  "SOCIAL_LINK_NOT_FOUND",
+  "PRAYER_REQUEST_NOT_FOUND",
+  "MEDIA_NOT_FOUND",
+  "SETTING_NOT_FOUND",
+  // Conflits
+  "DUPLICATE_SLUG",
+  "CONFLICT",
+  // Fichiers
+  "FILE_TOO_LARGE",
+  "INVALID_FILE_TYPE",
+  // Limites et divers
+  "RATE_LIMITED",
+  "NOT_FOUND",
+  "INTERNAL_ERROR",
+] as const satisfies readonly ErrorCode[];
+
+/** Contrôle de compilation : aucun code source oublié. */
+type MissingErrorCodes = Exclude<ErrorCode, (typeof ERROR_CODES)[number]>;
+type AssertNever<T extends never> = T;
+type ErrorCodeListIsExhaustive = AssertNever<MissingErrorCodes>;
+
+/* -------------------------------------------------------------------------- */
+/*  Types utilitaires                                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Types d'opération empruntés au **document 3.1** produit par le générateur.
+ *
+ * `RouteConfig` expose `parameters` et `security` comme une **union** des
+ * tableaux des spécifications 3.0, 3.1 et 3.2 d'`openapi3-ts` : un tableau de
+ * paramètres 3.1 n'y est pas assignable (une union de tableaux n'est pas un
+ * tableau d'unions). Le document produit étant strictement 3.1, les types sont
+ * extraits de la sortie réelle du générateur plutôt que de son entrée.
+ */
+type GeneratedDocument = ReturnType<OpenApiGeneratorV31["generateDocument"]>;
+type GeneratedOperation = NonNullable<
+  NonNullable<GeneratedDocument["paths"]>[string]["get"]
+>;
+
+/** Paramètre d'opération (chemin ou requête). */
+type OpenApiParameter = NonNullable<GeneratedOperation["parameters"]>[number];
+
+/** Réponse d'opération : objet concret ou `$ref` vers `components/responses`. */
+type OpenApiResponse = RouteConfig["responses"][string];
+
+/** Exigence de sécurité d'une opération. */
+type OpenApiSecurity = NonNullable<GeneratedOperation["security"]>;
+
+/** Schéma d'un corps de requête : schéma Zod des modules, ou référence nommée. */
+type RequestBodySchema = ZodType | { $ref: string };
+
+/** Corps de requête, tel que le déclarent les routers de ce document. */
+interface RequestBodySpec {
+  required?: boolean;
+  content: Record<string, { schema: RequestBodySchema }>;
+}
+
+/**
+ * Route telle que ce fichier la déclare.
+ *
+ * Seuls `parameters` et `requestBody` s'écartent de `RouteConfig` : les
+ * paramètres sont décrits dans le type 3.1 ci-dessus, et le corps de requête
+ * porte un schéma Zod que le générateur doit convertir en composant référencé.
+ * La conversion en `RouteConfig` est faite une seule fois, dans
+ * `registerRoute`.
+ */
+type RouteSpec = Omit<RouteConfig, "parameters" | "requestBody"> & {
+  parameters?: OpenApiParameter[];
+  requestBody?: RequestBodySpec;
+};
+
+/** Route publique : aucun `security` hérité, aucune authentification. */
+const NO_SECURITY: OpenApiSecurity = [];
+
+/** Route d'administration : jeton porteur Supabase exigé. */
+const BEARER_SECURITY: OpenApiSecurity = [{ [SECURITY_SCHEME_NAME]: [] }];
+
+/**
+ * Enregistre une opération.
+ *
+ * Deux conversions, et elles sont les seules du fichier :
+ *
+ * 1. `requestBody` → `request.body`. C'est le seul point d'entrée qui fait
+ *    convertir un schéma Zod par le générateur ; un `requestBody` transmis tel
+ *    quel serait sérialisé brut, schéma Zod compris.
+ * 2. `parameters` → le type attendu par `RouteConfig`, décrit ci-dessus.
+ */
+function registerRoute(registry: OpenAPIRegistry, route: RouteSpec): void {
+  const { requestBody, parameters, ...rest } = route;
+
+  registry.registerPath({
+    ...rest,
+    ...(requestBody === undefined
+      ? {}
+      : { request: { body: requestBody as unknown as ZodRequestBody } }),
+    ...(parameters === undefined
+      ? {}
+      : {
+          parameters:
+            parameters as unknown as NonNullable<RouteConfig["parameters"]>,
+        }),
+  } as unknown as RouteConfig);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Fabriques typées (le typage contextuel garantit la conformité OpenAPI)     */
+/* -------------------------------------------------------------------------- */
+
+const parameter = (value: OpenApiParameter): OpenApiParameter => value;
+const response = (value: ResponseConfig): ResponseConfig => value;
+
+/** Référence vers un schéma de `components/schemas`. */
+const schemaRef = (name: string): { $ref: string } => ({
+  $ref: `#/components/schemas/${name}`,
+});
+
+/** Référence vers une réponse de `components/responses`. */
+const responseRef = (name: string): OpenApiResponse => ({
+  $ref: `#/components/responses/${name}`,
+});
+
+/** Réponse JSON portant un schéma nommé. */
+const jsonResponse = (description: string, schemaName: string): ResponseConfig =>
+  response({
+    description,
+    content: { "application/json": { schema: schemaRef(schemaName) } },
+  });
+
+/** Réponse d'erreur au format unique `{ error: { code, message, details? } }`. */
+const errorResponse = (description: string): ResponseConfig =>
+  response({
+    description,
+    content: { "application/json": { schema: schemaRef("ErrorResponse") } },
+  });
+
+/** Paramètre de chemin — les bornes reprennent les schémas Zod des modules. */
+function pathParameter(
+  name: string,
+  description: string,
+  kind: "uuid" | "idOrSlug" | "scriptureKey" | "pageKey",
+): OpenApiParameter {
+  if (kind === "uuid") {
+    return parameter({
+      name,
+      in: "path",
+      required: true,
+      description,
+      schema: { type: "string", format: "uuid" },
+    });
+  }
+
+  if (kind === "scriptureKey") {
+    // `scriptureKeySchema` : 1–60 caractères, minuscules/chiffres/tirets.
+    return parameter({
+      name,
+      in: "path",
+      required: true,
+      description,
+      schema: {
+        type: "string",
+        minLength: 1,
+        maxLength: 60,
+        pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      },
+    });
+  }
+
+  if (kind === "pageKey") {
+    // `pageParamsSchema` : 1–60 caractères, volontairement permissif (une clé
+    // inconnue doit produire un 404 métier, pas un 400 de forme).
+    return parameter({
+      name,
+      in: "path",
+      required: true,
+      description,
+      schema: { type: "string", minLength: 1, maxLength: 60 },
+    });
+  }
+
+  // `*IdOrSlugSchema` : 1–200 caractères, UUID **ou** slug.
+  return parameter({
+    name,
+    in: "path",
+    required: true,
+    description,
+    schema: { type: "string", minLength: 1, maxLength: 200 },
+  });
+}
+
+/** Paramètre de requête entier. */
+function integerQueryParameter(
+  name: string,
+  description: string,
+  bounds: { minimum?: number; maximum?: number; default?: number } = {},
+): OpenApiParameter {
+  return parameter({
+    name,
+    in: "query",
+    required: false,
+    description,
+    schema: {
+      type: "integer",
+      ...(bounds.minimum === undefined ? {} : { minimum: bounds.minimum }),
+      ...(bounds.maximum === undefined ? {} : { maximum: bounds.maximum }),
+      ...(bounds.default === undefined ? {} : { default: bounds.default }),
+    },
+  });
+}
+
+/** Paramètre de requête à valeurs fermées. */
+function enumQueryParameter(
+  name: string,
+  description: string,
+  values: readonly string[],
+  defaultValue?: string,
+): OpenApiParameter {
+  return parameter({
+    name,
+    in: "query",
+    required: false,
+    description,
+    schema:
+      defaultValue === undefined
+        ? { type: "string", enum: [...values] }
+        : { type: "string", enum: [...values], default: defaultValue },
+  });
+}
+
+/** Paramètre de requête UUID. */
+function uuidQueryParameter(
+  name: string,
+  description: string,
+): OpenApiParameter {
+  return parameter({
+    name,
+    in: "query",
+    required: false,
+    description,
+    schema: { type: "string", format: "uuid" },
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Paramètres partagés                                                       */
+/* -------------------------------------------------------------------------- */
+
+/** `paginationQuerySchema` — bornes réelles : `page` ≥ 1, `limit` 1–100. */
+const PAGE_PARAMETER = integerQueryParameter(
+  "page",
+  `Numéro de page (commence à 1). Valeur hors bornes ⇒ 400 VALIDATION_ERROR.`,
+  { minimum: 1, default: 1 },
+);
+
+const LIMIT_PARAMETER = integerQueryParameter(
+  "limit",
+  `Taille de page (1 à ${MAX_PAGE_SIZE} inclus). Valeur hors bornes ⇒ 400 VALIDATION_ERROR.`,
+  { minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE },
+);
+
+const PAGINATION_PARAMETERS: OpenApiParameter[] = [
+  PAGE_PARAMETER,
+  LIMIT_PARAMETER,
+];
+
+/**
+ * `createSortSchema` : une colonne de la liste blanche, précédée de `-` pour
+ * l'ordre décroissant. Toute autre valeur ⇒ 400 VALIDATION_ERROR.
+ */
+function sortParameter(
+  columns: readonly string[],
+  defaultValue: string,
+  description: string,
+): OpenApiParameter {
+  const values = columns.flatMap((column) => [column, `-${column}`]);
+  return enumQueryParameter("sort", description, values, defaultValue);
+}
+
+/** Réponses d'erreur communes à toute route touchant la base et rate-limitée. */
+function publicResponses(
+  extra: Record<string, OpenApiResponse> = {},
+): Record<string, OpenApiResponse> {
+  return {
+    400: responseRef("ValidationError"),
+    429: responseRef("RateLimited"),
+    500: responseRef("InternalError"),
+    ...extra,
+  };
+}
+
+/** Réponses d'erreur communes à toute route d'administration. */
+function adminResponses(
+  extra: Record<string, OpenApiResponse> = {},
+): Record<string, OpenApiResponse> {
+  return {
+    400: responseRef("ValidationError"),
+    401: responseRef("AuthenticationRequired"),
+    403: responseRef("Forbidden"),
+    429: responseRef("RateLimited"),
+    500: responseRef("InternalError"),
+    ...extra,
+  };
+}
+
+/**
+ * Réponses d'une route publique **sans aucun paramètre validé**.
+ *
+ * Il n'y a pas de 400 à déclarer : `validate` n'est pas monté sur ces routes
+ * (`GET /scriptures`, `GET /schedule`, `GET /social-links`, `GET /settings`), et
+ * les controllers correspondants n'ont ni paramètre de chemin, ni *query*, ni
+ * corps à lire. Ne restent que la limite globale et l'erreur interne.
+ */
+function plainPublicResponses(
+  extra: Record<string, OpenApiResponse> = {},
+): Record<string, OpenApiResponse> {
+  return {
+    429: responseRef("RateLimited"),
+    500: responseRef("InternalError"),
+    ...extra,
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Modules CRUD génériques                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Description d'un module exposant la même forme que départements, événements,
+ * publications, responsables, témoignages et visages de la communauté :
+ * deux lectures publiques, trois écritures administrées.
+ */
+interface CrudModuleSpec {
+  tag: string;
+  /** Préfixe de montage, `/api/v1` inclus (ex. `/api/v1/departments`). */
+  basePath: string;
+  /** Schéma de la ressource (composant `components/schemas`). */
+  resourceSchema: string;
+  /** Schéma de la collection (composant `components/schemas`). */
+  collectionSchema: string;
+  parameterName: string;
+  parameterDescription: string;
+  parameterKind: "uuid" | "idOrSlug";
+  listParameters: OpenApiParameter[];
+  listSummary: string;
+  listDescription: string;
+  getSummary: string;
+  getDescription: string;
+  createSummary: string;
+  createDescription: string;
+  updateSummary: string;
+  updateDescription: string;
+  removeSummary: string;
+  removeDescription: string;
+  /** Code du 404 propre à la ressource (`EVENT_NOT_FOUND`, …). */
+  notFoundCode: string;
+  notFoundDescription: string;
+  createBody: ZodType;
+  updateBody: ZodType;
+  /**
+   * Réponses d'erreur propres au module, ajoutées à celles de la création.
+   * Elles remplacent la réponse de même code déjà déclarée (par exemple un 404
+   * plus précis, ou un 400 décrivant une règle métier du service).
+   */
+  extraCreateResponses?: Record<string, OpenApiResponse>;
+  /** Idem pour la mise à jour. */
+  extraUpdateResponses?: Record<string, OpenApiResponse>;
+}
+
+function registerCrudModule(
+  registry: OpenAPIRegistry,
+  spec: CrudModuleSpec,
+): void {
+  const childPath = `${spec.basePath}/{${spec.parameterName}}`;
+  const childParameter = pathParameter(
+    spec.parameterName,
+    spec.parameterDescription,
+    spec.parameterKind,
+  );
+  const notFound = errorResponse(
+    `${spec.notFoundCode} — ${spec.notFoundDescription}`,
+  );
+
+  /*
+   * Réponses d'erreur, réparties selon ce que chaque route peut réellement
+   * produire :
+   *
+   * - la **collection** (`GET /`) ne reçoit aucun identifiant : elle ne peut donc
+   *   jamais renvoyer le 404 de la ressource, seulement un 400 sur la *query* ;
+   * - la **création** (`POST /`) ne reçoit pas d'identifiant non plus : son 404
+   *   éventuel vient des règles métier du module (département référencé
+   *   inexistant, par exemple) et est déclaré au cas par cas par le module ;
+   * - les routes **à identifiant** (`GET /{…}`, `PATCH`, `DELETE`) reçoivent le
+   *   404 de la ressource ;
+   * - toute route d'administration peut aussi renvoyer 401 et 403, et `validate`
+   *   valide les paramètres avant le service : un 400 y reste possible.
+   */
+  const listResponses = publicResponses();
+  const itemResponses = publicResponses({ 404: notFound });
+  const createResponses = adminResponses(spec.extraCreateResponses ?? {});
+  const updateResponses = adminResponses({
+    404: notFound,
+    ...(spec.extraUpdateResponses ?? {}),
+  });
+  const deleteResponses = adminResponses({ 404: notFound });
+
+  registerRoute(registry, {
+    method: "get",
+    path: spec.basePath,
+    operationId: `${spec.tag}List`,
+    tags: [spec.tag],
+    summary: spec.listSummary,
+    description: spec.listDescription,
+    security: NO_SECURITY,
+    parameters: spec.listParameters,
+    responses: {
+      200: jsonResponse("Collection paginée.", spec.collectionSchema),
+      ...listResponses,
+    },
+  });
+
+  registerRoute(registry, {
+    method: "get",
+    path: childPath,
+    operationId: `${spec.tag}Get`,
+    tags: [spec.tag],
+    summary: spec.getSummary,
+    description: spec.getDescription,
+    security: NO_SECURITY,
+    parameters: [childParameter],
+    responses: {
+      200: jsonResponse("Ressource trouvée.", spec.resourceSchema),
+      ...itemResponses,
+    },
+  });
+
+  registerRoute(registry, {
+    method: "post",
+    path: spec.basePath,
+    operationId: `${spec.tag}Create`,
+    tags: [spec.tag],
+    summary: spec.createSummary,
+    description: spec.createDescription,
+    security: BEARER_SECURITY,
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: spec.createBody } },
+    },
+    responses: {
+      201: jsonResponse("Ressource créée.", spec.resourceSchema),
+      ...createResponses,
+    },
+  });
+
+  registerRoute(registry, {
+    method: "patch",
+    path: childPath,
+    operationId: `${spec.tag}Update`,
+    tags: [spec.tag],
+    summary: spec.updateSummary,
+    description: spec.updateDescription,
+    security: BEARER_SECURITY,
+    parameters: [childParameter],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: spec.updateBody } },
+    },
+    responses: {
+      200: jsonResponse("Ressource mise à jour.", spec.resourceSchema),
+      ...updateResponses,
+    },
+  });
+
+  registerRoute(registry, {
+    method: "delete",
+    path: childPath,
+    operationId: `${spec.tag}Delete`,
+    tags: [spec.tag],
+    summary: spec.removeSummary,
+    description: spec.removeDescription,
+    security: BEARER_SECURITY,
+    parameters: [childParameter],
+    responses: {
+      204: { description: "Ressource supprimée : corps vide." },
+      ...deleteResponses,
+    },
+  });
+}
+
+export function buildOpenApiDocument(): Record<string, unknown> {
+  const registry = new OpenAPIRegistry();
+
+  /* ---------------------------------------------------------------------- */
+  /*  Schéma d'authentification                                             */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * Jeton porteur Supabase.
+   *
+   * Il n'existe **qu'un** schéma de sécurité : les routes publiques déclarent
+   * `security: []`, les routes d'administration `security: [{ bearerAuth: [] }]`.
+   * Aucun cookie n'est utilisé (`credentials: false` dans `app.ts`).
+   */
+  registry.registerComponent("securitySchemes", SECURITY_SCHEME_NAME, {
+    type: "http",
+    scheme: "bearer",
+    bearerFormat: "JWT",
+    description:
+      "Jeton d'accès Supabase (`Authorization: Bearer <jeton>`), vérifié par " +
+      "`presentation/middlewares/auth.ts` (`verifyAccessToken`). Le jeton identifie " +
+      "l'utilisateur auprès du fournisseur d'identité ; il ne confère aucun droit à lui " +
+      "seul : `requireAdmin` charge ensuite le profil `admin_profiles` et exige qu'il " +
+      "existe, qu'il soit actif, et `requireRole` qu'il porte `ROLE_ADMIN` pour les " +
+      "routes d'administration.",
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Schémas d'erreur et de pagination                                     */
+  /* ---------------------------------------------------------------------- */
+
+  registry.registerComponent("schemas", "ValidationIssue", {
+    type: "object",
+    description:
+      "Un champ fautif tel que produit par `middlewares/validate.ts` et par le traducteur d'erreurs.",
+    required: ["champ", "message"],
+    properties: {
+      champ: {
+        type: "string",
+        description:
+          "Chemin du champ fautif, en notation pointée ; `(racine)` pour le corps entier.",
+      },
+      message: { type: "string", description: "Message de Zod, en français." },
+    },
+  });
+
+  registry.registerComponent("schemas", "ErrorResponse", {
+    type: "object",
+    description:
+      "Enveloppe d'erreur unique de l'API. Toute erreur, y compris non maîtrisée, " +
+      "sort sous cette forme (`shared/http/respond.ts`, " +
+      "`presentation/middlewares/error-handler.ts`).",
+    required: ["error"],
+    properties: {
+      error: {
+        type: "object",
+        required: ["code", "message"],
+        properties: {
+          code: {
+            type: "string",
+            description:
+              "Code métier. Liste fermée des 24 codes de `shared/errors/app-error.ts`.",
+            enum: [...ERROR_CODES],
+          },
+          message: {
+            type: "string",
+            description:
+              "Message lisible. En production, un message non exposable est remplacé " +
+              "par « Une erreur interne est survenue ».",
+          },
+          details: {
+            description:
+              "Précisions exploitables, présent uniquement lorsque l'erreur en porte. " +
+              "Tableau `{ champ, message }` pour `VALIDATION_ERROR`, objet libre sinon " +
+              "(par exemple `{ slug }`, `{ maxBytes }`, `{ accepted }`, `{ key }`, " +
+              "`{ total, usages }`).",
+            oneOf: [
+              {
+                type: "array",
+                items: schemaRef("ValidationIssue"),
+                description: "Détail d'une erreur de validation Zod.",
+              },
+              {
+                type: "object",
+                additionalProperties: true,
+                description: "Détail propre au code d'erreur.",
+              },
+            ],
+          },
+        },
+      },
+    },
+  });
+
+  registry.registerComponent("schemas", "PaginationMeta", {
+    type: "object",
+    description:
+      "Métadonnées de pagination, présentes sur les seules réponses de collection " +
+      "(`buildPaginationMeta`). `totalPages` vaut 0 lorsque la collection est vide.",
+    required: ["page", "limit", "total", "totalPages"],
+    properties: {
+      page: { type: "integer", minimum: 1 },
+      limit: { type: "integer", minimum: 1, maximum: MAX_PAGE_SIZE },
+      total: {
+        type: "integer",
+        minimum: 0,
+        description: "Nombre total d'éléments, tous filtres appliqués.",
+      },
+      totalPages: { type: "integer", minimum: 0 },
+    },
+  });
+
+  registry.registerComponent("schemas", "HealthStatus", {
+    type: "object",
+    description:
+      "État du service. Le contrôle interroge réellement PostgreSQL : un conteneur " +
+      "qui répond « ok » alors que la base est injoignable serait un faux positif.",
+    required: ["status", "version", "environment", "database"],
+    properties: {
+      status: { type: "string", enum: ["ok", "error"] },
+      version: {
+        type: "string",
+        description: "Valeur de `API_VERSION` (préfixe des routes).",
+      },
+      environment: {
+        type: "string",
+        enum: ["development", "test", "production"],
+      },
+      database: { type: "string", enum: ["up", "down"] },
+    },
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Ressources : transcription exacte des *.serializer.ts                 */
+  /* ---------------------------------------------------------------------- */
+
+  registry.registerComponent("schemas", "Department", {
+    type: "object",
+    description:
+      "Département (`department.serializer.ts`). Les champs facultatifs sont **omis** " +
+      "lorsqu'ils sont nuls, jamais émis à `null`.",
+    required: ["id", "name", "slug"],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      name: { type: "string" },
+      slug: { type: "string" },
+      description: { type: "string" },
+      responsibleName: { type: "string" },
+      bannerImage: {
+        type: "string",
+        description: "URL publique résolue du média de bandeau.",
+      },
+      meetingSchedule: { type: "string" },
+      keyPoints: { type: "array", items: { type: "string" } },
+      gallery: {
+        type: "array",
+        items: { type: "string" },
+        description: "URLs publiques ; omis lorsque la galerie est vide.",
+      },
+      tagline: { type: "string" },
+    },
+  });
+
+  registry.registerComponent("schemas", "DepartmentCollection", {
+    type: "object",
+    required: ["data", "meta"],
+    properties: {
+      data: { type: "array", items: schemaRef("Department") },
+      meta: schemaRef("PaginationMeta"),
+    },
+  });
+
+  registry.registerComponent("schemas", "Event", {
+    type: "object",
+    description:
+      "Événement (`event.serializer.ts`). `eventDate` est une chaîne `AAAA-MM-JJ` et " +
+      "`eventTime` une chaîne `HH:MM` : jamais d'objet `Date`, pour éviter tout " +
+      "décalage de fuseau entre le serveur et Lubumbashi. `status` est **calculé** " +
+      "depuis `eventDate`, jamais stocké.",
+    required: ["id", "title", "slug", "eventDate", "departmentId", "status"],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      title: { type: "string" },
+      slug: { type: "string" },
+      description: { type: "string" },
+      eventDate: { type: "string", format: "date" },
+      eventTime: { type: "string", pattern: "^([01]\\d|2[0-3]):[0-5]\\d$" },
+      location: { type: "string" },
+      imageUrl: { type: "string" },
+      departmentId: {
+        type: ["string", "null"],
+        format: "uuid",
+        description:
+          "`null` = événement général de l'église. Toujours présent, y compris à `null`.",
+      },
+      status: {
+        type: "string",
+        enum: ["UPCOMING", "ARCHIVED"],
+        description: "`UPCOMING` si `eventDate` ≥ aujourd'hui, sinon `ARCHIVED`.",
+      },
+      excerpt: { type: "string" },
+      bannerImage: { type: "string" },
+      gallery: { type: "array", items: { type: "string" } },
+      practicalInfo: { type: "array", items: { type: "string" } },
+    },
+  });
+
+  registry.registerComponent("schemas", "EventCollection", {
+    type: "object",
+    required: ["data", "meta"],
+    properties: {
+      data: { type: "array", items: schemaRef("Event") },
+      meta: schemaRef("PaginationMeta"),
+    },
+  });
+
+  registry.registerComponent("schemas", "Publication", {
+    type: "object",
+    description:
+      "Publication (`publication.serializer.ts`) : médiathèque, actualités, " +
+      "enseignements et ressources partagent une seule collection filtrée par `category`.",
+    required: ["id", "title", "slug", "type", "publishedAt", "status", "category"],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      title: { type: "string" },
+      slug: { type: "string" },
+      type: { type: "string", enum: ["VIDEO", "PHOTO", "TEXTE"] },
+      contentUrl: {
+        type: "string",
+        description: "Lien vidéo externe (YouTube/Facebook) ou chemin d'image.",
+      },
+      description: { type: "string" },
+      publishedAt: { type: "string", format: "date" },
+      category: {
+        type: "string",
+        enum: ["ACTUALITE", "ENSEIGNEMENT", "MEDIA", "RESSOURCE"],
+      },
+      author: { type: "string" },
+      body: {
+        type: "array",
+        items: { type: "string" },
+        description: "Corps éditorial des publications TEXTE (paragraphes).",
+      },
+      status: { type: "string", enum: ["DRAFT", "PUBLISHED"] },
+      coverImage: { type: "string", description: "URL résolue du média de couverture." },
+    },
+  });
+
+  registry.registerComponent("schemas", "PublicationCollection", {
+    type: "object",
+    required: ["data", "meta"],
+    properties: {
+      data: { type: "array", items: schemaRef("Publication") },
+      meta: schemaRef("PaginationMeta"),
+    },
+  });
+
+  registry.registerComponent("schemas", "Leader", {
+    type: "object",
+    description:
+      "Responsable (`leader.serializer.ts`). Tous les champs sont toujours présents : " +
+      "`scope`, `bio`, `photo` et `departmentId` valent `null` lorsqu'ils sont vides.",
+    required: [
+      "id",
+      "name",
+      "role",
+      "scope",
+      "bio",
+      "photo",
+      "departmentId",
+      "position",
+    ],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      name: { type: "string" },
+      role: { type: "string" },
+      scope: { type: ["string", "null"] },
+      bio: { type: ["string", "null"] },
+      photo: { type: ["string", "null"], description: "URL publique du portrait." },
+      departmentId: { type: ["string", "null"], format: "uuid" },
+      position: { type: "integer", minimum: 0 },
+    },
+  });
+
+  registry.registerComponent("schemas", "LeaderCollection", {
+    type: "object",
+    required: ["data", "meta"],
+    properties: {
+      data: { type: "array", items: schemaRef("Leader") },
+      meta: schemaRef("PaginationMeta"),
+    },
+  });
+
+  registry.registerComponent("schemas", "Testimony", {
+    type: "object",
+    description:
+      "Témoignage (`testimony.serializer.ts`) : `name` ← `personName`, " +
+      "`role` ← `personRole`, `photo` ← `photoUrl`.",
+    required: ["id", "photo", "quote", "name", "role", "position"],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      photo: { type: ["string", "null"] },
+      quote: { type: "string" },
+      name: { type: "string" },
+      role: { type: ["string", "null"] },
+      position: { type: "integer", minimum: 0 },
+    },
+  });
+
+  registry.registerComponent("schemas", "TestimonyCollection", {
+    type: "object",
+    required: ["data", "meta"],
+    properties: {
+      data: { type: "array", items: schemaRef("Testimony") },
+      meta: schemaRef("PaginationMeta"),
+    },
+  });
+
+  registry.registerComponent("schemas", "CommunityFace", {
+    type: "object",
+    description:
+      "Visage de la communauté (`community-face.serializer.ts`) : `name` ← `personName`.",
+    required: ["id", "photo", "name", "caption", "position"],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      photo: { type: ["string", "null"] },
+      name: { type: "string" },
+      caption: { type: "string" },
+      position: { type: "integer", minimum: 0 },
+    },
+  });
+
+  registry.registerComponent("schemas", "CommunityFaceCollection", {
+    type: "object",
+    required: ["data", "meta"],
+    properties: {
+      data: { type: "array", items: schemaRef("CommunityFace") },
+      meta: schemaRef("PaginationMeta"),
+    },
+  });
+
+  registry.registerComponent("schemas", "Scripture", {
+    type: "object",
+    description: "Verset (`scripture.serializer.ts`). Horodatages en ISO 8601 complet.",
+    required: [
+      "id",
+      "key",
+      "text",
+      "reference",
+      "translation",
+      "context",
+      "createdAt",
+      "updatedAt",
+    ],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      key: {
+        type: "string",
+        pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+        maxLength: 60,
+      },
+      text: { type: "string" },
+      reference: { type: "string" },
+      translation: { type: "string" },
+      context: { type: ["string", "null"] },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+    },
+  });
+
+  registry.registerComponent("schemas", "ScriptureList", {
+    type: "object",
+    description:
+      "Liste **non paginée** : le controller renvoie `{ data }` sans `meta` " +
+      "(`scripture.controller.ts:20`).",
+    required: ["data"],
+    properties: {
+      data: { type: "array", items: schemaRef("Scripture") },
+    },
+  });
+
+  registry.registerComponent("schemas", "ScheduleEntry", {
+    type: "object",
+    description:
+      "Entrée du rythme hebdomadaire (`schedule.serializer.ts`). `timeLabel` est un " +
+      "libellé libre (« 16h30 – 18h30 », « Dans la nuit »), pas une heure.",
+    required: [
+      "id",
+      "day",
+      "title",
+      "timeLabel",
+      "audience",
+      "isConfirmed",
+      "position",
+      "createdAt",
+      "updatedAt",
+    ],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      day: { type: "string" },
+      title: { type: "string" },
+      timeLabel: { type: "string" },
+      audience: { type: ["string", "null"] },
+      isConfirmed: {
+        type: "boolean",
+        description: "`false` = horaire encore provisoire.",
+      },
+      position: { type: "integer", minimum: 0 },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+    },
+  });
+
+  registry.registerComponent("schemas", "ScheduleEntryList", {
+    type: "object",
+    description:
+      "Liste **non paginée** : `{ data }` sans `meta` (`schedule.controller.ts:17`).",
+    required: ["data"],
+    properties: {
+      data: { type: "array", items: schemaRef("ScheduleEntry") },
+    },
+  });
+
+  registry.registerComponent("schemas", "SocialLink", {
+    type: "object",
+    description: "Lien social (`social-link.serializer.ts`), ordonné par `position`.",
+    required: ["id", "label", "href", "position", "createdAt", "updatedAt"],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      label: { type: "string" },
+      href: { type: "string", format: "uri" },
+      position: { type: "integer", minimum: 0 },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+    },
+  });
+
+  registry.registerComponent("schemas", "SocialLinkList", {
+    type: "object",
+    description:
+      "Liste **non paginée** : `{ data }` sans `meta` (`social-link.controller.ts:17`).",
+    required: ["data"],
+    properties: {
+      data: { type: "array", items: schemaRef("SocialLink") },
+    },
+  });
+
+  registry.registerComponent("schemas", "Settings", {
+    type: "object",
+    description:
+      "Réglages institutionnels (`setting.serializer.ts`) : regroupement de deux " +
+      "sources, les scalaires de `site_settings` et la liste ordonnée des liens sociaux.",
+    required: ["settings", "socialLinks"],
+    properties: {
+      settings: {
+        type: "object",
+        description:
+          "Objet clé/valeur. Clés écrivables : " +
+          ALLOWED_SETTING_KEYS.map((key) => `\`${key}\``).join(", ") +
+          ". Cette liste est fermée : toute autre clé est refusée en `VALIDATION_ERROR`.",
+        additionalProperties: { type: "string" },
+      },
+      socialLinks: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["label", "href"],
+          properties: {
+            label: { type: "string" },
+            href: { type: "string", format: "uri" },
+          },
+        },
+      },
+    },
+  });
+
+  registry.registerComponent("schemas", "StaticPage", {
+    type: "object",
+    description:
+      "Page éditable (`static-page.serializer.ts`). `content` est un objet de champs " +
+      "textuels nommés — jamais du HTML : le schéma du contenu dépend de `pageKey` " +
+      "(`domain/content/page-content.ts`) et est validé par le service.",
+    required: [
+      "id",
+      "pageKey",
+      "content",
+      "updatedBy",
+      "createdAt",
+      "updatedAt",
+    ],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      pageKey: { type: "string" },
+      content: { type: "object", additionalProperties: true },
+      updatedBy: {
+        type: ["string", "null"],
+        format: "uuid",
+        description:
+          "Administrateur de la dernière modification (traçabilité, jamais affiché).",
+      },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+    },
+  });
+
+  registry.registerComponent("schemas", "Media", {
+    type: "object",
+    description:
+      "Média (`media.serializer.ts`). `mimeType` est déduit des **octets** du fichier, " +
+      "jamais du `Content-Type` ni du nom de fichier envoyés par le client.",
+    required: [
+      "id",
+      "url",
+      "bucket",
+      "path",
+      "folder",
+      "mimeType",
+      "sizeBytes",
+      "width",
+      "height",
+      "alt",
+      "uploadedBy",
+      "createdAt",
+    ],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      url: { type: "string", description: "URL publique du fichier." },
+      bucket: { type: "string" },
+      path: { type: "string", description: "Chemin interne, généré par le serveur." },
+      folder: {
+        type: ["string", "null"],
+        enum: [...MEDIA_FOLDERS, null],
+        description: "Premier segment du chemin, ou `null`.",
+      },
+      mimeType: {
+        type: "string",
+        description: "Types acceptés : image/jpeg, image/png, image/webp, image/gif.",
+      },
+      sizeBytes: { type: "integer", minimum: 0 },
+      width: { type: ["integer", "null"], minimum: 0 },
+      height: { type: ["integer", "null"], minimum: 0 },
+      alt: {
+        type: ["string", "null"],
+        description: "Texte alternatif, requis pour l'accessibilité (WCAG 2.2 AA).",
+      },
+      uploadedBy: { type: ["string", "null"], format: "uuid" },
+      createdAt: { type: "string", format: "date-time" },
+    },
+  });
+
+  registry.registerComponent("schemas", "MediaCollection", {
+    type: "object",
+    required: ["data", "meta"],
+    properties: {
+      data: { type: "array", items: schemaRef("Media") },
+      meta: schemaRef("PaginationMeta"),
+    },
+  });
+
+  registry.registerComponent("schemas", "MediaUsageReport", {
+    type: "object",
+    description:
+      "Où un média est utilisé (`media.serializer.ts`). `usages` ne contient que les " +
+      "emplacements qui le référencent réellement.",
+    required: ["media", "total", "usages"],
+    properties: {
+      media: schemaRef("Media"),
+      total: { type: "integer", minimum: 0 },
+      usages: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["source", "label", "count"],
+          properties: {
+            source: { type: "string", description: "Identifiant technique de l'usage." },
+            label: { type: "string", description: "Libellé lisible de l'usage." },
+            count: { type: "integer", minimum: 1 },
+          },
+        },
+      },
+    },
+  });
+
+  registry.registerComponent("schemas", "PrayerRequest", {
+    type: "object",
+    description:
+      "Vue **administrative** d'une demande de prière (`prayer-request.serializer.ts`). " +
+      "Seule forme à porter le texte de l'intention et les coordonnées ; elle n'est " +
+      "produite que par des routes montées derrière `requireAnyAdmin`.",
+    required: [
+      "id",
+      "requestText",
+      "requesterName",
+      "requesterContact",
+      "confidentiality",
+      "status",
+      "handledAt",
+      "createdAt",
+      "updatedAt",
+    ],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      requestText: { type: "string", maxLength: PRAYER_REQUEST_TEXT_MAX_LENGTH },
+      requesterName: {
+        type: ["string", "null"],
+        maxLength: PRAYER_REQUEST_NAME_MAX_LENGTH,
+      },
+      requesterContact: {
+        type: ["string", "null"],
+        maxLength: PRAYER_REQUEST_CONTACT_MAX_LENGTH,
+      },
+      confidentiality: { type: "string", enum: ["private", "community"] },
+      status: { type: "string", enum: ["NEW", "PRAYED"] },
+      handledAt: { type: ["string", "null"], format: "date-time" },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+    },
+  });
+
+  registry.registerComponent("schemas", "PrayerRequestCollection", {
+    type: "object",
+    required: ["data", "meta"],
+    properties: {
+      data: { type: "array", items: schemaRef("PrayerRequest") },
+      meta: schemaRef("PaginationMeta"),
+    },
+  });
+
+  registry.registerComponent("schemas", "PrayerRequestCreated", {
+    type: "object",
+    description:
+      "Accusé de réception minimal renvoyé au visiteur qui vient de déposer sa demande. " +
+      "Il ne contient **ni le texte, ni le prénom, ni le contact** : ces données " +
+      "personnelles ne sont jamais renvoyées au client.",
+    required: ["id", "createdAt", "status"],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      createdAt: { type: "string", format: "date-time" },
+      status: { type: "string", enum: ["NEW", "PRAYED"] },
+    },
+  });
+
+  registry.registerComponent("schemas", "AdminProfile", {
+    type: "object",
+    description:
+      "Profil administratif courant (`admin.serializer.ts`). Aucune information " +
+      "d'authentification : ni jeton, ni secret, ni adresse d'authentification.",
+    required: ["id", "username", "displayName", "role"],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      username: { type: "string" },
+      displayName: { type: ["string", "null"] },
+      role: { type: "string", enum: ["ROLE_ADMIN"] },
+    },
+  });
+
+  registry.registerComponent("schemas", "AdminProfileSummary", {
+    type: "object",
+    description:
+      "Entrée de l'annuaire administratif : le profil courant complété de l'état " +
+      "d'activation et de la date de création.",
+    required: [
+      "id",
+      "username",
+      "displayName",
+      "role",
+      "isActive",
+      "createdAt",
+    ],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      username: { type: "string" },
+      displayName: { type: ["string", "null"] },
+      role: { type: "string", enum: ["ROLE_ADMIN"] },
+      isActive: { type: "boolean" },
+      createdAt: { type: "string", format: "date-time" },
+    },
+  });
+
+  registry.registerComponent("schemas", "AdminProfileCollection", {
+    type: "object",
+    required: ["data", "meta"],
+    properties: {
+      data: { type: "array", items: schemaRef("AdminProfileSummary") },
+      meta: schemaRef("PaginationMeta"),
+    },
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Corps de requête : les schémas Zod des modules, pris tels quels        */
+  /* ---------------------------------------------------------------------- */
+
+  /*
+   * Zod est la source de vérité : aucun corps JSON n'est réécrit à la main.
+   * Les schémas importés ci-dessus sont passés directement au générateur, qui
+   * les convertit et les inscrit dans le document. Les alias ci-dessous ne
+   * donnent à chaque corps que le nom sous lequel il apparaît dans l'API.
+   */
+  const CreateDepartmentBody = createDepartmentSchema;
+  const UpdateDepartmentBody = updateDepartmentSchema;
+  const CreateEventBody = createEventSchema;
+  const UpdateEventBody = updateEventSchema;
+  const CreatePublicationBody = createPublicationSchema;
+  const UpdatePublicationBody = updatePublicationSchema;
+  const CreateLeaderBody = createLeaderSchema;
+  const UpdateLeaderBody = updateLeaderSchema;
+  const CreateTestimonyBody = createTestimonySchema;
+  const UpdateTestimonyBody = updateTestimonySchema;
+  const CreateCommunityFaceBody = createCommunityFaceSchema;
+  const UpdateCommunityFaceBody = updateCommunityFaceSchema;
+  const CreateScriptureBody = scriptureCreateSchema;
+  const UpdateScriptureBody = scriptureUpdateSchema;
+  const CreateScheduleEntryBody = scheduleCreateSchema;
+  const UpdateScheduleEntryBody = scheduleUpdateSchema;
+  const CreateSocialLinkBody = socialLinkCreateSchema;
+  const UpdateSocialLinkBody = socialLinkUpdateSchema;
+  const SettingsPatchBody = settingsPatchSchema;
+  const PageContentUpdateBody = pageContentUpdateSchema;
+  const CreatePrayerRequestBody = createPrayerRequestSchema;
+  const UpdatePrayerRequestBody = updatePrayerRequestSchema;
+
+  /**
+   * Corps du téléversement (`multipart/form-data`).
+   *
+   * Il est écrit ici parce qu'il n'est **pas** entièrement exprimable en Zod :
+   * `uploadMediaBodySchema` décrit les champs texte (`folder`, `alt`), tandis
+   * que `file` est traité par multer puis examiné par `StorageService`, qui
+   * déduit son type des octets. Le champ `file` est donc décrit dans la
+   * convention OpenAPI (`type: string`, `format: binary`), et l'énumération de
+   * `folder` reprend la constante `MEDIA_FOLDERS` du module — liste fermée, donc
+   * sans risque de dérive —, `alt` reprenant la borne de `uploadMediaBodySchema`.
+   */
+  registry.registerComponent("schemas", "UploadMediaRequest", {
+    type: "object",
+    description:
+      "Formulaire de téléversement : un fichier unique sous le nom de champ `file`, " +
+      "un dossier de destination `folder`, et un texte alternatif facultatif `alt`.",
+    required: ["file", "folder"],
+    properties: {
+      file: {
+        type: "string",
+        format: "binary",
+        description:
+          "Fichier binaire, un seul. Limite `MAX_UPLOAD_BYTES` (5 Mio par défaut) ; " +
+          "le type réel est déduit des octets, jamais du `Content-Type` ni du nom.",
+      },
+      folder: {
+        type: "string",
+        enum: [...MEDIA_FOLDERS],
+        description:
+          "Dossier de destination dans le bucket. Liste fermée : un dossier hors de " +
+          "cette liste produit un 400, il ne vient jamais d'une chaîne libre.",
+      },
+      alt: {
+        type: "string",
+        maxLength: 300,
+        description: "Texte alternatif (accessibilité WCAG 2.2 AA), facultatif.",
+      },
+    },
+  });
+
+  const UploadMediaRequest = schemaRef("UploadMediaRequest");
+
+  /* ---------------------------------------------------------------------- */
+  /*  Réponses réutilisables                                                */
+  /* ---------------------------------------------------------------------- */
+
+  registry.registerComponent("responses", "ValidationError", {
+    description:
+      "`VALIDATION_ERROR` — données invalides. Le `details` est un tableau " +
+      "`{ champ, message }` produit par le middleware `validate` (ou par Zod en " +
+      "dernier recours). Un paramètre de chemin ou de requête hors bornes, un corps " +
+      "non conforme au schéma ou une clé inconnue produisent cette réponse.\n\n" +
+      "Deux précisions vérifiées à l'exécution :\n" +
+      "- un corps **vide** `{}` n'est refusé que là où le schéma l'impose par un " +
+      "`refine` (« Aucun champ à mettre à jour » : responsables, témoignages, visages, " +
+      "versets, rythme, liens sociaux) ; les mises à jour de départements, d'événements " +
+      "et de publications n'ont pas cette contrainte et acceptent `{}` ;\n" +
+      "- un corps JSON **mal formé** ne produit pas cette réponse : `express.json()` " +
+      "échoue avant `validate`, ce qui donne un `500 INTERNAL_ERROR` (voir " +
+      "`InternalError`).",
+    content: { "application/json": { schema: schemaRef("ErrorResponse") } },
+  });
+
+  registry.registerComponent("responses", "AuthenticationRequired", {
+    description:
+      "`AUTH_REQUIRED` — en-tête `Authorization: Bearer <jeton>` absent, mal formé ou " +
+      "jeton Supabase invalide/expiré.",
+    content: { "application/json": { schema: schemaRef("ErrorResponse") } },
+  });
+
+  registry.registerComponent("responses", "Forbidden", {
+    description:
+      "`FORBIDDEN` — jeton valide mais compte non administrable : utilisateur absent de " +
+      "`admin_profiles`, compte désactivé (`isActive = false`), ou rôle insuffisant. " +
+      "Le code `UNAUTHENTICATED_ADMIN` est déclaré pour ce cas dans " +
+      "`shared/errors/app-error.ts` mais n'est pas émis par l'implémentation V1, qui " +
+      "répond toujours `FORBIDDEN`.",
+    content: { "application/json": { schema: schemaRef("ErrorResponse") } },
+  });
+
+  registry.registerComponent("responses", "RateLimited", {
+    description:
+      "`RATE_LIMITED` — limite globale dépassée : 120 requêtes par minute et par IP " +
+      "(`RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_MS`, valeurs par défaut de `config/env.ts`), " +
+      "appliquée à toutes les routes sous `/api/v1` sauf `/api/v1/health`. " +
+      "Deux en-têtes au format draft-8 sont émis (`standardHeaders: \"draft-8\"`), sans " +
+      "`X-RateLimit-*` (`legacyHeaders: false`).",
+    headers: {
+      RateLimit: {
+        description:
+          "Politique, quota restant et secondes avant réinitialisation. Forme relevée " +
+          "sur l'API : `\"120-in-1min\"; r=111; t=59`.",
+        schema: { type: "string" },
+      },
+      "RateLimit-Policy": {
+        description:
+          "Politique appliquée. Forme relevée sur l'API : " +
+          "`\"120-in-1min\"; q=120; w=60; pk=:…:`. Sur `POST /prayer-requests`, le " +
+          "limiteur dédié de la route écrase cet en-tête avec sa propre politique.",
+        schema: { type: "string" },
+      },
+    },
+    content: { "application/json": { schema: schemaRef("ErrorResponse") } },
+  });
+
+  registry.registerComponent("responses", "RateLimitedPublicWrite", {
+    description:
+      "`RATE_LIMITED` — limite dédiée à l'écriture publique dépassée : " +
+      "**5 dépôts par heure et par IP** (`prayer-request.routes.ts`). Le message invite à " +
+      "réessayer dans une heure ou à écrire directement à l'équipe. La limite globale " +
+      "(120/minute) s'applique en amont et peut produire la même réponse.\n\n" +
+      "Précision vérifiée à l'exécution : le compteur décompte **toutes** les requêtes " +
+      "de cette route, y compris celles refusées en `400 VALIDATION_ERROR` — les " +
+      "en-têtes ci-dessous sont donc présents bien avant le 429. Ils accompagnent " +
+      "l'en-tête `RateLimit` du limiteur global.",
+    headers: {
+      "RateLimit-Limit": { schema: { type: "integer" }, description: "Quota : 5." },
+      "RateLimit-Remaining": {
+        schema: { type: "integer" },
+        description: "Dépôts restants dans la fenêtre (relevé : `2` après trois appels).",
+      },
+      "RateLimit-Reset": {
+        schema: { type: "integer" },
+        description: "Secondes avant réinitialisation de la fenêtre (relevé : `3587`).",
+      },
+      "RateLimit-Policy": {
+        schema: { type: "string" },
+        description: "Politique du limiteur de la route (relevé : `5;w=3600`).",
+      },
+    },
+    content: { "application/json": { schema: schemaRef("ErrorResponse") } },
+  });
+
+  registry.registerComponent("responses", "DuplicateSlug", {
+    description:
+      "`DUPLICATE_SLUG` — le slug explicite fourni est déjà utilisé. Un slug imposé par " +
+      "un administrateur est une intention, pas une suggestion : il n'est jamais " +
+      "suffixé automatiquement. `details: { slug }`.",
+    content: { "application/json": { schema: schemaRef("ErrorResponse") } },
+  });
+
+  registry.registerComponent("responses", "Conflict", {
+    description:
+      "`CONFLICT` — conflit métier. `details` précise la cause (par exemple " +
+      "`{ total, usages }` pour un média encore référencé, `{ key }` pour une clé de " +
+      "verset déjà prise).",
+    content: { "application/json": { schema: schemaRef("ErrorResponse") } },
+  });
+
+  registry.registerComponent("responses", "FileTooLarge", {
+    description:
+      "`FILE_TOO_LARGE` — le fichier dépasse la limite de téléversement. " +
+      "`details: { maxBytes }`. La taille est contrôlée deux fois : par multer " +
+      "(`LIMIT_FILE_SIZE`, traduit en 413) puis par `StorageService`, qui ne fait " +
+      "confiance à aucune métadonnée de la requête.",
+    content: { "application/json": { schema: schemaRef("ErrorResponse") } },
+  });
+
+  registry.registerComponent("responses", "InvalidFileType", {
+    description:
+      "`INVALID_FILE_TYPE` — le type **réel** du fichier, déduit de ses octets, n'est " +
+      "pas une image acceptée. Un fichier vide produit la même réponse. " +
+      "`details: { accepted }`.",
+    content: { "application/json": { schema: schemaRef("ErrorResponse") } },
+  });
+
+  registry.registerComponent("responses", "InternalError", {
+    description:
+      "`INTERNAL_ERROR` — erreur inattendue : ni `AppError`, ni `ZodError`. En " +
+      "production, le message technique reste dans les journaux serveur (corrélés par " +
+      "`requestId`) et le client ne reçoit qu'un message générique ; hors production, " +
+      "le message d'origine est renvoyé.\n\n" +
+      "Cas **vérifié à l'exécution** : un corps JSON mal formé (par exemple " +
+      "`{\"name\": }`) produit cette réponse — et non un `400 VALIDATION_ERROR` — car " +
+      "`express.json()` échoue avant le middleware `validate`. Exemple relevé : " +
+      "`Unexpected token '}', \"{\\\"name\\\": }\" is not valid JSON` hors production.",
+    content: { "application/json": { schema: schemaRef("ErrorResponse") } },
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Système                                                               */
+  /* ---------------------------------------------------------------------- */
+
+  registerRoute(registry, {
+    method: "get",
+    path: `${API_BASE_PATH}/health`,
+    operationId: "getHealth",
+    tags: ["Système"],
+    summary: "Contrôle de santé",
+    description:
+      "Interroge réellement PostgreSQL (`select 1`). Cette route est montée **avant** le " +
+      "rate limiter global et n'est donc jamais limitée : Railway l'interroge souvent. " +
+      "Elle ne fait pas partie des routers métier et ne suit pas l'enveloppe " +
+      "`{ data, meta }`.",
+    security: NO_SECURITY,
+    responses: {
+      200: {
+        description: "Service et base disponibles.",
+        content: { "application/json": { schema: schemaRef("HealthStatus") } },
+      },
+      503: {
+        description:
+          "`database: \"down\"` — la base est injoignable. Aucune erreur applicative " +
+          "`{ error }` n'est produite : la réponse garde la forme du contrôle de santé.",
+        content: { "application/json": { schema: schemaRef("HealthStatus") } },
+      },
+    },
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Départements                                                          */
+  /* ---------------------------------------------------------------------- */
+
+  registerCrudModule(registry, {
+    tag: "departments",
+    basePath: `${API_BASE_PATH}/departments`,
+    resourceSchema: "Department",
+    collectionSchema: "DepartmentCollection",
+    parameterName: "idOrSlug",
+    parameterKind: "idOrSlug",
+    parameterDescription:
+      "Identifiant UUID **ou** slug du département. C'est ce qui permet au frontend de " +
+      "conserver ses URL actuelles (`/departements/chorale`) sans requête supplémentaire.",
+    listParameters: PAGINATION_PARAMETERS,
+    listSummary: "Lister les départements",
+    listDescription:
+      "Collection paginée, ordonnée par `position` côté serveur. Aucun filtre métier " +
+      "en V1 : seuls `page` et `limit` sont acceptés.",
+    getSummary: "Lire un département",
+    getDescription:
+      "Accepte un UUID ou un slug. Un identifiant inconnu produit `DEPARTMENT_NOT_FOUND`.",
+    createSummary: "Créer un département",
+    createDescription:
+      "Administration (`ROLE_ADMIN`). Le slug est dérivé du nom et suffixé jusqu'à être " +
+      "libre ; un slug explicite déjà pris est refusé en `DUPLICATE_SLUG`.",
+    updateSummary: "Mettre à jour un département",
+    updateDescription:
+      "Administration. Mise à jour partielle : `slug` en est volontairement absent, une " +
+      "URL publique ne doit pas changer. Le schéma est `.partial()` **sans** contrainte " +
+      "de non-vacuité : un corps vide `{}` est accepté par la validation.",
+    removeSummary: "Supprimer un département",
+    removeDescription:
+      "Administration. Les événements rattachés ne sont pas supprimés : la clé étrangère " +
+      "`events.department_id` est `onDelete: set null`, ils redeviennent généraux.",
+    notFoundCode: "DEPARTMENT_NOT_FOUND",
+    notFoundDescription:
+      "aucun département ne correspond à l'identifiant ou au slug fourni. " +
+      "`details` absent.",
+    createBody: CreateDepartmentBody,
+    updateBody: UpdateDepartmentBody,
+    extraCreateResponses: { 409: responseRef("DuplicateSlug") },
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Événements                                                            */
+  /* ---------------------------------------------------------------------- */
+
+  registerCrudModule(registry, {
+    tag: "events",
+    basePath: `${API_BASE_PATH}/events`,
+    resourceSchema: "Event",
+    collectionSchema: "EventCollection",
+    parameterName: "idOrSlug",
+    parameterKind: "idOrSlug",
+    parameterDescription: "Identifiant UUID **ou** slug de l'événement.",
+    listParameters: [
+      PAGE_PARAMETER,
+      LIMIT_PARAMETER,
+      enumQueryParameter(
+        "status",
+        "État **calculé** depuis `eventDate` : `UPCOMING` (aujourd'hui ou plus tard) ou " +
+          "`ARCHIVED` (passé). Le statut n'existe pas en base ; il est traduit en " +
+          "comparaison de dates par le repository. Omis ⇒ tous les événements.",
+        ["UPCOMING", "ARCHIVED"],
+      ),
+      uuidQueryParameter(
+        "departmentId",
+        "Ne renvoyer que les événements d'un département donné (UUID).",
+      ),
+      sortParameter(
+        ["event_date", "created_at"],
+        "event_date",
+        "Tri. Colonnes autorisées : `event_date`, `created_at` ; préfixe `-` pour " +
+          "l'ordre décroissant. Défaut : `event_date` croissant — appelé avec " +
+          "`status=UPCOMING`, l'écran public obtient l'événement le plus proche en " +
+          "premier. Toute autre colonne ⇒ 400 VALIDATION_ERROR.",
+      ),
+    ],
+    listSummary: "Lister les événements",
+    listDescription:
+      "Collection publique paginée et filtrée. `status` et `departmentId` sont les deux " +
+      "seuls filtres ; aucune borne de date fournie par le client n'est acceptée : la " +
+      "notion d'« à venir » est calculée par le serveur.",
+    getSummary: "Lire un événement",
+    getDescription:
+      "Accepte un UUID ou un slug. Un identifiant inconnu produit `EVENT_NOT_FOUND`.",
+    createSummary: "Créer un événement",
+    createDescription:
+      "Administration. `departmentId` peut valoir `null` (événement général) ; s'il est " +
+      "fourni, le service vérifie que le département existe réellement.",
+    updateSummary: "Mettre à jour un événement",
+    updateDescription:
+      "Administration. Mise à jour partielle ; `slug` n'y figure pas. Un `departmentId` " +
+      "inexistant est refusé avant écriture.",
+    removeSummary: "Supprimer un événement",
+    removeDescription:
+      "Administration. Suppression définitive, sans effet de bord sur les médias " +
+      "référencés.",
+    notFoundCode: "EVENT_NOT_FOUND",
+    notFoundDescription:
+      "aucun événement ne correspond à l'identifiant ou au slug fourni.",
+    createBody: CreateEventBody,
+    updateBody: UpdateEventBody,
+    extraCreateResponses: {
+      404: errorResponse(
+        "`DEPARTMENT_NOT_FOUND` — le `departmentId` fourni ne correspond à aucun " +
+          "département. Le service vérifie l'intégrité référentielle avant écriture.",
+      ),
+      409: responseRef("DuplicateSlug"),
+    },
+    extraUpdateResponses: {
+      404: errorResponse(
+        "`EVENT_NOT_FOUND` ou `DEPARTMENT_NOT_FOUND` — l'événement est introuvable, ou " +
+          "le `departmentId` fourni ne correspond à aucun département.",
+      ),
+    },
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Publications                                                          */
+  /* ---------------------------------------------------------------------- */
+
+  registerCrudModule(registry, {
+    tag: "publications",
+    basePath: `${API_BASE_PATH}/publications`,
+    resourceSchema: "Publication",
+    collectionSchema: "PublicationCollection",
+    parameterName: "idOrSlug",
+    parameterKind: "idOrSlug",
+    parameterDescription: "Identifiant UUID **ou** slug de la publication.",
+    listParameters: [
+      PAGE_PARAMETER,
+      LIMIT_PARAMETER,
+      enumQueryParameter(
+        "type",
+        "Type de publication. Omis ⇒ tous les types.",
+        ["VIDEO", "PHOTO", "TEXTE"],
+      ),
+      enumQueryParameter(
+        "category",
+        "Rubrique éditoriale, qui pilote le routage du frontend. Omis ⇒ toutes les " +
+          "rubriques.",
+        ["ACTUALITE", "ENSEIGNEMENT", "MEDIA", "RESSOURCE"],
+      ),
+      sortParameter(
+        ["published_at", "created_at"],
+        "-published_at",
+        "Tri. Colonnes autorisées : `published_at`, `created_at` ; préfixe `-` pour " +
+          "l'ordre décroissant. Défaut : `-published_at` (chronologie décroissante). " +
+          "Toute autre colonne ⇒ 400 VALIDATION_ERROR.",
+      ),
+    ],
+    listSummary: "Lister les publications",
+    listDescription:
+      "Collection publique paginée. **Le filtre de statut n'existe pas** : le service " +
+      "force `PUBLISHED` côté base, un client ne peut donc pas demander les brouillons, " +
+      "même en forgeant la *query*. Le champ `status` reste exposé dans la réponse " +
+      "(utile au back-office).",
+    getSummary: "Lire une publication",
+    getDescription:
+      "Accepte un UUID ou un slug. Une publication en brouillon est traitée comme " +
+      "inexistante et produit `PUBLICATION_NOT_FOUND`.",
+    createSummary: "Créer une publication",
+    createDescription:
+      "Administration. `status` vaut `PUBLISHED` par défaut ; `DRAFT` dépublie sans " +
+      "supprimer. `publishedAt` a pour valeur par défaut la date du jour. Le service " +
+      "vérifie la cohérence entre `type` et contenu : `VIDEO` exige un `contentUrl` " +
+      "http(s), `PHOTO` un `contentUrl` ou un `coverMediaId`, `TEXTE` un `body` non vide — " +
+      "sinon `VALIDATION_ERROR`.",
+    updateSummary: "Mettre à jour une publication",
+    updateDescription:
+      "Administration. Mise à jour partielle ; `slug` n'y figure pas et `publishedAt` " +
+      "n'a **pas** de valeur par défaut : un `PATCH` qui ne parle pas de la date de " +
+      "publication ne la réécrit pas. La cohérence `type`/contenu est arbitrée par le " +
+      "service, qui dispose de la ressource existante.",
+    removeSummary: "Supprimer une publication",
+    removeDescription: "Administration. Suppression définitive.",
+    notFoundCode: "PUBLICATION_NOT_FOUND",
+    notFoundDescription:
+      "aucune publication publiée ne correspond à l'identifiant ou au slug fourni.",
+    createBody: CreatePublicationBody,
+    updateBody: UpdatePublicationBody,
+    extraCreateResponses: { 409: responseRef("DuplicateSlug") },
+    extraUpdateResponses: {
+      400: errorResponse(
+        "`VALIDATION_ERROR` — corps de forme valide (Zod) mais contenu incohérent avec " +
+          "le `type` déclaré, une fois la mise à jour partielle appliquée à la " +
+          "ressource existante : `VIDEO` sans `contentUrl` http(s), `PHOTO` sans " +
+          "`contentUrl` ni couverture, `TEXTE` sans `body` non vide. " +
+          "`details: { champ }`.",
+      ),
+    },
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Responsables                                                          */
+  /* ---------------------------------------------------------------------- */
+
+  registerCrudModule(registry, {
+    tag: "leaders",
+    basePath: `${API_BASE_PATH}/leaders`,
+    resourceSchema: "Leader",
+    collectionSchema: "LeaderCollection",
+    parameterName: "id",
+    parameterKind: "uuid",
+    parameterDescription:
+      "Identifiant UUID du responsable : `leaders` n'a pas de slug.",
+    listParameters: PAGINATION_PARAMETERS,
+    listSummary: "Lister les responsables",
+    listDescription:
+      "Collection paginée. Aucun filtre serveur : la collection est seulement paginée.",
+    getSummary: "Lire un responsable",
+    getDescription: "Un identifiant inconnu produit `LEADER_NOT_FOUND`.",
+    createSummary: "Créer un responsable",
+    createDescription:
+      "Administration. `photoMediaId` référence la table `media` : le portrait est un " +
+      "média téléversé, jamais une URL libre.",
+    updateSummary: "Mettre à jour un responsable",
+    updateDescription:
+      "Administration. Mise à jour partielle ; un corps vide est refusé " +
+      "(`Aucun champ à mettre à jour`).",
+    removeSummary: "Supprimer un responsable",
+    removeDescription: "Administration. Suppression définitive.",
+    notFoundCode: "LEADER_NOT_FOUND",
+    notFoundDescription: "aucun responsable ne correspond à cet identifiant.",
+    createBody: CreateLeaderBody,
+    updateBody: UpdateLeaderBody,
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Témoignages                                                           */
+  /* ---------------------------------------------------------------------- */
+
+  registerCrudModule(registry, {
+    tag: "testimonies",
+    basePath: `${API_BASE_PATH}/testimonies`,
+    resourceSchema: "Testimony",
+    collectionSchema: "TestimonyCollection",
+    parameterName: "id",
+    parameterKind: "uuid",
+    parameterDescription: "Identifiant UUID du témoignage : aucun slug.",
+    listParameters: PAGINATION_PARAMETERS,
+    listSummary: "Lister les témoignages",
+    listDescription: "Collection paginée, ordonnée par `position`. Aucun filtre serveur.",
+    getSummary: "Lire un témoignage",
+    getDescription: "Un identifiant inconnu produit `TESTIMONY_NOT_FOUND`.",
+    createSummary: "Créer un témoignage",
+    createDescription: "Administration. `photoMediaId` référence la table `media`.",
+    updateSummary: "Mettre à jour un témoignage",
+    updateDescription: "Administration. Mise à jour partielle ; un corps vide est refusé.",
+    removeSummary: "Supprimer un témoignage",
+    removeDescription: "Administration. Suppression définitive.",
+    notFoundCode: "TESTIMONY_NOT_FOUND",
+    notFoundDescription: "aucun témoignage ne correspond à cet identifiant.",
+    createBody: CreateTestimonyBody,
+    updateBody: UpdateTestimonyBody,
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Visages de la communauté                                              */
+  /* ---------------------------------------------------------------------- */
+
+  registerCrudModule(registry, {
+    tag: "community-faces",
+    basePath: `${API_BASE_PATH}/community-faces`,
+    resourceSchema: "CommunityFace",
+    collectionSchema: "CommunityFaceCollection",
+    parameterName: "id",
+    parameterKind: "uuid",
+    parameterDescription: "Identifiant UUID du visage : aucun slug.",
+    listParameters: PAGINATION_PARAMETERS,
+    listSummary: "Lister les visages de la communauté",
+    listDescription: "Collection paginée, ordonnée par `position`. Aucun filtre serveur.",
+    getSummary: "Lire un visage de la communauté",
+    getDescription: "Un identifiant inconnu produit `COMMUNITY_FACE_NOT_FOUND`.",
+    createSummary: "Créer un visage de la communauté",
+    createDescription: "Administration. `photoMediaId` référence la table `media`.",
+    updateSummary: "Mettre à jour un visage de la communauté",
+    updateDescription: "Administration. Mise à jour partielle ; un corps vide est refusé.",
+    removeSummary: "Supprimer un visage de la communauté",
+    removeDescription: "Administration. Suppression définitive.",
+    notFoundCode: "COMMUNITY_FACE_NOT_FOUND",
+    notFoundDescription: "aucun visage ne correspond à cet identifiant.",
+    createBody: CreateCommunityFaceBody,
+    updateBody: UpdateCommunityFaceBody,
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Versets                                                               */
+  /* ---------------------------------------------------------------------- */
+
+  const scriptureKeyParameter = pathParameter(
+    "key",
+    "Clé du verset : minuscules, chiffres et tirets (ex. « rassemblement »), 1 à 60 " +
+      "caractères. La `key` est l'identifiant d'URL — les pages référencent leurs versets " +
+      "par clé — et n'est pas modifiable par `PATCH`.",
+    "scriptureKey",
+  );
+
+  registerRoute(registry, {
+    method: "get",
+    path: `${API_BASE_PATH}/scriptures`,
+    operationId: "scripturesList",
+    tags: ["scriptures"],
+    summary: "Lister les versets",
+    description:
+      "Liste complète, **non paginée** : le controller renvoie `{ data }` sans `meta` " +
+      "(`scripture.controller.ts:20`). Aucun paramètre de requête n'est validé ni lu.",
+    security: NO_SECURITY,
+    responses: {
+      200: jsonResponse("Versets enregistrés.", "ScriptureList"),
+      ...plainPublicResponses(),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "get",
+    path: `${API_BASE_PATH}/scriptures/{key}`,
+    operationId: "scripturesGet",
+    tags: ["scriptures"],
+    summary: "Lire un verset par clé",
+    description:
+      "Une clé inconnue produit `SCRIPTURE_NOT_FOUND` avec `details: { key }`.",
+    security: NO_SECURITY,
+    parameters: [scriptureKeyParameter],
+    responses: {
+      200: jsonResponse("Verset trouvé.", "Scripture"),
+      ...publicResponses({
+        404: errorResponse(
+          "`SCRIPTURE_NOT_FOUND` — aucun verset n'est enregistré pour cette clé. " +
+            "`details: { key }`.",
+        ),
+      }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "post",
+    path: `${API_BASE_PATH}/scriptures`,
+    operationId: "scripturesCreate",
+    tags: ["scriptures"],
+    summary: "Créer un verset",
+    description:
+      "Administration. `key` est unique : le service détecte le conflit **avant** " +
+      "l'écriture pour renvoyer une erreur métier plutôt qu'une violation de contrainte " +
+      "SQL. `translation` vaut « Louis Segond 1910 » par défaut.",
+    security: BEARER_SECURITY,
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: CreateScriptureBody } },
+    },
+    responses: {
+      201: jsonResponse("Verset créé.", "Scripture"),
+      ...adminResponses({ 409: responseRef("Conflict") }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "patch",
+    path: `${API_BASE_PATH}/scriptures/{key}`,
+    operationId: "scripturesUpdate",
+    tags: ["scriptures"],
+    summary: "Mettre à jour un verset",
+    description:
+      "Administration. Mise à jour partielle ; `key` n'est pas modifiable et un corps " +
+      "vide (`{}`) est refusé (`Aucun champ à mettre à jour`).",
+    security: BEARER_SECURITY,
+    parameters: [scriptureKeyParameter],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: UpdateScriptureBody } },
+    },
+    responses: {
+      200: jsonResponse("Verset mis à jour.", "Scripture"),
+      ...adminResponses({
+        404: errorResponse("`SCRIPTURE_NOT_FOUND` — clé inconnue. `details: { key }`."),
+      }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "delete",
+    path: `${API_BASE_PATH}/scriptures/{key}`,
+    operationId: "scripturesDelete",
+    tags: ["scriptures"],
+    summary: "Supprimer un verset",
+    description: "Administration. Suppression définitive.",
+    security: BEARER_SECURITY,
+    parameters: [scriptureKeyParameter],
+    responses: {
+      204: { description: "Verset supprimé : corps vide." },
+      ...adminResponses({
+        404: errorResponse("`SCRIPTURE_NOT_FOUND` — clé inconnue."),
+      }),
+    },
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Rythme hebdomadaire                                                   */
+  /* ---------------------------------------------------------------------- */
+
+  const scheduleIdParameter = pathParameter(
+    "id",
+    "Identifiant UUID de l'entrée du rythme.",
+    "uuid",
+  );
+
+  registerRoute(registry, {
+    method: "get",
+    path: `${API_BASE_PATH}/schedule`,
+    operationId: "scheduleList",
+    tags: ["schedule"],
+    summary: "Lister le rythme hebdomadaire",
+    description:
+      "Liste complète, **non paginée** et ordonnée par `position` : `{ data }` sans " +
+      "`meta` (`schedule.controller.ts:17`). Il n'existe **aucune** route " +
+      "`GET /schedule/{id}` : la lecture d'une entrée isolée n'est pas exposée.",
+    security: NO_SECURITY,
+    responses: {
+      200: jsonResponse("Entrées du rythme hebdomadaire.", "ScheduleEntryList"),
+      ...plainPublicResponses(),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "post",
+    path: `${API_BASE_PATH}/schedule`,
+    operationId: "scheduleCreate",
+    tags: ["schedule"],
+    summary: "Créer une entrée du rythme",
+    description:
+      "Administration. `isConfirmed` vaut `false` et `position` vaut `0` par défaut.",
+    security: BEARER_SECURITY,
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: CreateScheduleEntryBody } },
+    },
+    responses: {
+      201: jsonResponse("Entrée créée.", "ScheduleEntry"),
+      ...adminResponses(),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "patch",
+    path: `${API_BASE_PATH}/schedule/{id}`,
+    operationId: "scheduleUpdate",
+    tags: ["schedule"],
+    summary: "Mettre à jour une entrée du rythme",
+    description: "Administration. Mise à jour partielle ; un corps vide est refusé.",
+    security: BEARER_SECURITY,
+    parameters: [scheduleIdParameter],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: UpdateScheduleEntryBody } },
+    },
+    responses: {
+      200: jsonResponse("Entrée mise à jour.", "ScheduleEntry"),
+      ...adminResponses({
+        404: errorResponse(
+          "`SCHEDULE_ENTRY_NOT_FOUND` — aucune entrée ne correspond à cet identifiant.",
+        ),
+      }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "delete",
+    path: `${API_BASE_PATH}/schedule/{id}`,
+    operationId: "scheduleDelete",
+    tags: ["schedule"],
+    summary: "Supprimer une entrée du rythme",
+    description: "Administration. Suppression définitive.",
+    security: BEARER_SECURITY,
+    parameters: [scheduleIdParameter],
+    responses: {
+      204: { description: "Entrée supprimée : corps vide." },
+      ...adminResponses({
+        404: errorResponse(
+          "`SCHEDULE_ENTRY_NOT_FOUND` — aucune entrée ne correspond à cet identifiant.",
+        ),
+      }),
+    },
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Réseaux sociaux                                                       */
+  /* ---------------------------------------------------------------------- */
+
+  const socialLinkIdParameter = pathParameter(
+    "id",
+    "Identifiant UUID du lien social.",
+    "uuid",
+  );
+
+  registerRoute(registry, {
+    method: "get",
+    path: `${API_BASE_PATH}/social-links`,
+    operationId: "socialLinksList",
+    tags: ["social-links"],
+    summary: "Lister les réseaux sociaux",
+    description:
+      "Liste complète, **non paginée** et ordonnée par `position` : `{ data }` sans " +
+      "`meta` (`social-link.controller.ts:17`). Les liens affichés dans le pied de page " +
+      "et sur la page « nous trouver » proviennent de cette route et sont aussi exposés " +
+      "dans `GET /settings`.",
+    security: NO_SECURITY,
+    responses: {
+      200: jsonResponse("Liens sociaux ordonnés.", "SocialLinkList"),
+      ...plainPublicResponses(),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "post",
+    path: `${API_BASE_PATH}/social-links`,
+    operationId: "socialLinksCreate",
+    tags: ["social-links"],
+    summary: "Créer un lien social",
+    description:
+      "Administration. `href` doit être une URL `http`/`https` valide : ces liens sont " +
+      "affichés tels quels, un `href` arbitraire (`javascript:`, `data:`) est refusé par " +
+      "Zod. `position` vaut `0` par défaut.",
+    security: BEARER_SECURITY,
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: CreateSocialLinkBody } },
+    },
+    responses: {
+      201: jsonResponse("Lien créé.", "SocialLink"),
+      ...adminResponses(),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "patch",
+    path: `${API_BASE_PATH}/social-links/{id}`,
+    operationId: "socialLinksUpdate",
+    tags: ["social-links"],
+    summary: "Mettre à jour un lien social",
+    description: "Administration. Mise à jour partielle ; un corps vide est refusé.",
+    security: BEARER_SECURITY,
+    parameters: [socialLinkIdParameter],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: UpdateSocialLinkBody } },
+    },
+    responses: {
+      200: jsonResponse("Lien mis à jour.", "SocialLink"),
+      ...adminResponses({
+        404: errorResponse(
+          "`SOCIAL_LINK_NOT_FOUND` — aucun lien ne correspond à cet identifiant.",
+        ),
+      }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "delete",
+    path: `${API_BASE_PATH}/social-links/{id}`,
+    operationId: "socialLinksDelete",
+    tags: ["social-links"],
+    summary: "Supprimer un lien social",
+    description: "Administration. Suppression définitive.",
+    security: BEARER_SECURITY,
+    parameters: [socialLinkIdParameter],
+    responses: {
+      204: { description: "Lien supprimé : corps vide." },
+      ...adminResponses({
+        404: errorResponse(
+          "`SOCIAL_LINK_NOT_FOUND` — aucun lien ne correspond à cet identifiant.",
+        ),
+      }),
+    },
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Réglages institutionnels                                              */
+  /* ---------------------------------------------------------------------- */
+
+  registerRoute(registry, {
+    method: "get",
+    path: `${API_BASE_PATH}/settings`,
+    operationId: "settingsGet",
+    tags: ["settings"],
+    summary: "Lire les réglages du site",
+    description:
+      "Document unique, sans identifiant : regroupe les scalaires de `site_settings` " +
+      "(exposés en objet clé/valeur) et la liste ordonnée des liens sociaux. Les deux " +
+      "sources sont lues en parallèle.",
+    security: NO_SECURITY,
+    responses: {
+      200: jsonResponse("Réglages courants.", "Settings"),
+      ...plainPublicResponses(),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "patch",
+    path: `${API_BASE_PATH}/settings`,
+    operationId: "settingsUpdate",
+    tags: ["settings"],
+    summary: "Mettre à jour les réglages du site",
+    description:
+      "Administration. Mise à jour en masse de scalaires. La liste des clés écrivables " +
+      "est **fermée** : une clé inconnue fait échouer toute l'opération plutôt que d'être " +
+      "ignorée silencieusement. La réponse est l'état **complet relu**, qui contient donc " +
+      "aussi les clés absentes de la requête.",
+    security: BEARER_SECURITY,
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: SettingsPatchBody } },
+    },
+    responses: {
+      200: jsonResponse("Réglages mis à jour et relus.", "Settings"),
+      ...adminResponses({
+        400: errorResponse(
+          "`VALIDATION_ERROR` — objet `settings` vide (`Aucun réglage à mettre à jour`, " +
+            "`details: { allowedKeys }`), ou clé non autorisée " +
+            "(`Clé de réglage non autorisée : …`, `details: { unknownKeys, allowedKeys }`). " +
+            "Une valeur vide ou blanche est refusée par Zod (1 à 500 caractères).",
+        ),
+      }),
+    },
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Pages éditables                                                       */
+  /* ---------------------------------------------------------------------- */
+
+  const pageKeyParameter = pathParameter(
+    "pageKey",
+    "Clé de la page (1 à 60 caractères), telle que le frontend la connaît. " +
+      "Volontairement permissive : une clé inconnue produit un 404 métier " +
+      "(`PAGE_NOT_FOUND`), pas un 400 de forme.",
+    "pageKey",
+  );
+
+  registerRoute(registry, {
+    method: "get",
+    path: `${API_BASE_PATH}/pages/{pageKey}`,
+    operationId: "pagesGet",
+    tags: ["pages"],
+    summary: "Lire le contenu d'une page éditable",
+    description:
+      "Il n'existe pas de route de collection : l'énumération des clés éditables vient du " +
+      "registre `domain/content/page-content.ts`, pas de la base. Une clé hors registre " +
+      "produit `PAGE_NOT_FOUND`.",
+    security: NO_SECURITY,
+    parameters: [pageKeyParameter],
+    responses: {
+      200: jsonResponse("Contenu de la page.", "StaticPage"),
+      ...publicResponses({
+        404: errorResponse(
+          "`PAGE_NOT_FOUND` — aucune page ne correspond à cette `pageKey`.",
+        ),
+      }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "patch",
+    path: `${API_BASE_PATH}/pages/{pageKey}`,
+    operationId: "pagesUpdate",
+    tags: ["pages"],
+    summary: "Mettre à jour le contenu d'une page éditable",
+    description:
+      "Administration. La validation est faite **en deux temps** : forme générale " +
+      "(`{ content: objet }`) par Zod, puis contenu par le schéma de la page dans le " +
+      "service — c'est la seule façon de rejeter une `pageKey` inconnue en " +
+      "`PAGE_NOT_FOUND` et un contenu non conforme en `VALIDATION_ERROR`. " +
+      "`updatedBy` est déduit du jeton vérifié, jamais du corps de la requête : un client " +
+      "ne peut pas falsifier l'auteur de la modification.",
+    security: BEARER_SECURITY,
+    parameters: [pageKeyParameter],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: PageContentUpdateBody } },
+    },
+    responses: {
+      200: jsonResponse("Contenu mis à jour.", "StaticPage"),
+      ...adminResponses({
+        400: errorResponse(
+          "`VALIDATION_ERROR` — `content` n'est pas un objet, ou son contenu ne respecte " +
+            "pas le schéma de la page concernée. `details` décrit les champs fautifs.",
+        ),
+        404: errorResponse(
+          "`PAGE_NOT_FOUND` — la `pageKey` n'est pas une page éditable.",
+        ),
+      }),
+    },
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Médias — entièrement administratifs                                   */
+  /* ---------------------------------------------------------------------- */
+
+  const mediaIdParameter = pathParameter("id", "Identifiant UUID du média.", "uuid");
+
+  registerRoute(registry, {
+    method: "get",
+    path: `${API_BASE_PATH}/media`,
+    operationId: "mediaList",
+    tags: ["media"],
+    summary: "Lister les médias",
+    description:
+      "Administration : le registre des fichiers téléversés n'est **jamais** public. " +
+      "Collection paginée, sans filtre serveur.",
+    security: BEARER_SECURITY,
+    parameters: PAGINATION_PARAMETERS,
+    responses: {
+      200: jsonResponse("Collection paginée de médias.", "MediaCollection"),
+      ...adminResponses(),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "get",
+    path: `${API_BASE_PATH}/media/{id}/usage`,
+    operationId: "mediaUsage",
+    tags: ["media"],
+    summary: "Lister les usages d'un média",
+    description:
+      "Administration. Renvoie le média, le nombre total de références et la liste des " +
+      "emplacements qui le référencent réellement. Le calcul passe par une seule requête " +
+      "SQL, jamais par une boucle.",
+    security: BEARER_SECURITY,
+    parameters: [mediaIdParameter],
+    responses: {
+      200: jsonResponse("Rapport d'usages.", "MediaUsageReport"),
+      ...adminResponses({
+        404: errorResponse(
+          "`MEDIA_NOT_FOUND` — aucun média ne correspond à cet identifiant. " +
+            "`details: { id }`.",
+        ),
+      }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "get",
+    path: `${API_BASE_PATH}/media/{id}`,
+    operationId: "mediaGet",
+    tags: ["media"],
+    summary: "Lire un média",
+    description: "Administration. Aucun champ interne n'est exposé : ni clé, ni jeton.",
+    security: BEARER_SECURITY,
+    parameters: [mediaIdParameter],
+    responses: {
+      200: jsonResponse("Média trouvé.", "Media"),
+      ...adminResponses({
+        404: errorResponse(
+          "`MEDIA_NOT_FOUND` — aucun média ne correspond à cet identifiant.",
+        ),
+      }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "post",
+    path: `${API_BASE_PATH}/media`,
+    operationId: "mediaUpload",
+    tags: ["media"],
+    summary: "Téléverser un média",
+    description:
+      "Administration. Corps `multipart/form-data` : un champ fichier `file` et un champ " +
+      "texte `folder`, plus un `alt` facultatif.\n\n" +
+      "Le téléversement est fait **en mémoire** (`multer.memoryStorage()`) : rien n'est " +
+      "jamais écrit sur le disque du serveur, éphémère sur l'hébergement. Type et taille " +
+      "sont contrôlés par `StorageService` à partir des **octets** du fichier — jamais du " +
+      "`Content-Type` ni du nom de fichier envoyés par le client — et le nom du fichier " +
+      "stocké est généré par le serveur (UUID + extension), ce qui élimine les traversées " +
+      "de chemin et les collisions.",
+    security: BEARER_SECURITY,
+    requestBody: {
+      required: true,
+      content: { "multipart/form-data": { schema: UploadMediaRequest } },
+    },
+    responses: {
+      201: jsonResponse("Média téléversé et enregistré.", "Media"),
+      ...adminResponses({
+        400: errorResponse(
+          "`VALIDATION_ERROR` — champ `folder` absent ou hors de la liste autorisée, " +
+            "`alt` trop long, aucun fichier reçu sous le nom de champ `file` " +
+            "(« Aucun fichier reçu : le champ de formulaire « file » est requis »), ou " +
+            "plusieurs fichiers envoyés. `details` indique le champ fautif.",
+        ),
+        413: responseRef("FileTooLarge"),
+        415: responseRef("InvalidFileType"),
+      }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "delete",
+    path: `${API_BASE_PATH}/media/{id}`,
+    operationId: "mediaDelete",
+    tags: ["media"],
+    summary: "Supprimer un média",
+    description:
+      "Administration. Refusée par défaut si le fichier est encore référencé : la " +
+      "réponse est alors `CONFLICT` avec le détail des usages. `?force=true` détache " +
+      "d'abord les références, puis supprime la ligne **et** le fichier du Storage. " +
+      "Seule la chaîne littérale `true` autorise la suppression forcée : `false` ou toute " +
+      "autre valeur est refusée par Zod (une valeur quelconque ne doit pas être convertie " +
+      "en booléen, `Boolean(\"false\")` valant `true`).",
+    security: BEARER_SECURITY,
+    parameters: [
+      mediaIdParameter,
+      enumQueryParameter(
+        "force",
+        "`true` pour supprimer un média encore référencé (les références sont " +
+          "détachées). Défaut : `false`.",
+        ["true", "false"],
+        "false",
+      ),
+    ],
+    responses: {
+      204: { description: "Média supprimé du registre et du Storage : corps vide." },
+      ...adminResponses({
+        404: errorResponse(
+          "`MEDIA_NOT_FOUND` — aucun média ne correspond à cet identifiant.",
+        ),
+        409: errorResponse(
+          "`CONFLICT` — le média est encore utilisé et `force` n'est pas `true`. " +
+            "`details: { total, usages }`.",
+        ),
+      }),
+    },
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Demandes de prière                                                    */
+  /* ---------------------------------------------------------------------- */
+
+  const prayerRequestIdParameter = pathParameter(
+    "id",
+    "Identifiant UUID de la demande de prière (jamais un slug).",
+    "uuid",
+  );
+
+  registerRoute(registry, {
+    method: "post",
+    path: `${API_BASE_PATH}/prayer-requests`,
+    operationId: "prayerRequestsSubmit",
+    tags: ["prayer-requests"],
+    summary: "Déposer une demande de prière",
+    description:
+      "**Route publique** : c'est le seul point d'écriture ouvert à un visiteur non " +
+      "authentifié. Le corps est un objet **strict** : toute clé inconnue provoque un " +
+      "400 plutôt que d'être ignorée, et un champ non prévu ne peut pas être injecté dans " +
+      "la ligne.\n\n" +
+      "La route est **rate-limitée à 5 dépôts par heure et par IP** " +
+      "(`prayer-request.routes.ts`), en plus de la limite globale. Le compteur est indexé " +
+      "sur l'adresse IP réelle (`trust proxy` activé pour Railway).\n\n" +
+      "La réponse est volontairement minimale : ni le texte de l'intention, ni le prénom, " +
+      "ni le contact ne sont renvoyés — ces données personnelles sensibles ne circulent " +
+      "pas une seconde fois.",
+    security: NO_SECURITY,
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: CreatePrayerRequestBody } },
+    },
+    responses: {
+      201: jsonResponse("Demande enregistrée.", "PrayerRequestCreated"),
+      400: responseRef("ValidationError"),
+      429: responseRef("RateLimitedPublicWrite"),
+      500: responseRef("InternalError"),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "get",
+    path: `${API_BASE_PATH}/prayer-requests`,
+    operationId: "prayerRequestsList",
+    tags: ["prayer-requests"],
+    summary: "Lister les demandes de prière",
+    description:
+      "**Administration uniquement.** Lecture jamais publique : le formulaire affirme au " +
+      "visiteur que sa demande « ne sera jamais publiée sur Internet ni sur les réseaux " +
+      "sociaux ». Ordre fixé par le serveur (date décroissante) ; aucun paramètre de tri " +
+      "n'existe.",
+    security: BEARER_SECURITY,
+    parameters: [
+      PAGE_PARAMETER,
+      LIMIT_PARAMETER,
+      enumQueryParameter(
+        "status",
+        "Filtrer par état. Omis ⇒ toutes les demandes.",
+        ["NEW", "PRAYED"],
+      ),
+    ],
+    responses: {
+      200: jsonResponse("Collection paginée de demandes.", "PrayerRequestCollection"),
+      ...adminResponses(),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "get",
+    path: `${API_BASE_PATH}/prayer-requests/{id}`,
+    operationId: "prayerRequestsGet",
+    tags: ["prayer-requests"],
+    summary: "Lire une demande de prière",
+    description:
+      "Administration. Le message d'erreur est volontairement identique quelle que soit " +
+      "la cause : rien à deviner pour un appelant non autorisé.",
+    security: BEARER_SECURITY,
+    parameters: [prayerRequestIdParameter],
+    responses: {
+      200: jsonResponse("Demande trouvée.", "PrayerRequest"),
+      ...adminResponses({
+        404: errorResponse(
+          "`PRAYER_REQUEST_NOT_FOUND` — cette demande de prière est introuvable.",
+        ),
+      }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "patch",
+    path: `${API_BASE_PATH}/prayer-requests/{id}`,
+    operationId: "prayerRequestsUpdate",
+    tags: ["prayer-requests"],
+    summary: "Marquer une demande comme portée",
+    description:
+      "Administration. Une seule transition existe en V1 : `NEW → PRAYED`. Le corps est " +
+      "un objet strict dont le seul champ autorisé est `status`, avec la seule valeur " +
+      "littérale `PRAYED` — accepter `NEW` laisserait croire à un retour arrière que la " +
+      "persistance ne sait pas exprimer. Renseigne `handledAt`.",
+    security: BEARER_SECURITY,
+    parameters: [prayerRequestIdParameter],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: UpdatePrayerRequestBody } },
+    },
+    responses: {
+      200: jsonResponse("Demande marquée comme portée.", "PrayerRequest"),
+      ...adminResponses({
+        400: errorResponse(
+          "`VALIDATION_ERROR` — corps non conforme : clé inconnue, champ `status` absent, " +
+            "ou valeur autre que la chaîne littérale `PRAYED`.",
+        ),
+        404: errorResponse(
+          "`PRAYER_REQUEST_NOT_FOUND` — cette demande de prière est introuvable.",
+        ),
+      }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "delete",
+    path: `${API_BASE_PATH}/prayer-requests/{id}`,
+    operationId: "prayerRequestsDelete",
+    tags: ["prayer-requests"],
+    summary: "Supprimer une demande de prière",
+    description: "Administration. Suppression définitive.",
+    security: BEARER_SECURITY,
+    parameters: [prayerRequestIdParameter],
+    responses: {
+      204: { description: "Demande supprimée : corps vide." },
+      ...adminResponses({
+        404: errorResponse(
+          "`PRAYER_REQUEST_NOT_FOUND` — cette demande de prière est introuvable.",
+        ),
+      }),
+    },
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Administration                                                        */
+  /* ---------------------------------------------------------------------- */
+
+  registerRoute(registry, {
+    method: "get",
+    path: `${API_BASE_PATH}/admin/me`,
+    operationId: "adminMe",
+    tags: ["admin"],
+    summary: "Profil de l'administrateur connecté",
+    description:
+      "Exige seulement d'être un **administrateur actif** (jeton valide + profil " +
+      "`admin_profiles` présent et `isActive`), sans rôle supplémentaire : c'est l'appel " +
+      "par lequel l'interface sait qui est connecté. Aucun identifiant n'est reçu — le " +
+      "profil est déduit du jeton vérifié, jamais d'un paramètre d'URL, ce qui interdit de " +
+      "lire le profil d'un autre administrateur.",
+    security: BEARER_SECURITY,
+    responses: {
+      200: jsonResponse("Profil courant.", "AdminProfile"),
+      401: responseRef("AuthenticationRequired"),
+      403: responseRef("Forbidden"),
+      429: responseRef("RateLimited"),
+      500: responseRef("InternalError"),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "get",
+    path: `${API_BASE_PATH}/admin/profiles`,
+    operationId: "adminProfilesList",
+    tags: ["admin"],
+    summary: "Lister les profils administratifs",
+    description:
+      "Administration au sens plein (`ROLE_ADMIN`) : expose l'annuaire administratif, " +
+      "avec l'état d'activation et la date de création de chaque profil. Collection " +
+      "paginée, sans filtre serveur.",
+    security: BEARER_SECURITY,
+    parameters: PAGINATION_PARAMETERS,
+    responses: {
+      200: jsonResponse("Collection paginée de profils.", "AdminProfileCollection"),
+      ...adminResponses(),
+    },
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Assemblage                                                            */
+  /* ---------------------------------------------------------------------- */
+
+  const generator = new OpenApiGeneratorV31(registry.definitions, {
+    sortComponents: "alphabetically",
+  });
+
+  const document = generator.generateDocument({
+    openapi: "3.1.0",
+    info: {
+      title: "API CCJV — Centre Chrétien Jésus ma Vie",
+      version: "v1",
+      description: [
+        "API REST Express + TypeScript servant les contenus publics du site et le",
+        "back-office d'administration.",
+        "",
+        "### Préfixe",
+        `Toutes les routes métier sont montées sous \`${API_BASE_PATH}\`. Seul`,
+        `\`GET ${API_BASE_PATH}/health\` échappe au rate limiting global. Une URL`,
+        "inconnue sous ce préfixe produit `404 NOT_FOUND`, au format d'erreur standard.",
+        "",
+        "### Authentification",
+        "Jeton porteur Supabase (`Authorization: Bearer <jeton>`), vérifié par",
+        "`presentation/middlewares/auth.ts`. L'authentification auprès du fournisseur",
+        "d'identité **ne confère aucun droit** : l'utilisateur doit en plus posséder un",
+        "profil dans `admin_profiles`, actif, et le rôle `ROLE_ADMIN` pour les routes",
+        "d'administration. Chaque opération déclare son exigence : `security: []` pour",
+        "une route publique, `bearerAuth` pour une route d'administration.",
+        "",
+        "### Enveloppes de réponse",
+        "- collection : `{ data: [...], meta: { page, limit, total, totalPages } }` ;",
+        "- ressource : la ressource directement, jamais enveloppée ;",
+        "- erreur : `{ error: { code, message, details? } }` — forme unique, y compris",
+        "  pour une erreur non maîtrisée ou une route inconnue.",
+        "",
+        "Trois listes bornées font exception à l'enveloppe de collection et renvoient",
+        "`{ data: [...] }` **sans** `meta`, car elles ne sont pas paginées :",
+        "`GET /scriptures`, `GET /schedule` et `GET /social-links`.",
+        "",
+        "Un corps JSON **mal formé** sort en `500 INTERNAL_ERROR` (et non en 400) :",
+        "`express.json()` échoue avant le middleware `validate`. Comportement vérifié",
+        "sur l'API en fonctionnement.",
+        "",
+        "### Limites",
+        `- rate limiting global : 120 requêtes par minute et par IP (\`RATE_LIMIT_MAX\`),`,
+        "  soit `429 RATE_LIMITED` ;",
+        "- écriture publique `POST /prayer-requests` : 5 dépôts par heure et par IP ;",
+        `- pagination : \`page\` ≥ 1 (défaut 1), \`limit\` 1–${MAX_PAGE_SIZE} (défaut ${DEFAULT_PAGE_SIZE}) ;`,
+        "- corps JSON et `urlencoded` : 1 Mo maximum ; téléversement : limite de",
+        "  `MAX_UPLOAD_BYTES` (5 Mio par défaut), type réel du fichier vérifié.",
+        "",
+        "### Source de vérité",
+        "Document **généré** depuis l'implémentation : `npm run openapi` (script",
+        "`src/presentation/openapi/generate.ts`), qui produit `openapi.json` et",
+        "`openapi.yaml`. Les chemins et méthodes reprennent le montage réel de",
+        "`src/app.ts` et des `*.routes.ts` ; les corps de requête sont les schémas Zod",
+        "des modules eux-mêmes ; les codes d'erreur sont les 24 valeurs de l'union",
+        "`ErrorCode` de `shared/errors/app-error.ts`.",
+      ].join("\n"),
+    },
+    servers: [
+      {
+        url: "/",
+        description:
+          "Origine courante. Les chemins documentés incluent déjà le préfixe " +
+          `${API_BASE_PATH} : l'URL effective est donc <origine>${API_BASE_PATH}/…`,
+      },
+      {
+        url: "http://localhost:4000",
+        description:
+          "Développement local : `PORT` vaut 4000 par défaut (`config/env.ts`).",
+      },
+    ],
+    tags: [
+      {
+        name: "Système",
+        description:
+          "Contrôle de santé, hors routers métier et hors rate limiting.",
+      },
+      {
+        name: "departments",
+        description:
+          "Départements de l'église : lecture publique, écriture administration.",
+      },
+      {
+        name: "events",
+        description:
+          "Événements : lecture publique (statut calculé), écriture administration.",
+      },
+      {
+        name: "publications",
+        description:
+          "Médiathèque, actualités, enseignements et ressources, filtrés par " +
+          "`category`. Les brouillons ne sont jamais visibles publiquement.",
+      },
+      {
+        name: "leaders",
+        description: "Responsables : lecture publique, écriture administration.",
+      },
+      {
+        name: "testimonies",
+        description: "Témoignages : lecture publique, écriture administration.",
+      },
+      {
+        name: "community-faces",
+        description:
+          "Visages de la communauté : lecture publique, écriture administration.",
+      },
+      {
+        name: "scriptures",
+        description:
+          "Versets identifiés par une clé d'URL. Liste non paginée.",
+      },
+      {
+        name: "schedule",
+        description:
+          "Rythme hebdomadaire. Liste non paginée, sans lecture d'entrée isolée.",
+      },
+      {
+        name: "social-links",
+        description:
+          "Réseaux sociaux ordonnés. Liste non paginée ; les liens sont aussi " +
+          "exposés par `GET /settings`.",
+      },
+      {
+        name: "settings",
+        description:
+          "Réglages institutionnels : document unique, clés d'écriture fermées.",
+      },
+      {
+        name: "pages",
+        description:
+          "Contenus éditables des pages statiques, par clé de page.",
+      },
+      {
+        name: "media",
+        description:
+          "Registre des médias téléversés. Entièrement administratif : aucune " +
+          "de ces routes n'est publique.",
+      },
+      {
+        name: "prayer-requests",
+        description:
+          "Demandes de prière. Dépôt public rate-limité ; toute lecture est " +
+          "réservée à l'administration.",
+      },
+      {
+        name: "admin",
+        description:
+          "Identité administrative et annuaire des profils. Aucune route publique.",
+      },
+    ],
+    security: [],
+  });
+
+  return document as unknown as Record<string, unknown>;
+}
+
+export { API_BASE_PATH, ERROR_CODES };

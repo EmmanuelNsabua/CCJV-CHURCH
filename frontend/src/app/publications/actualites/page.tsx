@@ -5,7 +5,7 @@ import { ListingPage } from "@/components/archetypes/ListingPage";
 import { CrossLinks } from "@/components/editorial/CrossLinks";
 import { FeatureImage } from "@/components/editorial/FeatureImage";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { getPublicationsByCategory, publications } from "@/data/mock/publications";
+import { getPublications } from "@/lib/api";
 import { images } from "@/data/mock/images";
 import { formatLongDate } from "@/lib/utils";
 import { pageMetadata } from "@/lib/seo";
@@ -17,12 +17,22 @@ export const metadata = pageMetadata({
   path: "/publications/actualites",
 });
 
-export default function ActualitesPage() {
-  const items = getPublicationsByCategory("ACTUALITE");
+export default async function ActualitesPage() {
+  /*
+   * Deux lectures distinctes : la rubrique Actualités (la une et les autres
+   * actualités) et l'ensemble des publications, dont on tire ce qui a paru dans
+   * les autres rubriques. L'API ne sait pas exclure une rubrique, le filtrage
+   * se fait donc ici, côté serveur.
+   */
+  const [items, allPublications] = await Promise.all([
+    getPublications({ category: "ACTUALITE", limit: 50 }),
+    getPublications({ limit: 50 }),
+  ]);
+
   const [lead, ...others] = items;
 
   /** Ce qui a été publié récemment dans les autres rubriques. */
-  const elsewhere = publications
+  const elsewhere = allPublications
     .filter((publication) => publication.category !== "ACTUALITE")
     .slice(0, 4);
 
@@ -133,48 +143,53 @@ export default function ActualitesPage() {
       archivesTitle="Également publié sur le site"
       archives={
         <ul className="grid grid-cols-1 gap-x-12 sm:grid-cols-2">
-          {elsewhere.map((publication) => (
-            <li
-              key={publication.id}
-              className="border-t border-ccjv-line py-6 first:border-t-0 sm:[&:nth-child(2)]:border-t-0"
-            >
-              <Link
-                href={`/publications/${publication.slug}`}
-                className="group flex items-start gap-5"
-              >
-                {publication.type === "PHOTO" && publication.contentUrl ? (
-                  <span className="relative h-20 w-28 shrink-0 overflow-hidden bg-ccjv-line">
-                    <Image
-                      src={publication.contentUrl}
-                      alt=""
-                      fill
-                      sizes="112px"
-                      className="object-cover transition-transform duration-[550ms] ease-ccjv group-hover:scale-[1.04]"
-                    />
-                  </span>
-                ) : null}
+          {elsewhere.map((publication) => {
+            /* L'API peut renvoyer la photo en `coverImage` plutôt qu'en `contentUrl`. */
+            const thumbnail = publication.contentUrl ?? publication.coverImage;
 
-                <span className="flex flex-col">
-                  <span className="font-sans text-[0.7rem] font-semibold tracking-[0.16em] text-ccjv-green uppercase">
-                    {publication.category === "ENSEIGNEMENT"
-                      ? "Enseignement"
-                      : publication.category === "MEDIA"
-                        ? "Média"
-                        : "Ressource"}
+            return (
+              <li
+                key={publication.id}
+                className="border-t border-ccjv-line py-6 first:border-t-0 sm:[&:nth-child(2)]:border-t-0"
+              >
+                <Link
+                  href={`/publications/${publication.slug}`}
+                  className="group flex items-start gap-5"
+                >
+                  {publication.type === "PHOTO" && thumbnail ? (
+                    <span className="relative h-20 w-28 shrink-0 overflow-hidden bg-ccjv-line">
+                      <Image
+                        src={thumbnail}
+                        alt=""
+                        fill
+                        sizes="112px"
+                        className="object-cover transition-transform duration-[550ms] ease-ccjv group-hover:scale-[1.04]"
+                      />
+                    </span>
+                  ) : null}
+
+                  <span className="flex flex-col">
+                    <span className="font-sans text-[0.7rem] font-semibold tracking-[0.16em] text-ccjv-green uppercase">
+                      {publication.category === "ENSEIGNEMENT"
+                        ? "Enseignement"
+                        : publication.category === "MEDIA"
+                          ? "Média"
+                          : "Ressource"}
+                    </span>
+                    <span className="mt-2 font-serif text-[1.2rem] leading-snug transition-colors duration-[250ms] group-hover:text-ccjv-green">
+                      {publication.title}
+                    </span>
+                    <time
+                      dateTime={publication.publishedAt}
+                      className="mt-2 font-sans text-[0.78rem] text-ccjv-ink-secondary"
+                    >
+                      {formatLongDate(publication.publishedAt)}
+                    </time>
                   </span>
-                  <span className="mt-2 font-serif text-[1.2rem] leading-snug transition-colors duration-[250ms] group-hover:text-ccjv-green">
-                    {publication.title}
-                  </span>
-                  <time
-                    dateTime={publication.publishedAt}
-                    className="mt-2 font-sans text-[0.78rem] text-ccjv-ink-secondary"
-                  >
-                    {formatLongDate(publication.publishedAt)}
-                  </time>
-                </span>
-              </Link>
-            </li>
-          ))}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       }
       related={

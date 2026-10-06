@@ -7,7 +7,7 @@ import { MediaFeature } from "@/components/editorial/MediaFeature";
 import { PhotoGallery } from "@/components/editorial/PhotoGallery";
 import { CrossLinks } from "@/components/editorial/CrossLinks";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { getPublicationsByCategory } from "@/data/mock/publications";
+import { getPublications } from "@/lib/api";
 import { images, photoPool } from "@/data/mock/images";
 import { formatLongDate } from "@/lib/utils";
 import { pageMetadata } from "@/lib/seo";
@@ -19,25 +19,32 @@ export const metadata = pageMetadata({
   path: "/publications/mediatheque",
 });
 
-export default function MediathequePage() {
-  /** Albums publiés : les entrées de la rubrique média de type photographie. */
-  const albums = getPublicationsByCategory("MEDIA").flatMap((publication) =>
-    publication.contentUrl
-      ? [
-          {
-            id: publication.id,
-            title: publication.title,
-            slug: publication.slug,
-            description: publication.description,
-            publishedAt: publication.publishedAt,
-            image: publication.contentUrl,
-          },
-        ]
-      : [],
-  );
+export default async function MediathequePage() {
+  const [media, teachings] = await Promise.all([
+    getPublications({ category: "MEDIA", limit: 50 }),
+    getPublications({ category: "ENSEIGNEMENT", limit: 1 }),
+  ]);
+
+  /** Albums publiés : les entrées de la rubrique média accompagnées d'une image. */
+  const albums = media.flatMap((publication) => {
+    /* L'API peut renvoyer la photo en `coverImage` plutôt qu'en `contentUrl`. */
+    const image = publication.contentUrl ?? publication.coverImage;
+    if (!image) return [];
+
+    return [
+      {
+        id: publication.id,
+        title: publication.title,
+        slug: publication.slug,
+        description: publication.description,
+        publishedAt: publication.publishedAt,
+        image,
+      },
+    ];
+  });
 
   /** Vidéo mise en avant : le message le plus récent publié sur YouTube. */
-  const latestVideo = getPublicationsByCategory("ENSEIGNEMENT")[0];
+  const latestVideo = teachings[0];
   const videoUrl =
     latestVideo?.type === "VIDEO" && latestVideo.contentUrl
       ? latestVideo.contentUrl

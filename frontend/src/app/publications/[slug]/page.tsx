@@ -11,9 +11,9 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { YouTubeThumb } from "@/components/shared/YouTubeThumb";
 import {
-  getPublicationBySlug,
-  publications,
-} from "@/data/mock/publications";
+  getPublication,
+  getPublications,
+} from "@/lib/api";
 import { galleryImages, images } from "@/data/mock/images";
 import { getYouTubeId, formatLongDate } from "@/lib/utils";
 import type { Publication } from "@/types";
@@ -39,8 +39,45 @@ const fallbackImage: Record<Publication["type"], string> = {
   TEXTE: images.assemblee,
 };
 
-export function generateStaticParams() {
-  return publications.map((publication) => ({ slug: publication.slug }));
+const IMAGE_FILE_PATTERN = /\.(?:avif|gif|jpe?g|png|webp)(?:\?.*)?$/i;
+
+/**
+ * Décide si l'URL de contenu d'une publication peut être affichée comme
+ * photographie. L'API renvoie soit un chemin local (`/media/…`), soit une URL
+ * Supabase Storage absolue ; un lien YouTube n'est jamais une image.
+ */
+function isImageSource(url?: string): boolean {
+  if (!url) return false;
+  if (url.startsWith("/")) return true;
+  if (getYouTubeId(url)) return false;
+
+  return (
+    /^https?:\/\//i.test(url) &&
+    (IMAGE_FILE_PATTERN.test(url) || url.includes("/storage/v1/object/public/"))
+  );
+}
+
+/**
+ * Pré-génère une fiche par publication publiée.
+ *
+ * ⚠️ Cette fonction s'exécute **au build** : si l'API est injoignable à ce
+ * moment-là (conteneur Railway endormi, réseau coupé), elle doit renvoyer `[]`
+ * sans jamais échouer — sinon le déploiement Vercel casse. Les fiches restent
+ * accessibles à la demande (`dynamicParams` par défaut) et seront pré-générées
+ * au build suivant.
+ */
+export async function generateStaticParams() {
+  try {
+    const publications = await getPublications({ limit: 100 });
+    return publications.map((publication) => ({ slug: publication.slug }));
+  } catch (error) {
+    // `getPublications` ne lève pas : ce filet couvre toute erreur imprévue.
+    console.warn(
+      "[publications] generateStaticParams : API indisponible, repli sur une liste vide",
+      error,
+    );
+    return [];
+  }
 }
 
 export async function generateMetadata({
@@ -49,7 +86,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const publication = getPublicationBySlug(slug);
+  const publication = await getPublication(slug);
   if (!publication) return {};
 
   return pageMetadata({
@@ -67,16 +104,22 @@ export default async function PublicationDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const publication = getPublicationBySlug(slug);
+  const publication = await getPublication(slug);
   if (!publication) notFound();
 
   const isPhoto = publication.type === "PHOTO";
   const contentUrl = publication.contentUrl;
-  const isImageFile = Boolean(contentUrl && contentUrl.startsWith("/"));
-  const heroImage = isImageFile && contentUrl ? contentUrl : fallbackImage[publication.type];
+  /** `contentUrl` d'abord, puis la couverture résolue par l'API. */
+  const imageSource = [contentUrl, publication.coverImage].find(isImageSource);
+  const heroImage = imageSource ?? fallbackImage[publication.type];
   const youtubeId = getYouTubeId(contentUrl);
 
-  const related = publications
+  /** Contenus liés : la même rubrique, sinon le même type de publication. */
+  const relatedPool = publication.category
+    ? await getPublications({ category: publication.category, limit: 8 })
+    : await getPublications({ type: publication.type, limit: 8 });
+
+  const related = relatedPool
     .filter(
       (item) =>
         item.id !== publication.id &&
@@ -87,8 +130,8 @@ export default async function PublicationDetailPage({
 
   /** Galerie associée : la photographie de l'album, puis les images voisines. */
   const gallery = [
-    ...(isImageFile && contentUrl
-      ? [contentUrl, ...galleryImages.filter((src) => src !== contentUrl)]
+    ...(imageSource
+      ? [imageSource, ...galleryImages.filter((src) => src !== imageSource)]
       : galleryImages),
   ].slice(0, 5);
 

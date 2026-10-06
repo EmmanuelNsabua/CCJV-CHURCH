@@ -5,7 +5,7 @@ import { FeatureImage } from "@/components/editorial/FeatureImage";
 import { StepsList, type Step } from "@/components/editorial/StepsList";
 import { CrossLinks, type CrossLink } from "@/components/editorial/CrossLinks";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { getPublicationsByCategory } from "@/data/mock/publications";
+import { getPublications } from "@/lib/api";
 import { images } from "@/data/mock/images";
 import { formatLongDate } from "@/lib/utils";
 import { pageMetadata } from "@/lib/seo";
@@ -51,8 +51,8 @@ const related: CrossLink[] = [
   },
 ];
 
-export default function RessourcesPage() {
-  const items = getPublicationsByCategory("RESSOURCE");
+export default async function RessourcesPage() {
+  const items = await getPublications({ category: "RESSOURCE", limit: 50 });
   const lead = items[0];
   const others = items.slice(1);
 

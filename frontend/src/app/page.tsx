@@ -13,15 +13,15 @@ import { WeekRhythm } from "@/components/shared/WeekRhythm";
 import { CommunityFaces } from "@/components/shared/CommunityFaces";
 import { Hero } from "@/features/pages/Hero";
 import { EventsSection } from "@/features/events/EventsSection";
-import { FeaturedEvent } from "@/features/events/FeaturedEvent";
-import { EventRow } from "@/features/events/EventRow";
 
 import { TeachingFeature } from "@/features/publications/TeachingFeature";
 import { TeachingCard } from "@/features/publications/TeachingCard";
-import { upcomingEvents } from "@/data/mock/events";
-import { getDepartmentName } from "@/data/mock/departments";
-import { getPublicationsByCategory } from "@/data/mock/publications";
-import { communityFaces } from "@/data/mock/community";
+import {
+  getCommunityFaces,
+  getDepartments,
+  getEvents,
+  getPublications,
+} from "@/lib/api";
 import { images } from "@/data/mock/images";
 import { site, socials, weeklyRhythm } from "@/data/mock/site";
 import { verses } from "@/data/mock/verses";
@@ -33,10 +33,26 @@ export const metadata: Metadata = {
     "Le Centre Chrétien Jésus ma Vie est une église vivante à Lubumbashi : cultes, communauté, enseignements et accueil de chacun.",
 };
 
-export default function HomePage() {
-  const [mainEvent, ...secondaryEvents] = upcomingEvents;
-  const teachings = getPublicationsByCategory("ENSEIGNEMENT");
+export default async function HomePage() {
+  /*
+   * Lectures publiques servies par l'API (mises en cache 60 s côté Next).
+   * Chaque appel renvoie une collection vide si l'API ne répond pas : la page
+   * se rend donc toujours, avec ses sections éditoriales et, le cas échéant,
+   * des listes vides.
+   */
+  const [upcoming, teachings, communityFaces, departments] = await Promise.all([
+    getEvents({ status: "UPCOMING", limit: 6 }),
+    getPublications({ category: "ENSEIGNEMENT", limit: 3 }),
+    getCommunityFaces(),
+    getDepartments(),
+  ]);
+
   const [leadTeaching, ...otherTeachings] = teachings;
+
+  /** Les événements de l'API référencent les départements par identifiant. */
+  const departmentNames = Object.fromEntries(
+    departments.map((department) => [department.id, department.name]),
+  );
 
   return (
     <>
@@ -134,6 +150,8 @@ export default function HomePage() {
         description="Rejoignez-nous et marchons ensemble avec Jésus ! Découvrez nos prochains cultes, temps de prière et rencontres fraternelles."
         ctaLabel="TOUT L'AGENDA"
         ctaHref="/vie-de-leglise/evenements"
+        events={upcoming}
+        departmentNames={departmentNames}
         tone="tinted"
       />
 
