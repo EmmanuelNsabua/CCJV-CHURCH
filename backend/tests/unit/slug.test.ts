@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, jest } from "@jest/globals";
 import { slugify, uniqueSlug } from "@/shared/utils/slug";
 
 /**
@@ -74,7 +74,7 @@ describe("slugify", () => {
 
 describe("uniqueSlug", () => {
   it("retourne le slug de base quand il est libre", async () => {
-    const exists = vi.fn(async () => false);
+    const exists = jest.fn<(candidate: string) => Promise<boolean>>(async () => false);
 
     await expect(uniqueSlug("Église Centrale", exists)).resolves.toBe(
       "eglise-centrale",
@@ -85,7 +85,7 @@ describe("uniqueSlug", () => {
 
   it("suffixe à partir de 2 en cas de conflit unique", async () => {
     const taken = new Set(["eglise-centrale"]);
-    const exists = vi.fn(async (candidate: string) => taken.has(candidate));
+    const exists = jest.fn(async (candidate: string) => taken.has(candidate));
 
     await expect(uniqueSlug("Église Centrale", exists)).resolves.toBe(
       "eglise-centrale-2",
@@ -100,7 +100,7 @@ describe("uniqueSlug", () => {
       "eglise-centrale-3",
       "eglise-centrale-4",
     ]);
-    const exists = vi.fn(async (candidate: string) => taken.has(candidate));
+    const exists = jest.fn(async (candidate: string) => taken.has(candidate));
 
     await expect(uniqueSlug("Église Centrale", exists)).resolves.toBe(
       "eglise-centrale-5",
@@ -109,20 +109,20 @@ describe("uniqueSlug", () => {
   });
 
   it("se replie sur « sans-titre » quand la base ne produit aucun slug", async () => {
-    const exists = vi.fn(async () => false);
+    const exists = jest.fn<(candidate: string) => Promise<boolean>>(async () => false);
 
     await expect(uniqueSlug("!!! ???", exists)).resolves.toBe("sans-titre");
     expect(exists).toHaveBeenCalledWith("sans-titre");
   });
 
   it("utilise une base déjà normalisée sans la retoucher", async () => {
-    const exists = vi.fn(async () => false);
+    const exists = jest.fn(async () => false);
 
     await expect(uniqueSlug("deja-un-slug", exists)).resolves.toBe("deja-un-slug");
   });
 
   it("abandonne au-delà de 100 tentatives au lieu de boucler indéfiniment", async () => {
-    const exists = vi.fn(async () => true);
+    const exists = jest.fn(async () => true);
 
     await expect(uniqueSlug("Église Centrale", exists)).rejects.toThrow(
       /Impossible de générer un slug unique/,
@@ -134,7 +134,7 @@ describe("uniqueSlug", () => {
 
   it("remonte l'erreur du contrôle d'existence", async () => {
     const failure = new Error("base injoignable");
-    const exists = vi.fn(async () => {
+    const exists = jest.fn(async () => {
       throw failure;
     });
 

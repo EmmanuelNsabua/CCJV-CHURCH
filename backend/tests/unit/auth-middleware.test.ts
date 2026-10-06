@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, jest } from "@jest/globals";
 import type { AdminProfile, AdminRole } from "@/domain/entities";
 import type { AdminProfileRepository } from "@/domain/repositories";
 import type { AuthenticatedUser } from "@/infrastructure/supabase/auth";
@@ -76,7 +76,7 @@ function fakeAdminProfiles(
 interface Mocks {
   req: Request;
   res: Response;
-  next: ReturnType<typeof vi.fn>;
+  next: jest.Mock;
 }
 
 function createMocks(init: { headers?: Record<string, string>; auth?: AuthenticatedUser } = {}): Mocks {
@@ -88,11 +88,11 @@ function createMocks(init: { headers?: Record<string, string>; auth?: Authentica
   return {
     req,
     res: {} as Response,
-    next: vi.fn(),
+    next: jest.fn(),
   };
 }
 
-function firstError(next: ReturnType<typeof vi.fn>): unknown {
+function firstError(next: jest.Mock): unknown {
   return next.mock.calls[0]?.[0];
 }
 
@@ -234,7 +234,7 @@ describe("requireAdmin", () => {
 
   it("interroge le repository avec l'identifiant porté par le jeton", async () => {
     const repository = fakeAdminProfiles(adminProfile());
-    const findById = vi.spyOn(repository, "findById");
+    const findById = jest.spyOn(repository, "findById");
     const { req, res, next } = createMocks({ auth: authenticatedUser() });
 
     await requireAdmin({ adminProfiles: repository })(

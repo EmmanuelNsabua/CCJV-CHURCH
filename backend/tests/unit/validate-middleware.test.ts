@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, jest } from "@jest/globals";
 import { z } from "zod";
 import {
   validate,
@@ -18,7 +18,7 @@ import { AppError, isAppError } from "@/shared/errors/app-error";
 interface Mocks {
   req: Request;
   res: Response;
-  next: ReturnType<typeof vi.fn>;
+  next: jest.Mock;
 }
 
 function createMocks(init: {
@@ -32,7 +32,7 @@ function createMocks(init: {
     query: init.query ?? {},
   } as unknown as Request;
 
-  return { req, res: {} as Response, next: vi.fn() };
+  return { req, res: {} as Response, next: jest.fn() };
 }
 
 function callValidator(
@@ -42,7 +42,7 @@ function callValidator(
   handler(mocks.req, mocks.res, mocks.next as unknown as NextFunction);
 }
 
-function firstError(next: ReturnType<typeof vi.fn>): unknown {
+function firstError(next: jest.Mock): unknown {
   return next.mock.calls[0]?.[0];
 }
 

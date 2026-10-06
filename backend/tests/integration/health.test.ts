@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "@jest/globals";
+import { closeTestDatabase, isDatabaseReachable } from "../helpers/database";
 
 /**
  * Test de bout en bout sur l'application Express réelle : middlewares,
@@ -8,15 +9,14 @@ import { describe, expect, it } from "vitest";
  * requête HTTP — sans écouter de port, grâce à `supertest`.
  *
  * ⚠️ `src/app.ts` compose le conteneur, lequel importe `src/modules/**` et
- * `src/infrastructure/repositories/**` : ces deux dossiers appartiennent à
- * d'autres lots et peuvent être incomplets. L'import est donc tentatif : s'il
+ * `src/infrastructure/repositories/**`. L'import est donc tentatif : s'il
  * échoue, les tests sont **ignorés en l'annonçant** plutôt que de faire échouer
  * la suite du socle pour une cause qui ne lui appartient pas. Dès que ces
  * fichiers existent, ce fichier se réactive tout seul, sans modification.
  *
  * Même remarque pour PostgreSQL : `/api/v1/health` interroge réellement la base
- * (`select 1`), donc l'assertion de santé est ignorée lorsque la base est
- * injoignable, au lieu d'être faussement verte.
+ * (`select 1`), donc l'assertion de santé documente le contrat d'indisponibilité
+ * lorsque la base est injoignable, au lieu d'échouer bruyamment hors ligne.
  */
 
 let app: Express | null = null;
@@ -42,17 +42,33 @@ if (app === null) {
   );
 }
 
+const baseInjoignable = app === null ? false : !(await isDatabaseReachable());
+
+if (baseInjoignable) {
+  console.warn(
+    "[tests/integration/health.test.ts] Base PostgreSQL injoignable : " +
+      "l'assertion de santé vérifie le contrat d'indisponibilité (503 « database: down ») " +
+      "au lieu du contrat de disponibilité (200 « database: up »).",
+  );
+}
+
 const describeApplication = app === null ? describe.skip : describe;
 
 describeApplication("application Express — contrats transverses", () => {
-  it("répond 200 { status: 'ok' } à GET /api/v1/health", async (contexte) => {
+  afterAll(async () => {
+    await closeTestDatabase();
+  });
+
+  it("répond 200 { status: 'ok' } à GET /api/v1/health", async () => {
     const reponse = await request(app as Express).get("/api/v1/health");
 
     if (reponse.status === 503 && reponse.body?.database === "down") {
       // La base n'est pas joignable depuis cet environnement : on documente le
       // contrat d'indisponibilité observé, sans prétendre que le service est sain.
+      // (Vitest offrait `contexte.skip()` pour marquer le test « ignoré » en
+      // cours d'exécution ; Jest n'a pas d'équivalent, l'assertion porte donc
+      // sur la réponse réellement observée.)
       expect(reponse.body).toMatchObject({ status: "error", database: "down" });
-      contexte.skip();
       return;
     }
 
