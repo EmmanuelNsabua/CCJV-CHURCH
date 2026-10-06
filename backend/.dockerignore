@@ -1,0 +1,35 @@
+# =============================================================================
+#  Contexte de build Docker — ce qui n'a pas à être envoyé au démon.
+#  Objectif : image minimale et aucun secret embarqué.
+# =============================================================================
+
+# Dépendances installées dans l'image par `npm ci` (jamais copiées depuis l'hôte :
+# les binaires natifs compilés sur Windows seraient inutilisables sous Alpine).
+node_modules
+
+# Artefacts de compilation : reconstruits dans l'étape de build.
+dist
+
+# Secrets et configuration locale : injectés à l'exécution par la plateforme.
+.env
+.env.*
+
+# Snapshots de génération Drizzle : volumineux et inutiles à l'exécution.
+# ⚠️ `drizzle/meta/_journal.json` est en revanche REQUIS par le migrateur
+# (`readMigrationFiles`) : seul `drizzle/meta` en bloc ne peut donc pas être
+# exclu, sinon `db:migrate` échoue avec « Can't find meta/_journal.json file ».
+drizzle/meta/*_snapshot.json
+
+# Tests : exécutés en intégration continue, pas dans l'image.
+tests
+
+# Documentation.
+*.md
+
+# Caches locaux.
+.npm-cache
+
+# Divers.
+coverage
+.git
+*.tsbuildinfo

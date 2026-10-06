@@ -1,0 +1,57 @@
+{
+  "name": "ccjv-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API REST du Centre Chrétien Jésus ma Vie (CCJV) — Express + TypeScript + Drizzle + Supabase",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src tests",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/infrastructure/database/migrate.ts",
+    "db:studio": "drizzle-kit studio",
+    "seed": "tsx src/infrastructure/database/seed.ts",
+    "openapi": "tsx src/presentation/openapi/generate.ts",
+    "admin:create": "tsx scripts/create-admin.ts"
+  },
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^9.1.0",
+    "@supabase/supabase-js": "^2.117.2",
+    "compression": "^1.8.2",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
+    "drizzle-orm": "^0.45.3",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.1",
+    "helmet": "^8.3.0",
+    "jose": "^6.2.12",
+    "multer": "^2.4.0",
+    "pino": "^10.4.0",
+    "pino-http": "^11.0.0",
+    "postgres": "^3.4.9",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/compression": "^1.8.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.3.0",
+    "@types/node": "^26.6.4",
+    "@types/supertest": "^7.2.1",
+    "drizzle-kit": "^0.31.11",
+    "pino-pretty": "^13.2.0",
+    "supertest": "^7.3.1",
+    "tsc-alias": "^1.9.7",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}
