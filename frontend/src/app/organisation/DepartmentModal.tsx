@@ -13,6 +13,12 @@ interface DepartmentModalProps {
   onSelect: (dept: Department) => void;
 }
 
+/**
+ * Volet contextuel (Drawer) de présentation détaillée d'un département :
+ * - S'ouvre sur la page /organisation sans naviguer vers une autre route
+ * - Restitue toutes les informations riches : photo, vision, piliers, horaires, responsable, galerie
+ * - Supporte la navigation au clavier (Escape), le verrouillage du scroll et les ancres d'URL
+ */
 export function DepartmentModal({
   departments,
   selectedDepartment,
@@ -80,7 +86,7 @@ export function DepartmentModal({
   if (!activeDept) return null;
 
   const whatsappMessage = encodeURIComponent(
-    `Bonjour Centre Chrétien Jésus ma Vie, je souhaite obtenir des informations pour rejoindre ou participer au département « ${activeDept.name} ».`,
+    `Bonjour Centre Chrétien Jésus ma Vie, je souhaite obtenir des informations pour participer ou rejoindre le département « ${activeDept.name} ».`,
   );
   const whatsappUrl = `${site.whatsappHref}?text=${whatsappMessage}`;
 
@@ -89,7 +95,7 @@ export function DepartmentModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="dept-modal-title"
-      className="fixed inset-0 z-50 flex justify-end bg-ccjv-black/60 backdrop-blur-sm transition-opacity duration-300"
+      className="fixed inset-0 z-50 flex justify-end bg-ccjv-black/70 backdrop-blur-xs transition-opacity duration-300"
       onClick={handleClose}
     >
       {/* Conteneur du Volet / Drawer Éditorial */}
@@ -109,7 +115,7 @@ export function DepartmentModal({
           <button
             type="button"
             onClick={handleClose}
-            className="group flex items-center gap-2 font-sans text-xs font-semibold tracking-[0.14em] text-ccjv-ink-secondary uppercase transition-colors hover:text-ccjv-ink"
+            className="group flex items-center gap-2 font-sans text-xs font-semibold tracking-[0.14em] text-ccjv-ink-secondary uppercase transition-colors hover:text-ccjv-ink cursor-pointer"
             aria-label="Fermer la fiche"
           >
             <span>Fermer</span>
@@ -171,7 +177,7 @@ export function DepartmentModal({
                   Responsable
                 </dt>
                 <dd className="mt-1 font-sans text-sm text-ccjv-ink">
-                  {activeDept.responsibleName ?? "Équipe collégiale"}
+                  {activeDept.responsibleName ?? "Équipe de coordination"}
                 </dd>
               </div>
 
@@ -198,7 +204,7 @@ export function DepartmentModal({
                     key={point}
                     className="flex items-start gap-3.5 border-b border-ccjv-line/60 pb-3 text-[0.95rem] leading-relaxed text-ccjv-ink-secondary"
                   >
-                    <span className="font-serif text-sm text-ccjv-green">
+                    <span className="font-serif text-sm font-bold text-ccjv-green">
                       {String(pIdx + 1).padStart(2, "0")}
                     </span>
                     <span>{point}</span>
@@ -240,7 +246,7 @@ export function DepartmentModal({
             </h3>
             <p className="mt-2 font-sans text-sm leading-relaxed text-ccjv-ink-secondary">
               Pour vous intégrer ou poser vos questions, écrivez-nous ou
-              adressez-vous à un membre de l&apos;équipe lors du culte dominical.
+              adressez-vous directement à l&apos;équipe d&apos;accueil lors de votre venue.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-4">
@@ -263,7 +269,7 @@ export function DepartmentModal({
                     key={d.id}
                     type="button"
                     onClick={() => onSelect(d)}
-                    className="border border-ccjv-line bg-white px-3.5 py-1.5 font-sans text-xs font-medium text-ccjv-ink transition-colors hover:border-ccjv-green hover:text-ccjv-green"
+                    className="border border-ccjv-line bg-white px-3.5 py-1.5 font-sans text-xs font-medium text-ccjv-ink transition-colors hover:border-ccjv-green hover:text-ccjv-green cursor-pointer"
                   >
                     {d.name} →
                   </button>

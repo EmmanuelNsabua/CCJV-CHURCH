@@ -17,6 +17,11 @@ export const leaderIdParamSchema = z.object({
 /**
  * Les responsables n'ont aucun filtre serveur : la collection est seulement
  * paginée (`docs/018` §6.3).
+ *
+ * Alias de la pagination commune, donc **strict** : aucun tri n'est offert,
+ * l'ordre est fixé par le serveur (`position`) et le contrat de repository
+ * (`ListOptions`) ne porte aucune colonne de tri. `?sort=…` — comme tout autre
+ * paramètre non reconnu — est refusé en `VALIDATION_ERROR`.
  */
 export const listQuerySchema = paginationQuerySchema;
 

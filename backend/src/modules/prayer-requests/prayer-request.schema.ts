@@ -88,6 +88,10 @@ export const prayerRequestIdParamsSchema = z.strictObject({
 /**
  * *Query* de `GET /prayer-requests` : pagination commune + filtre fermé.
  * Aucun paramètre de tri : l'ordre est fixé par le serveur (date décroissante).
+ *
+ * `.extend()` préserve la stricteur de la pagination commune : `?sort=…` et tout
+ * autre paramètre non reconnu sont refusés en `VALIDATION_ERROR`, comme partout
+ * ailleurs — et non ignorés.
  */
 export const listPrayerRequestsQuerySchema = paginationQuerySchema.extend({
   status: prayerStatusSchema.optional(),

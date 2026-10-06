@@ -7,7 +7,11 @@ import { DEFAULT_PAGE_SIZE } from "@/shared/http/pagination";
 import { createDepartmentSchema } from "@/modules/departments/department.schema";
 import { createEventSchema } from "@/modules/events/event.schema";
 import { listAdminProfilesQuerySchema } from "@/modules/admin/admin.schema";
-import { listQuerySchema as listMediaQuerySchema } from "@/modules/media/media.schema";
+import {
+  deleteMediaQuerySchema,
+  listQuerySchema as listMediaQuerySchema,
+} from "@/modules/media/media.schema";
+import { listPrayerRequestsQuerySchema } from "@/modules/prayer-requests/prayer-request.schema";
 import { settingsPatchSchema } from "@/modules/settings/setting.schema";
 import {
   closeTestDatabase,
@@ -40,9 +44,20 @@ import {
  * ⚠️ Budget de rate limiting. Le limiteur global autorise 120 requêtes par
  * minute **et par IP** ; tous les appels de ce fichier partagent la même clé
  * (127.0.0.1), et le compteur est en mémoire donc partagé par toutes les suites
- * de ce fichier. Le fichier émet aujourd'hui ~95 requêtes — mesuré, marge
- * volontaire sous 120 : n'ajoutez pas de boucle non bornée sans recompter, et
- * ne provoquez jamais de 429, qui polluerait toutes les suites suivantes.
+ * de ce fichier. Le fichier émet aujourd'hui 117 requêtes, recomptées une à une
+ * (`18 + 18 + 9 + 8 + 5 + 43 + 5 + 2 + 3 + 1 + 1 + 4` : blocs 1, 2, 2bis, 2ter,
+ * 2quater, 3, 4, 5, 6, 7, 8 puis 9) **et** mesurées à l'exécution : l'en-tête
+ * `RateLimit` de la dernière requête vaut `"120-in-1min"; r=3`. Soit une marge de
+ * 3 sous 120 : n'ajoutez pas de boucle non bornée sans recompter, et ne provoquez
+ * jamais de 429, qui polluerait toutes les suites suivantes. Les cas couverts
+ * « au niveau du schéma » (collections protégées du bloc 2bis) ne consomment
+ * aucun quota.
+ *
+ * Le décompte précédent annonçait 114 requêtes : il comptait 3 requêtes au bloc 5,
+ * qui n'en émet que 2 (le test « le brouillon existe réellement en base » et le
+ * test de repository interrogent la base directement, sans passer par HTTP). Le
+ * compteur réel avant l'ajout du bloc 9 était donc 113, comme le confirme le
+ * `r=7` relevé sur la dernière requête du fichier à ce moment-là.
  */
 
 const API = "/api/v1";
@@ -210,12 +225,110 @@ const COLLECTIONS_PUBLIQUES: readonly CollectionPublique[] = [
 ];
 
 /**
- * Collections dont la *query* porte un schéma de tri à liste blanche.
- * `departments`, `leaders`, `testimonies` et `community-faces` n'exposent aucun
- * tri : un `sort` inconnu y est simplement ignoré par Zod (objet non strict),
- * et non refusé. Le tableau reflète donc l'état réel des `*.routes.ts`.
+ * Les six collections CRUD paginées — celles qu'un client interroge vraiment.
  */
-const COLLECTIONS_TRIEES: readonly string[] = ["events", "publications"];
+const COLLECTIONS_CRUD: readonly string[] = [
+  "departments",
+  "events",
+  "publications",
+  "leaders",
+  "testimonies",
+  "community-faces",
+];
+
+/**
+ * **Toutes** les collections dont la *query* est validée et qui répondent sans
+ * jeton, donc testables par une vraie requête HTTP.
+ *
+ * Les six collections CRUD, plus les trois listes bornées non paginées
+ * (`scriptures`, `schedule`, `social-links`) : la convention « paramètre inconnu
+ * ⇒ 400 » ne souffre aucune exception, y compris là où aucun filtre n'existe.
+ * Le tableau est verrouillé par une garde d'exhaustivité dans le bloc 2ter : le
+ * vider ou l'amputer fait échouer la suite au lieu de la faire passer à vide.
+ */
+const COLLECTIONS_QUERY_STRICTE: readonly string[] = [
+  ...COLLECTIONS_CRUD,
+  "scriptures",
+  "schedule",
+  "social-links",
+];
+
+/**
+ * Collections à *query* validée mais **administratives** (`GET /media`,
+ * `GET /prayer-requests`, `GET /admin/profiles`).
+ *
+ * L'authentification précède la validation (cahier §8, vérifié au bloc 4) : un
+ * appel sans jeton sort en `401 AUTH_REQUIRED`, jamais en 400. Le refus d'un
+ * paramètre inconnu y est donc vérifié **sur le schéma**, sans requête — ce qui
+ * évite aussi de consommer le budget de rate limiting.
+ */
+const COLLECTIONS_QUERY_STRICTE_PROTEGEES: readonly {
+  ressource: string;
+  requete: Record<string, string>;
+  schema: { safeParse: (value: unknown) => { success: boolean } };
+}[] = [
+  {
+    ressource: "media",
+    requete: { nimportequoi: "1" },
+    schema: listMediaQuerySchema,
+  },
+  {
+    ressource: "prayer-requests",
+    requete: { nimportequoi: "1" },
+    schema: listPrayerRequestsQuerySchema,
+  },
+  {
+    ressource: "admin/profiles",
+    requete: { nimportequoi: "1" },
+    schema: listAdminProfilesQuerySchema,
+  },
+];
+
+/**
+ * Collections qui **exposent réellement un tri** (`createSortSchema`, liste
+ * blanche de colonnes). Ailleurs, l'ordre est fixé par le serveur : l'API ne
+ * prétend pas trier, et un `?sort=…` y est donc refusé comme n'importe quel
+ * paramètre non reconnu — option (a) de la décision de contrat.
+ */
+const COLLECTIONS_TRI_IMPLEMENTE: readonly string[] = ["events", "publications"];
+
+/**
+ * Paramètres **légitimes** qui doivent continuer de fonctionner après le passage
+ * en strict : pagination explicite, filtres fermés, filtre UUID. Une
+ * régression ici serait plus grave qu'un 400 manquant — c'est le client réel
+ * qui casserait.
+ */
+const PARAMS_LEGITIMES: readonly {
+  chemin: string;
+  motif: string;
+  verifier?: (corps: Record<string, unknown>) => void;
+}[] = [
+  {
+    chemin: `${API}/departments?page=1&limit=2`,
+    motif: "pagination explicite",
+    verifier: (corps) => {
+      const meta = corps.meta as Record<string, unknown>;
+      expect(meta.page).toBe(1);
+      expect(meta.limit).toBe(2);
+    },
+  },
+  {
+    chemin: `${API}/leaders?page=1&limit=2`,
+    motif: "pagination explicite sur une collection sans filtre",
+  },
+  {
+    chemin: `${API}/events?status=UPCOMING`,
+    motif: "filtre fermé `status`",
+  },
+  {
+    chemin: `${API}/events?departmentId=${UUID_INEXISTANT}`,
+    motif: "filtre UUID `departmentId`",
+  },
+  {
+    chemin: `${API}/publications?type=VIDEO&category=ENSEIGNEMENT`,
+    motif: "filtres fermés `type` et `category`",
+  },
+];
 
 /** Bornes de pagination hors limites, communes à toutes les collections. */
 const LIMITES_INVALIDES: readonly { requete: string; champ: string }[] = [
@@ -490,8 +603,94 @@ describeIntegration("routes HTTP — contrats, validation et sécurité", () => 
     }
   });
 
-  describe("2bis. validation — liste blanche de tri", () => {
-    for (const ressource of COLLECTIONS_TRIEES) {
+  /* ---------------------------------------------------------------------- */
+  /*  2bis. Convention des paramètres de requête                            */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * **Convention** : tout paramètre de requête non reconnu est refusé en
+   * `400 VALIDATION_ERROR` sur *toutes* les routes de collection, et le
+   * paramètre fautif est nommé dans `details`. Aucune collection n'est
+   * silencieusement permissive — c'est précisément l'irrégularité que ce bloc
+   * verrouille : `departments`, `leaders`, `testimonies` et `community-faces`
+   * utilisaient la pagination commune non stricte, et acceptaient donc
+   * `?sort=colonne_inconnue` en 200, contrairement à `events` et `publications`.
+   */
+  describe("2bis. paramètre de requête inconnu — refusé partout", () => {
+    it("le tableau des collections à query stricte est complet (sinon les tests passeraient à vide)", () => {
+      // Garde anti-vacuité : sans elle, une table vidée par accident ferait
+      // disparaître les cas sans qu'aucun test n'échoue.
+      expect(COLLECTIONS_QUERY_STRICTE.length).toBeGreaterThan(0);
+
+      // Garde d'exhaustivité : les six collections CRUD **et** les trois listes
+      // bornées doivent être couvertes, sans doublon.
+      for (const ressource of [...COLLECTIONS_CRUD, "scriptures", "schedule", "social-links"]) {
+        expect(COLLECTIONS_QUERY_STRICTE).toContain(ressource);
+      }
+      expect(new Set(COLLECTIONS_QUERY_STRICTE).size).toBe(
+        COLLECTIONS_QUERY_STRICTE.length,
+      );
+
+      expect(COLLECTIONS_QUERY_STRICTE_PROTEGEES.length).toBeGreaterThan(0);
+      expect(PARAMS_LEGITIMES.length).toBeGreaterThan(0);
+    });
+
+    for (const ressource of COLLECTIONS_QUERY_STRICTE) {
+      it(`GET ${API}/${ressource}?nimportequoi=1 → 400 VALIDATION_ERROR nommant « nimportequoi »`, async () => {
+        const reponse = await request(app as Express).get(
+          `${API}/${ressource}?nimportequoi=1`,
+        );
+
+        expect(reponse.status).toBe(400);
+        expect(reponse.headers["content-type"]).toMatch(/application\/json/);
+
+        const erreur = bodyErreur(reponse);
+        expect(erreur.code).toBe("VALIDATION_ERROR");
+        // Le paramètre fautif est nommé : la faute de frappe du client devient
+        // une erreur exploitable, pas un silence.
+        expect(
+          (erreur.details ?? []).some((detail) => detail.champ === "nimportequoi"),
+        ).toBe(true);
+      });
+    }
+
+    for (const collection of COLLECTIONS_QUERY_STRICTE_PROTEGEES) {
+      it(`GET ${API}/${collection.ressource} refuse « nimportequoi » au niveau du schéma (route protégée)`, () => {
+        // L'authentification précède la validation sur ces routes : le 401 est
+        // vérifié au bloc 3, et le refus du paramètre ici.
+        const resultat = collection.schema.safeParse(collection.requete);
+
+        expect(resultat.success).toBe(false);
+        expect(
+          collection.schema.safeParse({ page: "1", limit: "2" }).success,
+        ).toBe(true);
+      });
+    }
+
+    it(`DELETE ${API}/media/:id — « force » reste accepté, une faute de frappe est refusée`, () => {
+      // Route non-collection : le paramètre légitime `force` documenté ne doit
+      // pas être cassé par le passage en strict, mais `?forcee=true` ne doit pas
+      // passer pour une absence de `force` (il ne serait alors jamais converti
+      // en suppression forcée, sans que le client le sache).
+      expect(deleteMediaQuerySchema.safeParse({}).success).toBe(true);
+      expect(deleteMediaQuerySchema.safeParse({ force: "true" }).success).toBe(true);
+      expect(deleteMediaQuerySchema.safeParse({ force: "false" }).success).toBe(true);
+      expect(deleteMediaQuerySchema.safeParse({ forcee: "true" }).success).toBe(false);
+      expect(
+        deleteMediaQuerySchema.safeParse({ force: "maybe" }).success,
+      ).toBe(false);
+    });
+  });
+
+  describe("2ter. validation — liste blanche de tri", () => {
+    it("le tableau des collections triées est renseigné", () => {
+      expect(COLLECTIONS_TRI_IMPLEMENTE.length).toBeGreaterThan(0);
+      expect(COLLECTIONS_TRI_IMPLEMENTE.length).toBeLessThanOrEqual(
+        COLLECTIONS_CRUD.length,
+      );
+    });
+
+    for (const ressource of COLLECTIONS_CRUD) {
       it(`GET ${API}/${ressource}?sort=colonne_interdite → 400 VALIDATION_ERROR`, async () => {
         const reponse = await request(app as Express).get(
           `${API}/${ressource}?sort=colonne_interdite`,
@@ -501,13 +700,17 @@ describeIntegration("routes HTTP — contrats, validation et sécurité", () => 
 
         const erreur = bodyErreur(reponse);
         expect(erreur.code).toBe("VALIDATION_ERROR");
-        // Le tri est refusé parce que le nom de colonne vient du serveur : le
-        // champ fautif est bien `sort`.
+        // Deux causes possibles selon la collection, et une seule réponse :
+        // `events`/`publications` refusent la colonne (elle est hors liste
+        // blanche), les quatre autres refusent le paramètre lui-même (aucun tri
+        // n'est exposé). Dans les deux cas le champ fautif est `sort`.
         expect(
           (erreur.details ?? []).some((detail) => detail.champ === "sort"),
         ).toBe(true);
       });
+    }
 
+    for (const ressource of COLLECTIONS_TRI_IMPLEMENTE) {
       it(`GET ${API}/${ressource}?sort=-created_at → 200 (tri descendant autorisé)`, async () => {
         const reponse = await request(app as Express).get(
           `${API}/${ressource}?sort=-created_at`,
@@ -515,6 +718,26 @@ describeIntegration("routes HTTP — contrats, validation et sécurité", () => 
 
         expect(reponse.status).toBe(200);
         expect(Array.isArray(reponse.body.data)).toBe(true);
+      });
+    }
+  });
+
+  /**
+   * Contre-épreuve du passage en strict : les paramètres **légitimes** doivent
+   * continuer de fonctionner. Un schéma strict qui refuserait ses propres clés
+   * (`page`, `limit`) ou un filtre documenté casserait le client réel tout en
+   * faisant passer les tests de refus ci-dessus.
+   */
+  describe("2quater. paramètres légitimes — toujours acceptés", () => {
+    for (const cas of PARAMS_LEGITIMES) {
+      it(`GET ${cas.chemin} → 200 (${cas.motif})`, async () => {
+        const reponse = await request(app as Express).get(cas.chemin);
+
+        expect(reponse.status).toBe(200);
+
+        const corps = reponse.body as Record<string, unknown>;
+        expect(Array.isArray(corps.data)).toBe(true);
+        cas.verifier?.(corps);
       });
     }
   });
@@ -814,5 +1037,85 @@ describeIntegration("routes HTTP — contrats, validation et sécurité", () => 
       expect(erreur.message.length).toBeGreaterThan(0);
       expect(erreur).not.toHaveProperty("stack");
     });
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  9. Routes sans paramètre — document unique et page éditable            */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * Les deux dernières routes de l'API dont la *query* n'était pas validée :
+   * `GET /settings` (document unique) et `GET /pages/:pageKey` (page éditable).
+   * Elles acceptaient `?nimportequoi=1` en `200`, en l'ignorant.
+   *
+   * Aucun paramètre légitime n'y existe : ni le controller, ni le frontend n'en
+   * lisent un — le schéma est donc l'objet strict **vide**
+   * (`emptyQuerySchema`), et non un objet permissif qui laisserait passer le
+   * paramètre en silence.
+   */
+  describe("9. routes sans paramètre — paramètre inconnu refusé", () => {
+    interface RouteQueryVide {
+      chemin: string;
+      /** Ce que la lecture doit réellement renvoyer, pour prouver le 200. */
+      verifier: (corps: Record<string, unknown>) => void;
+    }
+
+    const ROUTES_QUERY_VIDE: readonly RouteQueryVide[] = [
+      {
+        chemin: `${API}/settings`,
+        verifier: (corps) => {
+          expect(typeof corps.settings).toBe("object");
+          expect(Array.isArray(corps.socialLinks)).toBe(true);
+        },
+      },
+      {
+        chemin: `${API}/pages/accueil`,
+        verifier: (corps) => {
+          // La page rendue est bien celle demandée, et non un contenu générique.
+          expect(corps.pageKey).toBe("accueil");
+          expect(typeof corps.content).toBe("object");
+        },
+      },
+    ];
+
+    it("le tableau des routes à query vide est renseigné", () => {
+      expect(ROUTES_QUERY_VIDE.length).toBeGreaterThan(0);
+    });
+
+    for (const route of ROUTES_QUERY_VIDE) {
+      it(`GET ${route.chemin}?nimportequoi=1 → 400 VALIDATION_ERROR nommant « nimportequoi »`, async () => {
+        const reponse = await request(app as Express).get(
+          `${route.chemin}?nimportequoi=1`,
+        );
+
+        // 400 et non 200 : le paramètre n'est plus ignoré, il est refusé — la
+        // convention vaut donc aussi pour les routes hors collection.
+        expect(reponse.status).toBe(400);
+        expect(String(reponse.headers["content-type"])).toContain(
+          "application/json",
+        );
+
+        const erreur = bodyErreur(reponse);
+        expect(erreur.code).toBe("VALIDATION_ERROR");
+        expect(
+          (erreur.details ?? []).some(
+            (detail) => detail.champ === "nimportequoi",
+          ),
+        ).toBe(true);
+      });
+
+      it(`GET ${route.chemin} sans paramètre → 200 (non-régression)`, async () => {
+        const reponse = await request(app as Express).get(route.chemin);
+
+        // Contre-épreuve : le passage en strict ne doit pas casser la lecture
+        // légitime, qui est l'appel réel du frontend.
+        expect(reponse.status).toBe(200);
+        expect(String(reponse.headers["content-type"])).toContain(
+          "application/json",
+        );
+
+        route.verifier(reponse.body as Record<string, unknown>);
+      });
+    }
   });
 });

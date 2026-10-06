@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { AuthDependencies } from "@/presentation/middlewares/auth";
 import { requireAnyAdmin } from "@/presentation/middlewares/auth";
 import { validate } from "@/presentation/middlewares/validate";
+import { emptyQuerySchema } from "@/shared/http/pagination";
 import type { ScheduleService } from "./schedule.service";
 import { createScheduleController } from "./schedule.controller";
 import { scheduleCreateSchema, scheduleParamsSchema, scheduleUpdateSchema } from "./schedule.schema";
@@ -20,7 +21,10 @@ export function createScheduleRouter(deps: ScheduleRouterDeps): Router {
   const controller = createScheduleController(deps.service);
   const admin = requireAnyAdmin(deps.authDeps, "ROLE_ADMIN");
 
-  router.get("/", controller.list);
+  // Liste bornée, non paginée : **aucun** paramètre de requête n'est reconnu
+  // (`docs/018` §6.1). La *query* est validée comme telle — `?limit=20` est
+  // refusé en `VALIDATION_ERROR` plutôt qu'accepté puis ignoré.
+  router.get("/", validate({ query: emptyQuerySchema }), controller.list);
 
   router.post(
     "/",

@@ -227,19 +227,31 @@ export async function getCommunityFaces(): Promise<CommunityFace[]> {
 /* Rythme hebdomadaire et versets                                             */
 /* -------------------------------------------------------------------------- */
 
-/** Rythme de la semaine, dans l'ordre défini par le back-office. */
+/**
+ * Rythme de la semaine, dans l'ordre défini par le back-office.
+ *
+ * Aucune *query* : `GET /schedule` est une liste bornée non paginée, dont le
+ * repository n'a pas de `ListOptions`. La *query* y est validée par un objet
+ * strict, donc `?limit=…` — auparavant accepté puis ignoré — est désormais
+ * refusé en `400 VALIDATION_ERROR`.
+ */
 export async function getSchedule(): Promise<ScheduleEntry[]> {
   const payload = await apiFetch<
     CollectionResponse<ScheduleEntry> | ScheduleEntry[]
-  >(withQuery("/schedule", { limit: REFERENCE_LIMIT }));
+  >("/schedule");
 
   return readCollection(payload);
 }
 
-/** Tous les versets éditoriaux. */
+/**
+ * Tous les versets éditoriaux.
+ *
+ * Comme `getSchedule` : `GET /scriptures` ne reconnaît **aucun** paramètre, un
+ * `?limit=…` y produirait un `400`.
+ */
 export async function getScriptures(): Promise<Scripture[]> {
   const payload = await apiFetch<CollectionResponse<Scripture> | Scripture[]>(
-    withQuery("/scriptures", { limit: REFERENCE_LIMIT }),
+    "/scriptures",
   );
 
   return readCollection(payload);

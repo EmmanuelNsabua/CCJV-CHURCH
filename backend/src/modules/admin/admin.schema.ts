@@ -14,6 +14,9 @@ import { paginationQuerySchema } from "@/shared/http/pagination";
 /**
  * *Query* de `GET /admin/profiles` : pagination commune, bornes identiques au
  * reste de l'API (`page` ≥ 1, `limit` 1–100).
+ *
+ * Alias de la pagination commune, donc **strict** : c'est la convention de
+ * toutes les collections, admin comprise.
  */
 export const listAdminProfilesQuerySchema = paginationQuerySchema;
 

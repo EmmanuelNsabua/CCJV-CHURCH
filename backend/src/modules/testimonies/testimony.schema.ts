@@ -10,7 +10,13 @@ export const testimonyIdParamSchema = z.object({
   id: z.uuid("Identifiant de témoignage invalide"),
 });
 
-/** Aucun filtre serveur : la collection est seulement paginée. */
+/**
+ * Aucun filtre serveur : la collection est seulement paginée.
+ *
+ * Alias de la pagination commune, donc **strict** : aucun tri n'est offert
+ * (l'ordre vient de `position` côté repository), donc `?sort=…` est refusé en
+ * `VALIDATION_ERROR` au même titre que tout paramètre non reconnu.
+ */
 export const listQuerySchema = paginationQuerySchema;
 
 export const createTestimonySchema = z.object({

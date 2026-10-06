@@ -1,8 +1,10 @@
 import { describe, expect, it } from "@jest/globals";
+import { z } from "zod";
 import {
   buildPaginationMeta,
   createSortSchema,
   DEFAULT_PAGE_SIZE,
+  emptyQuerySchema,
   MAX_PAGE_SIZE,
   paginationQuerySchema,
   toOffset,
@@ -90,6 +92,94 @@ describe("paginationQuerySchema", () => {
     expect(paginationQuerySchema.safeParse({ page: "0" }).success).toBe(false);
     expect(paginationQuerySchema.safeParse({ limit: "0" }).success).toBe(false);
     expect(paginationQuerySchema.safeParse({ limit: "101" }).success).toBe(false);
+  });
+});
+
+/**
+ * Convention des paramètres de requête : un paramètre non reconnu est **refusé**,
+ * jamais ignoré. Le point faible d'un schéma de *query* composé est la stricteur :
+ * elle se perd selon la façon dont le schéma est étendu. Ces tests verrouillent
+ * les deux formes, pour que la règle ne dépende pas d'une supposition.
+ */
+describe("paginationQuerySchema — stricteur des paramètres de requête", () => {
+  it("refuse un paramètre de requête inconnu", () => {
+    const resultat = paginationQuerySchema.safeParse({ nimportequoi: "1" });
+
+    expect(resultat.success).toBe(false);
+    if (!resultat.success) {
+      expect(resultat.error.issues[0]?.code).toBe("unrecognized_keys");
+      expect(JSON.stringify(resultat.error.issues)).toContain("nimportequoi");
+    }
+  });
+
+  it("accepte la query vide et applique les valeurs par défaut", () => {
+    const resultat = paginationQuerySchema.safeParse({});
+
+    expect(resultat.success).toBe(true);
+    if (resultat.success) {
+      expect(resultat.data).toEqual({ page: 1, limit: DEFAULT_PAGE_SIZE });
+    }
+  });
+
+  it("préserve la stricteur après .extend() — la forme utilisée par les modules", () => {
+    const etendu = paginationQuerySchema.extend({
+      status: z.enum(["UPCOMING", "ARCHIVED"]).optional(),
+    });
+
+    const valide = etendu.safeParse({ page: "2", limit: "10", status: "UPCOMING" });
+    expect(valide.success).toBe(true);
+
+    const inconnu = etendu.safeParse({ page: "2", nimportequoi: "1" });
+    expect(inconnu.success).toBe(false);
+    if (!inconnu.success) {
+      expect(inconnu.error.issues[0]?.code).toBe("unrecognized_keys");
+    }
+  });
+
+  it("perd la stricteur par étalement de .shape — forme interdite pour une query", () => {
+    // Ce test documente le piège : `z.object({ ...paginationQuerySchema.shape })`
+    // construit un objet neuf **non strict**, qui élague la clé au lieu de la
+    // refuser. Aucun schéma de *query* du projet ne doit l'utiliser.
+    const parEtalement = z.object({ ...paginationQuerySchema.shape });
+
+    const resultat = parEtalement.safeParse({ nimportequoi: "1" });
+
+    expect(resultat.success).toBe(true);
+    if (resultat.success) {
+      expect(resultat.data).toEqual({ page: 1, limit: DEFAULT_PAGE_SIZE });
+    }
+
+    // Contrôle de cohérence : l'extension, elle, refuse bien la même entrée.
+    expect(
+      paginationQuerySchema.extend({}).safeParse({ nimportequoi: "1" }).success,
+    ).toBe(false);
+  });
+});
+
+describe("emptyQuerySchema", () => {
+  it("accepte une query vide", () => {
+    const resultat = emptyQuerySchema.safeParse({});
+    expect(resultat.success).toBe(true);
+    if (resultat.success) {
+      expect(resultat.data).toEqual({});
+    }
+  });
+
+  it("refuse tout paramètre, y compris la pagination", () => {
+    // Les listes bornées (`schedule`, `scriptures`, `social-links`) ne sont pas
+    // paginées : `?limit=20` y est donc un paramètre inconnu, pas un filtre.
+    for (const requete of [
+      { limit: "20" },
+      { page: "1" },
+      { sort: "-created_at" },
+      { nimportequoi: "1" },
+    ]) {
+      const resultat = emptyQuerySchema.safeParse(requete);
+      expect(resultat.success).toBe(false);
+      if (!resultat.success) {
+        expect(resultat.error.issues[0]?.code).toBe("unrecognized_keys");
+      }
+    }
   });
 });
 

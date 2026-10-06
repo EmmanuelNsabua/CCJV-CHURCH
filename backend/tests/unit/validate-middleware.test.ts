@@ -182,11 +182,30 @@ describe("validate — clés inconnues", () => {
     callValidator(validate({ body: strictSchema }), mocks);
 
     const details = detailsOf(firstError(mocks.next));
-    // Zod 4 rattache la clé en trop à l'objet racine : le champ fautif est donc
-    // « (racine) », mais le nom de la clé refusée apparaît dans le message.
+    // Zod 4 rattache la clé en trop à l'objet racine (`path` vide) : le
+    // middleware la nomme donc elle-même, une entrée par clé fautive. Le client
+    // lit `champ: "role"` au lieu d'un « (racine) » qui ne désigne rien.
     expect(details).toHaveLength(1);
-    expect(details[0]?.champ).toBe("(racine)");
+    expect(details[0]?.champ).toBe("role");
     expect(details[0]?.message).toContain("role");
+  });
+
+  it("nomme chaque clé inconnue quand il y en a plusieurs", () => {
+    // Schéma strict dont tous les champs sont facultatifs : la seule faute est
+    // donc la présence de clés non reconnues.
+    const queryStricte = z.strictObject({
+      page: z.coerce.number().int().min(1).optional(),
+    });
+    const mocks = createMocks({ query: { nimportequoi: "1", zatrer: "2" } });
+
+    callValidator(validate({ query: queryStricte }), mocks);
+
+    const details = detailsOf(firstError(mocks.next));
+    expect(details.map((detail) => detail.champ).sort()).toEqual([
+      "nimportequoi",
+      "zatrer",
+    ]);
+    expect(details.every((detail) => detail.message.length > 0)).toBe(true);
   });
 
   it("identifie nommément la clé refusée", () => {

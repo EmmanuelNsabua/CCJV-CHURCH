@@ -33,7 +33,12 @@ export const mediaIdParamSchema = z.object({
   id: z.uuid("Identifiant de média invalide"),
 });
 
-/** Collection d'administration : paginée, sans filtre serveur. */
+/**
+ * Collection d'administration : paginée, sans filtre serveur.
+ *
+ * Alias de la pagination commune, donc **strict** : `?nimportequoi=1` est refusé
+ * en `VALIDATION_ERROR` (convention des paramètres de requête).
+ */
 export const listQuerySchema = paginationQuerySchema;
 
 /**
@@ -52,13 +57,15 @@ export const uploadMediaBodySchema = z.object({
 export type UploadMediaBody = z.infer<typeof uploadMediaBodySchema>;
 
 /**
- * `?force=true` — explicitement littéral.
+ * `?force=true` — explicitement littéral, et **strict**.
  *
  * On ne convertit pas une valeur quelconque en booléen (`Boolean("false")`
  * vaut `true`) : seule la chaîne `true` autorise la suppression d'un média
- * encore référencé.
+ * encore référencé. Aucun autre paramètre n'est reconnu : `force` est le seul
+ * documenté, un `?forcee=true` (faute de frappe) est donc refusé en
+ * `VALIDATION_ERROR` plutôt qu'interprété comme l'absence de `force`.
  */
-export const deleteMediaQuerySchema = z.object({
+export const deleteMediaQuerySchema = z.strictObject({
   force: z
     .enum(["true", "false"])
     .default("false")

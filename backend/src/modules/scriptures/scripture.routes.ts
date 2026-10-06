@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { AuthDependencies } from "@/presentation/middlewares/auth";
 import { requireAnyAdmin } from "@/presentation/middlewares/auth";
 import { validate } from "@/presentation/middlewares/validate";
+import { emptyQuerySchema } from "@/shared/http/pagination";
 import type { ScriptureService } from "./scripture.service";
 import { createScriptureController } from "./scripture.controller";
 import {
@@ -27,7 +28,9 @@ export function createScriptureRouter(deps: ScriptureRouterDeps): Router {
   const controller = createScriptureController(deps.service);
   const admin = requireAnyAdmin(deps.authDeps, "ROLE_ADMIN");
 
-  router.get("/", controller.list);
+  // Liste complète, non paginée : **aucun** paramètre de requête n'est reconnu
+  // (`docs/018` §6.1). Un `?limit=20` est donc refusé, jamais ignoré.
+  router.get("/", validate({ query: emptyQuerySchema }), controller.list);
   router.get("/:key", validate({ params: scriptureParamsSchema }), controller.get);
 
   router.post(

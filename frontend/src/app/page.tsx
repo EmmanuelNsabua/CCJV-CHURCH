@@ -61,7 +61,6 @@ export default async function HomePage() {
 
       {/* 02 — LA PAROLE DU JOUR */}
       <VerseSection
-        context="Une parole pour aujourd'hui"
         text={verses.rassemblement.text}
         reference={verses.rassemblement.reference}
         tone="dark"
@@ -86,11 +85,8 @@ export default async function HomePage() {
             </div>
           </Reveal>
           <Reveal delay={100} className="md:col-span-7">
-            <div className="flex items-center gap-3">
-              <CrossMark size="sm" className="text-ccjv-green" />
-              <p className="overline">Un mot du pasteur</p>
-            </div>
-            <h2 id="mot-pasteur-titre" className="mt-4">
+            <CrossMark size="sm" className="mb-4 text-ccjv-green" />
+            <h2 id="mot-pasteur-titre">
               Vous êtes les bienvenus parmi nous.
             </h2>
             <p className="lead mt-6">
@@ -114,15 +110,14 @@ export default async function HomePage() {
       <Section id="qui-sommes-nous" aria-labelledby="qui-sommes-nous-titre">
         <div className="grid grid-cols-1 items-center gap-10 md:grid-cols-12 md:gap-14">
           <Reveal className="md:col-span-6">
-            <p className="overline">Qui sommes-nous</p>
-            <h2 id="qui-sommes-nous-titre" className="mt-4">
-              Une famille née le {site.foundedAt}
+            <h2 id="qui-sommes-nous-titre">
+              Une famille chrétienne au cœur de Lubumbashi
             </h2>
             <p className="lead mt-6">
-              Le {site.name} est une église de Lubumbashi fondée le{" "}
-              {site.foundedAt}. Depuis, une communauté grandit, les enfants ont
-              leur propre ministère — l&apos;Ecodim, né le{" "}
-              {site.ecodimFoundedAt} — et les services se multiplient.
+              Le {site.name} est une église vivante où chacun trouve sa place.
+              Depuis sa fondation, notre communauté grandit dans la foi,
+              les enfants s&apos;épanouissent au sein de l&apos;Ecodim et les
+              services se multiplient pour servir Dieu et la communauté.
             </p>
             <div className="mt-8">
               <Button variant="outline" href="/qui-sommes-nous">
@@ -159,10 +154,9 @@ export default async function HomePage() {
       {/* 06 — NOTRE RYTHME DE LA SEMAINE */}
       <Section id="horaires" aria-labelledby="horaires-titre">
         <SectionHeading
-          overline="Notre semaine"
           title="Quand nous nous rassemblons"
           id="horaires-titre"
-          description="Les horaires ne sont pas qu'une information : c'est le rythme de la vie de l'église."
+          description="Retrouvez les horaires de nos cultes, temps de prière et répétitions tout au long de la semaine."
         />
         <WeekRhythm items={weeklyRhythm} />
         <div className="mt-10">
@@ -179,10 +173,9 @@ export default async function HomePage() {
         aria-labelledby="enseignements-titre"
       >
         <SectionHeading
-          overline="Enseignements"
           title="Écouter la Parole"
           id="enseignements-titre"
-          description="Les messages récents. La vidéo s'ouvre sur notre chaîne YouTube — rien n'est téléchargé à votre insu."
+          description="Retrouvez nos prédications et messages récents pour nourrir votre foi."
         />
         {leadTeaching && (
           <Reveal>
@@ -215,10 +208,9 @@ export default async function HomePage() {
       {/* 08 — LA COMMUNAUTÉ (visages, scrollytelling) */}
       <Section id="communaute" aria-labelledby="communaute-titre">
         <SectionHeading
-          overline="La communauté"
-          title="Des visages, pas des rubriques"
+          title="Les visages de notre communauté"
           id="communaute-titre"
-          description="Faites défiler : ce que Dieu fait ici se voit d'abord sur des visages."
+          description="Découvrez les hommes et les femmes qui font vivre l'église au quotidien."
         />
         <CommunityFaces faces={communityFaces} />
       </Section>
@@ -250,10 +242,6 @@ export default async function HomePage() {
               Demander la prière
             </Button>
           </p>
-          <p className="mt-3 font-sans text-xs text-ccjv-ink-secondary">
-            Pour l&apos;instant par WhatsApp — un espace de prière dédié arrive
-            bientôt.
-          </p>
         </Reveal>
       </Section>
 
@@ -261,8 +249,7 @@ export default async function HomePage() {
       <Section id="soutenir" aria-labelledby="soutenir-titre">
         <div className="grid grid-cols-1 items-center gap-10 md:grid-cols-12 md:gap-14">
           <Reveal className="md:col-span-7">
-            <p className="overline">Soutenir</p>
-            <h2 id="soutenir-titre" className="mt-4">
+            <h2 id="soutenir-titre">
               Soutenir l&apos;œuvre de l&apos;église
             </h2>
             <p className="lead mt-6">
@@ -270,9 +257,9 @@ export default async function HomePage() {
               enfants, la louange et l&apos;entraide au sein de la communauté.
             </p>
             <p className="mt-5 text-ccjv-ink-secondary">
-              Les dons en ligne ne sont pas encore ouverts. En attendant, vous
-              pouvez nous écrire : nous vous indiquerons les moyens disponibles
-              sur place.
+              Vous pouvez déposer votre offrande lors de nos rassemblements ou
+              nous contacter directement pour connaître les modalités de
+              contribution.
             </p>
             <div className="mt-8">
               <Button variant="outline" href={site.whatsappHref} external>

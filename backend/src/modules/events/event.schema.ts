@@ -32,9 +32,13 @@ export const EVENT_SORT_COLUMNS = ["event_date", "created_at"] as const;
  *
  * Le tri par défaut est la date croissante : appelé avec `status=UPCOMING`,
  * l'écran public obtient naturellement l'événement le plus proche en premier.
+ *
+ * Le schéma est construit par `.extend()` — **pas** par étalement de
+ * `paginationQuerySchema.shape` : `.extend()` préserve la stricteur de la
+ * pagination commune, un étalement la perdrait et le paramètre inconnu
+ * repasserait en silence (`shared/http/pagination.ts`).
  */
-export const listEventQuerySchema = z.object({
-  ...paginationQuerySchema.shape,
+export const listEventQuerySchema = paginationQuerySchema.extend({
   status: z.enum(["UPCOMING", "ARCHIVED"]).optional(),
   departmentId: z.uuid("Le département doit être identifié par un UUID").optional(),
   sort: createSortSchema(EVENT_SORT_COLUMNS, "event_date"),

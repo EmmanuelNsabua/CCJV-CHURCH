@@ -2,7 +2,7 @@ openapi: "3.1.0"
 info:
   title: "API CCJV — Centre Chrétien Jésus ma Vie"
   version: v1
-  description: "API REST Express + TypeScript servant les contenus publics du site et le\nback-office d'administration.\n\n### Préfixe\nToutes les routes métier sont montées sous `/api/v1`. Seul\n`GET /api/v1/health` échappe au rate limiting global. Une URL\ninconnue sous ce préfixe produit `404 NOT_FOUND`, au format d'erreur standard.\n\n### Authentification\nJeton porteur Supabase (`Authorization: Bearer <jeton>`), vérifié par\n`presentation/middlewares/auth.ts`. L'authentification auprès du fournisseur\nd'identité **ne confère aucun droit** : l'utilisateur doit en plus posséder un\nprofil dans `admin_profiles`, actif, et le rôle `ROLE_ADMIN` pour les routes\nd'administration. Chaque opération déclare son exigence : `security: []` pour\nune route publique, `bearerAuth` pour une route d'administration.\n\n### Enveloppes de réponse\n- collection : `{ data: [...], meta: { page, limit, total, totalPages } }` ;\n- ressource : la ressource directement, jamais enveloppée ;\n- erreur : `{ error: { code, message, details? } }` — forme unique, y compris\n  pour une erreur non maîtrisée ou une route inconnue.\n\nTrois listes bornées font exception à l'enveloppe de collection et renvoient\n`{ data: [...] }` **sans** `meta`, car elles ne sont pas paginées :\n`GET /scriptures`, `GET /schedule` et `GET /social-links`.\n\nUn corps JSON **mal formé** sort en `500 INTERNAL_ERROR` (et non en 400) :\n`express.json()` échoue avant le middleware `validate`. Comportement vérifié\nsur l'API en fonctionnement.\n\n### Limites\n- rate limiting global : 120 requêtes par minute et par IP (`RATE_LIMIT_MAX`),\n  soit `429 RATE_LIMITED` ;\n- écriture publique `POST /prayer-requests` : 5 dépôts par heure et par IP ;\n- pagination : `page` ≥ 1 (défaut 1), `limit` 1–100 (défaut 20) ;\n- corps JSON et `urlencoded` : 1 Mo maximum ; téléversement : limite de\n  `MAX_UPLOAD_BYTES` (5 Mio par défaut), type réel du fichier vérifié.\n\n### Source de vérité\nDocument **généré** depuis l'implémentation : `npm run openapi` (script\n`src/presentation/openapi/generate.ts`), qui produit `openapi.json` et\n`openapi.yaml`. Les chemins et méthodes reprennent le montage réel de\n`src/app.ts` et des `*.routes.ts` ; les corps de requête sont les schémas Zod\ndes modules eux-mêmes ; les codes d'erreur sont les 24 valeurs de l'union\n`ErrorCode` de `shared/errors/app-error.ts`."
+  description: "API REST Express + TypeScript servant les contenus publics du site et le\nback-office d'administration.\n\n### Préfixe\nToutes les routes métier sont montées sous `/api/v1`. Seul\n`GET /api/v1/health` échappe au rate limiting global. Une URL\ninconnue sous ce préfixe produit `404 NOT_FOUND`, au format d'erreur standard.\n\n### Authentification\nJeton porteur Supabase (`Authorization: Bearer <jeton>`), vérifié par\n`presentation/middlewares/auth.ts`. L'authentification auprès du fournisseur\nd'identité **ne confère aucun droit** : l'utilisateur doit en plus posséder un\nprofil dans `admin_profiles`, actif, et le rôle `ROLE_ADMIN` pour les routes\nd'administration. Chaque opération déclare son exigence : `security: []` pour\nune route publique, `bearerAuth` pour une route d'administration.\n\n### Enveloppes de réponse\n- collection : `{ data: [...], meta: { page, limit, total, totalPages } }` ;\n- ressource : la ressource directement, jamais enveloppée ;\n- erreur : `{ error: { code, message, details? } }` — forme unique, y compris\n  pour une erreur non maîtrisée ou une route inconnue.\n\nTrois listes bornées font exception à l'enveloppe de collection et renvoient\n`{ data: [...] }` **sans** `meta`, car elles ne sont pas paginées :\n`GET /scriptures`, `GET /schedule` et `GET /social-links`.\n\nUn corps JSON **mal formé** sort en `500 INTERNAL_ERROR` (et non en 400) :\n`express.json()` échoue avant le middleware `validate`. Comportement vérifié\nsur l'API en fonctionnement.\n\n### Paramètres de requête\nLes schémas de *query* sont des objets **stricts** : tout paramètre non reconnu\nest refusé en `400 VALIDATION_ERROR`, `details` nommant le paramètre fautif —\njamais ignoré en silence. Une faute de frappe côté client devient donc une erreur\nexploitable, et la convention est identique sur **toutes** les routes.\n`?sort=…` n'est reconnu que là où un tri existe réellement (`GET /events`,\n`GET /publications`, en liste blanche de colonnes) ; ailleurs il est refusé,\nl'ordre étant fixé par le serveur. Les listes non paginées `GET /scriptures`,\n`GET /schedule` et `GET /social-links` ne reconnaissent **aucun** paramètre ;\n`GET /settings` et `GET /pages/:pageKey` valident également une *query* vide\n(`emptyQuerySchema`) et déclarent donc, eux aussi, un 400.\n\n### Limites\n- rate limiting global : 120 requêtes par minute et par IP (`RATE_LIMIT_MAX`),\n  soit `429 RATE_LIMITED` ;\n- écriture publique `POST /prayer-requests` : 5 dépôts par heure et par IP ;\n- pagination : `page` ≥ 1 (défaut 1), `limit` 1–100 (défaut 20) ;\n- corps JSON et `urlencoded` : 1 Mo maximum ; téléversement : limite de\n  `MAX_UPLOAD_BYTES` (5 Mio par défaut), type réel du fichier vérifié.\n\n### Source de vérité\nDocument **généré** depuis l'implémentation : `npm run openapi` (script\n`src/presentation/openapi/generate.ts`), qui produit `openapi.json` et\n`openapi.yaml`. Les chemins et méthodes reprennent le montage réel de\n`src/app.ts` et des `*.routes.ts` ; les corps de requête sont les schémas Zod\ndes modules eux-mêmes ; les codes d'erreur sont les 24 valeurs de l'union\n`ErrorCode` de `shared/errors/app-error.ts`."
 servers:
   - url: "/"
     description: "Origine courante. Les chemins documentés incluent déjà le préfixe /api/v1 : l'URL effective est donc <origine>/api/v1/…"
@@ -951,7 +951,7 @@ components:
           description: "Message de Zod, en français."
   responses:
     ValidationError:
-      description: "`VALIDATION_ERROR` — données invalides. Le `details` est un tableau `{ champ, message }` produit par le middleware `validate` (ou par Zod en dernier recours). Un paramètre de chemin ou de requête hors bornes, un corps non conforme au schéma ou une clé inconnue produisent cette réponse.\n\nDeux précisions vérifiées à l'exécution :\n- un corps **vide** `{}` n'est refusé que là où le schéma l'impose par un `refine` (« Aucun champ à mettre à jour » : responsables, témoignages, visages, versets, rythme, liens sociaux) ; les mises à jour de départements, d'événements et de publications n'ont pas cette contrainte et acceptent `{}` ;\n- un corps JSON **mal formé** ne produit pas cette réponse : `express.json()` échoue avant `validate`, ce qui donne un `500 INTERNAL_ERROR` (voir `InternalError`)."
+      description: "`VALIDATION_ERROR` — données invalides. Le `details` est un tableau `{ champ, message }` produit par le middleware `validate` (ou par Zod en dernier recours). Un paramètre de chemin ou de requête hors bornes, un corps non conforme au schéma ou une clé inconnue produisent cette réponse.\n\n**Paramètres de requête.** Les schémas de *query* sont des objets **stricts** : tout paramètre non reconnu est refusé ici, et jamais ignoré en silence. `GET /departments?nimportequoi=1` produit donc un 400 dont `details` nomme `nimportequoi`, et `?sort=…` est refusé sur les collections qui n'offrent pas de tri (seuls `events` et `publications` en exposent un, à liste blanche).\n\nLa convention ne souffre **aucune** exception : les listes bornées non paginées (`GET /scriptures`, `GET /schedule`, `GET /social-links`) ne reconnaissent aucun paramètre, et les deux routes hors collection `GET /settings` et `GET /pages/{pageKey}` valident elles aussi une *query* vide, par `emptyQuerySchema` — `?nimportequoi=1` y produit donc un 400.\n\nDeux précisions vérifiées à l'exécution :\n- un corps **vide** `{}` n'est refusé que là où le schéma l'impose par un `refine` (« Aucun champ à mettre à jour » : responsables, témoignages, visages, versets, rythme, liens sociaux) ; les mises à jour de départements, d'événements et de publications n'ont pas cette contrainte et acceptent `{}` ;\n- un corps JSON **mal formé** ne produit pas cette réponse : `express.json()` échoue avant `validate`, ce qui donne un `500 INTERNAL_ERROR` (voir `InternalError`)."
       content:
         "application/json":
           schema:
@@ -1065,7 +1065,7 @@ paths:
       tags:
         - departments
       summary: "Lister les départements"
-      description: "Collection paginée, ordonnée par `position` côté serveur. Aucun filtre métier en V1 : seuls `page` et `limit` sont acceptés."
+      description: "Collection paginée, ordonnée par `position` côté serveur. Aucun filtre métier en V1 : seuls `page` et `limit` sont acceptés. Aucun tri n'est exposé, donc `?sort=…` est refusé en `400 VALIDATION_ERROR` — comme tout autre paramètre non reconnu."
       security: []
       parameters:
         - name: page
@@ -1363,7 +1363,7 @@ paths:
       tags:
         - events
       summary: "Lister les événements"
-      description: "Collection publique paginée et filtrée. `status` et `departmentId` sont les deux seuls filtres ; aucune borne de date fournie par le client n'est acceptée : la notion d'« à venir » est calculée par le serveur."
+      description: "Collection publique paginée et filtrée. `status`, `departmentId` et `sort` sont les seuls paramètres reconnus en plus de `page`/`limit` ; aucune borne de date fournie par le client n'est acceptée : la notion d'« à venir » est calculée par le serveur. Tout autre paramètre — une faute de frappe comprise — est refusé en `400 VALIDATION_ERROR`."
       security: []
       parameters:
         - name: page
@@ -1710,7 +1710,7 @@ paths:
       tags:
         - publications
       summary: "Lister les publications"
-      description: "Collection publique paginée. **Le filtre de statut n'existe pas** : le service force `PUBLISHED` côté base, un client ne peut donc pas demander les brouillons, même en forgeant la *query*. Le champ `status` reste exposé dans la réponse (utile au back-office)."
+      description: "Collection publique paginée. `type`, `category` et `sort` sont les seuls paramètres reconnus en plus de `page`/`limit` ; tout autre paramètre est refusé en `400 VALIDATION_ERROR`. **Le filtre de statut n'existe pas** : le service force `PUBLISHED` côté base, un client ne peut donc pas demander les brouillons, même en forgeant la *query*. Le champ `status` reste exposé dans la réponse (utile au back-office)."
       security: []
       parameters:
         - name: page
@@ -2056,7 +2056,7 @@ paths:
       tags:
         - leaders
       summary: "Lister les responsables"
-      description: "Collection paginée. Aucun filtre serveur : la collection est seulement paginée."
+      description: "Collection paginée. Aucun filtre serveur : seuls `page` et `limit` sont reconnus. Aucun tri n'est exposé (l'ordre vient de `position` côté serveur), donc `?sort=…` est refusé en `400 VALIDATION_ERROR` — comme tout autre paramètre non reconnu."
       security: []
       parameters:
         - name: page
@@ -2314,7 +2314,7 @@ paths:
       tags:
         - testimonies
       summary: "Lister les témoignages"
-      description: "Collection paginée, ordonnée par `position`. Aucun filtre serveur."
+      description: "Collection paginée, ordonnée par `position`. Aucun filtre serveur et aucun tri exposé : seuls `page` et `limit` sont reconnus, tout autre paramètre — `?sort=…` compris — est refusé en `400 VALIDATION_ERROR`."
       security: []
       parameters:
         - name: page
@@ -2552,7 +2552,7 @@ paths:
       tags:
         - "community-faces"
       summary: "Lister les visages de la communauté"
-      description: "Collection paginée, ordonnée par `position`. Aucun filtre serveur."
+      description: "Collection paginée, ordonnée par `position`. Aucun filtre serveur et aucun tri exposé : seuls `page` et `limit` sont reconnus, tout autre paramètre — `?sort=…` compris — est refusé en `400 VALIDATION_ERROR`."
       security: []
       parameters:
         - name: page
@@ -2780,7 +2780,7 @@ paths:
       tags:
         - scriptures
       summary: "Lister les versets"
-      description: "Liste complète, **non paginée** : le controller renvoie `{ data }` sans `meta` (`scripture.controller.ts:20`). Aucun paramètre de requête n'est validé ni lu."
+      description: "Liste complète, **non paginée** : le controller renvoie `{ data }` sans `meta` (`scripture.controller.ts:20`). Aucun filtre n'est reconnu (`docs/018` §6.1) : la *query* est validée par un objet strict, donc un paramètre quel qu'il soit — `?limit=20` compris — produit `400 VALIDATION_ERROR` au lieu d'être ignoré."
       security: []
       responses:
         "200":
@@ -2789,6 +2789,8 @@ paths:
             "application/json":
               schema:
                 "$ref": "#/components/schemas/ScriptureList"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
         "429":
           "$ref": "#/components/responses/RateLimited"
         "500":
@@ -3000,7 +3002,7 @@ paths:
       tags:
         - schedule
       summary: "Lister le rythme hebdomadaire"
-      description: "Liste complète, **non paginée** et ordonnée par `position` : `{ data }` sans `meta` (`schedule.controller.ts:17`). Il n'existe **aucune** route `GET /schedule/{id}` : la lecture d'une entrée isolée n'est pas exposée."
+      description: "Liste complète, **non paginée** et ordonnée par `position` : `{ data }` sans `meta` (`schedule.controller.ts:17`). Il n'existe **aucune** route `GET /schedule/{id}` : la lecture d'une entrée isolée n'est pas exposée. Aucun filtre n'est reconnu : la *query* est validée par un objet strict, tout paramètre produit `400 VALIDATION_ERROR`."
       security: []
       responses:
         "200":
@@ -3009,6 +3011,8 @@ paths:
             "application/json":
               schema:
                 "$ref": "#/components/schemas/ScheduleEntryList"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
         "429":
           "$ref": "#/components/responses/RateLimited"
         "500":
@@ -3191,7 +3195,7 @@ paths:
       tags:
         - "social-links"
       summary: "Lister les réseaux sociaux"
-      description: "Liste complète, **non paginée** et ordonnée par `position` : `{ data }` sans `meta` (`social-link.controller.ts:17`). Les liens affichés dans le pied de page et sur la page « nous trouver » proviennent de cette route et sont aussi exposés dans `GET /settings`."
+      description: "Liste complète, **non paginée** et ordonnée par `position` : `{ data }` sans `meta` (`social-link.controller.ts:17`). Les liens affichés dans le pied de page et sur la page « nous trouver » proviennent de cette route et sont aussi exposés dans `GET /settings`. Aucun filtre n'est reconnu : la *query* est validée par un objet strict, tout paramètre produit `400 VALIDATION_ERROR`."
       security: []
       responses:
         "200":
@@ -3200,6 +3204,8 @@ paths:
             "application/json":
               schema:
                 "$ref": "#/components/schemas/SocialLinkList"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
         "429":
           "$ref": "#/components/responses/RateLimited"
         "500":
@@ -3355,7 +3361,7 @@ paths:
       tags:
         - settings
       summary: "Lire les réglages du site"
-      description: "Document unique, sans identifiant : regroupe les scalaires de `site_settings` (exposés en objet clé/valeur) et la liste ordonnée des liens sociaux. Les deux sources sont lues en parallèle."
+      description: "Document unique, sans identifiant : regroupe les scalaires de `site_settings` (exposés en objet clé/valeur) et la liste ordonnée des liens sociaux. Les deux sources sont lues en parallèle.\n\nAucun paramètre de requête n'est reconnu : la *query* est validée par un objet strict vide (`emptyQuerySchema`), donc `?nimportequoi=1` produit `400 VALIDATION_ERROR` au lieu d'être ignoré."
       security: []
       responses:
         "200":
@@ -3364,6 +3370,8 @@ paths:
             "application/json":
               schema:
                 "$ref": "#/components/schemas/Settings"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
         "429":
           "$ref": "#/components/responses/RateLimited"
         "500":
@@ -3418,7 +3426,7 @@ paths:
       tags:
         - pages
       summary: "Lire le contenu d'une page éditable"
-      description: "Il n'existe pas de route de collection : l'énumération des clés éditables vient du registre `domain/content/page-content.ts`, pas de la base. Une clé hors registre produit `PAGE_NOT_FOUND`."
+      description: "Il n'existe pas de route de collection : l'énumération des clés éditables vient du registre `domain/content/page-content.ts`, pas de la base. Une clé hors registre produit `PAGE_NOT_FOUND`.\n\nAucun paramètre de requête n'est reconnu : la *query* est validée par un objet strict vide (`emptyQuerySchema`), donc `?nimportequoi=1` produit `400 VALIDATION_ERROR` au lieu d'être ignoré."
       security: []
       parameters:
         - name: pageKey
@@ -3672,7 +3680,7 @@ paths:
       tags:
         - media
       summary: "Supprimer un média"
-      description: "Administration. Refusée par défaut si le fichier est encore référencé : la réponse est alors `CONFLICT` avec le détail des usages. `?force=true` détache d'abord les références, puis supprime la ligne **et** le fichier du Storage. Seule la chaîne littérale `true` autorise la suppression forcée : `false` ou toute autre valeur est refusée par Zod (une valeur quelconque ne doit pas être convertie en booléen, `Boolean(\"false\")` valant `true`)."
+      description: "Administration. Refusée par défaut si le fichier est encore référencé : la réponse est alors `CONFLICT` avec le détail des usages. `?force=true` détache d'abord les références, puis supprime la ligne **et** le fichier du Storage. Seule la chaîne littérale `true` autorise la suppression forcée : `false` ou toute autre valeur est refusée par Zod (une valeur quelconque ne doit pas être convertie en booléen, `Boolean(\"false\")` valant `true`). `force` est le **seul** paramètre reconnu : le schéma est strict, donc `?forcee=true` (faute de frappe) produit `400 VALIDATION_ERROR` au lieu d'être ignoré — l'absence de `force` réel ne peut pas passer pour un refus de forcer."
       security:
         - bearerAuth: []
       parameters:

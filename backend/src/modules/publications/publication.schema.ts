@@ -35,9 +35,14 @@ export const PUBLICATION_SORT_COLUMNS = ["published_at", "created_at"] as const;
  */
 const DEFAULT_SORT = "-published_at";
 
-/** Filtres publics : type, rubrique éditoriale, pagination, tri. */
-export const listPublicationQuerySchema = z.object({
-  ...paginationQuerySchema.shape,
+/**
+ * Filtres publics : type, rubrique éditoriale, pagination, tri.
+ *
+ * `.extend()` et non étalement de `paginationQuerySchema.shape` : seule
+ * l'extension préserve la stricteur de la pagination commune, donc le refus des
+ * paramètres inconnus (`shared/http/pagination.ts`).
+ */
+export const listPublicationQuerySchema = paginationQuerySchema.extend({
   type: z.enum(["VIDEO", "PHOTO", "TEXTE"]).optional(),
   category: z.enum(["ACTUALITE", "ENSEIGNEMENT", "MEDIA", "RESSOURCE"]).optional(),
   // Défaut chronologique décroissant : c'est l'ordre des données de

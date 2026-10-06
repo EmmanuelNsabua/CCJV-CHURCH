@@ -171,7 +171,16 @@ npm run test:watch
 Préfixe commun : `/api/v1` (variable `API_VERSION`). Les identifiants acceptent
 un **UUID ou un slug** sur les routes de détail ; les collections sont paginées
 (`?page=1&limit=20`) et triées par une colonne issue d'une liste blanche serveur
-(`?sort=-published_at`).
+(`?sort=-published_at`) sur les seules ressources qui exposent un tri
+(`/events`, `/publications`).
+
+**Convention des paramètres de requête** : les schémas de *query* sont des objets
+stricts, donc tout paramètre non reconnu — une faute de frappe comprise — est
+refusé en `400 VALIDATION_ERROR`, `details` nommant le paramètre fautif. Un
+`?sort=…` sur une collection sans tri (`/departments`, `/leaders`,
+`/testimonies`, `/community-faces`) est refusé de la même façon, et les listes
+bornées non paginées (`/scriptures`, `/schedule`, `/social-links`) n'acceptent
+**aucun** paramètre.
 
 | Ressource | Chemin | Méthodes | Authentification |
 | --- | --- | --- | --- |

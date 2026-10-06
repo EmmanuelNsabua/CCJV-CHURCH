@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { AuthDependencies } from "@/presentation/middlewares/auth";
 import { requireAnyAdmin } from "@/presentation/middlewares/auth";
 import { validate } from "@/presentation/middlewares/validate";
+import { emptyQuerySchema } from "@/shared/http/pagination";
 import type { SettingService } from "./setting.service";
 import { createSettingController } from "./setting.controller";
 import { settingsPatchSchema } from "./setting.schema";
@@ -12,6 +13,11 @@ import { settingsPatchSchema } from "./setting.schema";
  * Une seule route publique (`GET`), une seule route d'administration (`PATCH`) :
  * c'est un document unique regroupant les scalaires et les liens sociaux, pas
  * une collection d'identifiants.
+ *
+ * Le document n'accepte **aucun** paramètre de requête : `GET /` monte donc
+ * `emptyQuerySchema`, un objet strict. Un `?nimportequoi=1` y est refusé en
+ * `400 VALIDATION_ERROR` au lieu d'être ignoré en silence — la convention est la
+ * même que sur les collections.
  */
 export interface SettingRouterDeps {
   service: SettingService;
@@ -23,7 +29,7 @@ export function createSettingRouter(deps: SettingRouterDeps): Router {
   const controller = createSettingController(deps.service);
   const admin = requireAnyAdmin(deps.authDeps, "ROLE_ADMIN");
 
-  router.get("/", controller.get);
+  router.get("/", validate({ query: emptyQuerySchema }), controller.get);
 
   router.patch("/", ...admin, validate({ body: settingsPatchSchema }), controller.update);
 

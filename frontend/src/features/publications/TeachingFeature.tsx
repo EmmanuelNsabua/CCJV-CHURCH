@@ -69,8 +69,7 @@ export function TeachingFeature({
       )}
 
       <div className="flex flex-col justify-center md:col-span-5">
-        <p className="overline">Dernier message</p>
-        <h3 className="mt-4 font-serif text-[clamp(1.5rem,1rem+1.6vw,2.25rem)] leading-tight">
+        <h3 className="font-serif text-[clamp(1.5rem,1rem+1.6vw,2.25rem)] leading-tight">
           {publication.title}
         </h3>
         {publication.author && (
@@ -88,16 +87,11 @@ export function TeachingFeature({
         )}
 
         {href && (
-          <>
-            <div className="mt-7">
-              <Button variant="primary" href={href} external>
-                Regarder la vidéo sur YouTube
-              </Button>
-            </div>
-            <p className="mt-3 font-sans text-xs text-ccjv-ink-secondary">
-              La vidéo s&apos;ouvre sur YouTube, dans un nouvel onglet.
-            </p>
-          </>
+          <div className="mt-7">
+            <Button variant="primary" href={href} external>
+              Regarder la vidéo sur YouTube
+            </Button>
+          </div>
         )}
       </div>
     </article>

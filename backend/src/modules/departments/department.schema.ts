@@ -27,7 +27,15 @@ export const departmentIdOrSlugSchema = z.object({
 
 export type DepartmentIdOrSlugParams = z.infer<typeof departmentIdOrSlugSchema>;
 
-/** Aucun filtre métier en V1 : uniquement la pagination (page, limite). */
+/**
+ * Aucun filtre métier en V1 : uniquement la pagination (page, limite).
+ *
+ * Le schéma est **strict** (alias de `paginationQuerySchema`, qui est un objet
+ * strict) : `?sort=…` comme tout autre paramètre non reconnu est refusé en
+ * `VALIDATION_ERROR`. L'API ne prétend pas trier cette collection — le tri est
+ * fixé par le serveur (`position`), et le contrat de repository (`ListOptions`)
+ * ne porte aucune colonne de tri.
+ */
 export const listDepartmentQuerySchema = paginationQuerySchema;
 
 export type DepartmentListQuery = PaginationQuery;

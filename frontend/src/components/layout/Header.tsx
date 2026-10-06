@@ -91,7 +91,7 @@ export function Header() {
               : "bg-transparent text-ccjv-ink border-b border-transparent",
         )}
       >
-        <div className="container flex h-18 items-center justify-between">
+        <div className="container flex px-4 sm:px-12 lg:px-18 py-2 items-center justify-between">
           <Link
             href="/"
             className="flex min-h-11 items-center"
@@ -107,7 +107,7 @@ export function Header() {
                   "object-contain transition-[filter] duration-300 ease-out",
                   isSolid || !isDarkHero ? "invert" : "invert-0",
                 )}
-                sizes="48px"
+                sizes="40px"
               />
             </div>
           </Link>

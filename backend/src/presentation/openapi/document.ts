@@ -458,24 +458,6 @@ function adminResponses(
   };
 }
 
-/**
- * Réponses d'une route publique **sans aucun paramètre validé**.
- *
- * Il n'y a pas de 400 à déclarer : `validate` n'est pas monté sur ces routes
- * (`GET /scriptures`, `GET /schedule`, `GET /social-links`, `GET /settings`), et
- * les controllers correspondants n'ont ni paramètre de chemin, ni *query*, ni
- * corps à lire. Ne restent que la limite globale et l'erreur interne.
- */
-function plainPublicResponses(
-  extra: Record<string, OpenApiResponse> = {},
-): Record<string, OpenApiResponse> {
-  return {
-    429: responseRef("RateLimited"),
-    500: responseRef("InternalError"),
-    ...extra,
-  };
-}
-
 /* -------------------------------------------------------------------------- */
 /*  Modules CRUD génériques                                                   */
 /* -------------------------------------------------------------------------- */
@@ -1415,6 +1397,16 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       "`{ champ, message }` produit par le middleware `validate` (ou par Zod en " +
       "dernier recours). Un paramètre de chemin ou de requête hors bornes, un corps " +
       "non conforme au schéma ou une clé inconnue produisent cette réponse.\n\n" +
+      "**Paramètres de requête.** Les schémas de *query* sont des objets **stricts** : " +
+      "tout paramètre non reconnu est refusé ici, et jamais ignoré en silence. " +
+      "`GET /departments?nimportequoi=1` produit donc un 400 dont `details` nomme " +
+      "`nimportequoi`, et `?sort=…` est refusé sur les collections qui n'offrent pas de " +
+      "tri (seuls `events` et `publications` en exposent un, à liste blanche).\n\n" +
+      "La convention ne souffre **aucune** exception : les listes bornées non paginées " +
+      "(`GET /scriptures`, `GET /schedule`, `GET /social-links`) ne reconnaissent aucun " +
+      "paramètre, et les deux routes hors collection `GET /settings` et " +
+      "`GET /pages/{pageKey}` valident elles aussi une *query* vide, par " +
+      "`emptyQuerySchema` — `?nimportequoi=1` y produit donc un 400.\n\n" +
       "Deux précisions vérifiées à l'exécution :\n" +
       "- un corps **vide** `{}` n'est refusé que là où le schéma l'impose par un " +
       "`refine` (« Aucun champ à mettre à jour » : responsables, témoignages, visages, " +
@@ -1590,7 +1582,9 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     listSummary: "Lister les départements",
     listDescription:
       "Collection paginée, ordonnée par `position` côté serveur. Aucun filtre métier " +
-      "en V1 : seuls `page` et `limit` sont acceptés.",
+      "en V1 : seuls `page` et `limit` sont acceptés. Aucun tri n'est exposé, donc " +
+      "`?sort=…` est refusé en `400 VALIDATION_ERROR` — comme tout autre paramètre non " +
+      "reconnu.",
     getSummary: "Lire un département",
     getDescription:
       "Accepte un UUID ou un slug. Un identifiant inconnu produit `DEPARTMENT_NOT_FOUND`.",
@@ -1653,9 +1647,11 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     ],
     listSummary: "Lister les événements",
     listDescription:
-      "Collection publique paginée et filtrée. `status` et `departmentId` sont les deux " +
-      "seuls filtres ; aucune borne de date fournie par le client n'est acceptée : la " +
-      "notion d'« à venir » est calculée par le serveur.",
+      "Collection publique paginée et filtrée. `status`, `departmentId` et `sort` sont " +
+      "les seuls paramètres reconnus en plus de `page`/`limit` ; aucune borne de date " +
+      "fournie par le client n'est acceptée : la notion d'« à venir » est calculée par le " +
+      "serveur. Tout autre paramètre — une faute de frappe comprise — est refusé en " +
+      "`400 VALIDATION_ERROR`.",
     getSummary: "Lire un événement",
     getDescription:
       "Accepte un UUID ou un slug. Un identifiant inconnu produit `EVENT_NOT_FOUND`.",
@@ -1727,7 +1723,9 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     ],
     listSummary: "Lister les publications",
     listDescription:
-      "Collection publique paginée. **Le filtre de statut n'existe pas** : le service " +
+      "Collection publique paginée. `type`, `category` et `sort` sont les seuls " +
+      "paramètres reconnus en plus de `page`/`limit` ; tout autre paramètre est refusé en " +
+      "`400 VALIDATION_ERROR`. **Le filtre de statut n'existe pas** : le service " +
       "force `PUBLISHED` côté base, un client ne peut donc pas demander les brouillons, " +
       "même en forgeant la *query*. Le champ `status` reste exposé dans la réponse " +
       "(utile au back-office).",
@@ -1783,7 +1781,10 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     listParameters: PAGINATION_PARAMETERS,
     listSummary: "Lister les responsables",
     listDescription:
-      "Collection paginée. Aucun filtre serveur : la collection est seulement paginée.",
+      "Collection paginée. Aucun filtre serveur : seuls `page` et `limit` sont reconnus. " +
+      "Aucun tri n'est exposé (l'ordre vient de `position` côté serveur), donc " +
+      "`?sort=…` est refusé en `400 VALIDATION_ERROR` — comme tout autre paramètre non " +
+      "reconnu.",
     getSummary: "Lire un responsable",
     getDescription: "Un identifiant inconnu produit `LEADER_NOT_FOUND`.",
     createSummary: "Créer un responsable",
@@ -1816,7 +1817,10 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     parameterDescription: "Identifiant UUID du témoignage : aucun slug.",
     listParameters: PAGINATION_PARAMETERS,
     listSummary: "Lister les témoignages",
-    listDescription: "Collection paginée, ordonnée par `position`. Aucun filtre serveur.",
+    listDescription:
+      "Collection paginée, ordonnée par `position`. Aucun filtre serveur et aucun tri " +
+      "exposé : seuls `page` et `limit` sont reconnus, tout autre paramètre — `?sort=…` " +
+      "compris — est refusé en `400 VALIDATION_ERROR`.",
     getSummary: "Lire un témoignage",
     getDescription: "Un identifiant inconnu produit `TESTIMONY_NOT_FOUND`.",
     createSummary: "Créer un témoignage",
@@ -1845,7 +1849,10 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     parameterDescription: "Identifiant UUID du visage : aucun slug.",
     listParameters: PAGINATION_PARAMETERS,
     listSummary: "Lister les visages de la communauté",
-    listDescription: "Collection paginée, ordonnée par `position`. Aucun filtre serveur.",
+    listDescription:
+      "Collection paginée, ordonnée par `position`. Aucun filtre serveur et aucun tri " +
+      "exposé : seuls `page` et `limit` sont reconnus, tout autre paramètre — `?sort=…` " +
+      "compris — est refusé en `400 VALIDATION_ERROR`.",
     getSummary: "Lire un visage de la communauté",
     getDescription: "Un identifiant inconnu produit `COMMUNITY_FACE_NOT_FOUND`.",
     createSummary: "Créer un visage de la communauté",
@@ -1880,11 +1887,13 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     summary: "Lister les versets",
     description:
       "Liste complète, **non paginée** : le controller renvoie `{ data }` sans `meta` " +
-      "(`scripture.controller.ts:20`). Aucun paramètre de requête n'est validé ni lu.",
+      "(`scripture.controller.ts:20`). Aucun filtre n'est reconnu (`docs/018` §6.1) : la " +
+      "*query* est validée par un objet strict, donc un paramètre quel qu'il soit — " +
+      "`?limit=20` compris — produit `400 VALIDATION_ERROR` au lieu d'être ignoré.",
     security: NO_SECURITY,
     responses: {
       200: jsonResponse("Versets enregistrés.", "ScriptureList"),
-      ...plainPublicResponses(),
+      ...publicResponses(),
     },
   });
 
@@ -1989,11 +1998,13 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     description:
       "Liste complète, **non paginée** et ordonnée par `position` : `{ data }` sans " +
       "`meta` (`schedule.controller.ts:17`). Il n'existe **aucune** route " +
-      "`GET /schedule/{id}` : la lecture d'une entrée isolée n'est pas exposée.",
+      "`GET /schedule/{id}` : la lecture d'une entrée isolée n'est pas exposée. Aucun " +
+      "filtre n'est reconnu : la *query* est validée par un objet strict, tout paramètre " +
+      "produit `400 VALIDATION_ERROR`.",
     security: NO_SECURITY,
     responses: {
       200: jsonResponse("Entrées du rythme hebdomadaire.", "ScheduleEntryList"),
-      ...plainPublicResponses(),
+      ...publicResponses(),
     },
   });
 
@@ -2078,11 +2089,12 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       "Liste complète, **non paginée** et ordonnée par `position` : `{ data }` sans " +
       "`meta` (`social-link.controller.ts:17`). Les liens affichés dans le pied de page " +
       "et sur la page « nous trouver » proviennent de cette route et sont aussi exposés " +
-      "dans `GET /settings`.",
+      "dans `GET /settings`. Aucun filtre n'est reconnu : la *query* est validée par un " +
+      "objet strict, tout paramètre produit `400 VALIDATION_ERROR`.",
     security: NO_SECURITY,
     responses: {
       200: jsonResponse("Liens sociaux ordonnés.", "SocialLinkList"),
-      ...plainPublicResponses(),
+      ...publicResponses(),
     },
   });
 
@@ -2162,11 +2174,14 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     description:
       "Document unique, sans identifiant : regroupe les scalaires de `site_settings` " +
       "(exposés en objet clé/valeur) et la liste ordonnée des liens sociaux. Les deux " +
-      "sources sont lues en parallèle.",
+      "sources sont lues en parallèle.\n\n" +
+      "Aucun paramètre de requête n'est reconnu : la *query* est validée par un objet " +
+      "strict vide (`emptyQuerySchema`), donc `?nimportequoi=1` produit " +
+      "`400 VALIDATION_ERROR` au lieu d'être ignoré.",
     security: NO_SECURITY,
     responses: {
       200: jsonResponse("Réglages courants.", "Settings"),
-      ...plainPublicResponses(),
+      ...publicResponses(),
     },
   });
 
@@ -2220,7 +2235,10 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     description:
       "Il n'existe pas de route de collection : l'énumération des clés éditables vient du " +
       "registre `domain/content/page-content.ts`, pas de la base. Une clé hors registre " +
-      "produit `PAGE_NOT_FOUND`.",
+      "produit `PAGE_NOT_FOUND`.\n\n" +
+      "Aucun paramètre de requête n'est reconnu : la *query* est validée par un objet " +
+      "strict vide (`emptyQuerySchema`), donc `?nimportequoi=1` produit " +
+      "`400 VALIDATION_ERROR` au lieu d'être ignoré.",
     security: NO_SECURITY,
     parameters: [pageKeyParameter],
     responses: {
@@ -2378,7 +2396,10 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       "d'abord les références, puis supprime la ligne **et** le fichier du Storage. " +
       "Seule la chaîne littérale `true` autorise la suppression forcée : `false` ou toute " +
       "autre valeur est refusée par Zod (une valeur quelconque ne doit pas être convertie " +
-      "en booléen, `Boolean(\"false\")` valant `true`).",
+      "en booléen, `Boolean(\"false\")` valant `true`). `force` est le **seul** paramètre " +
+      "reconnu : le schéma est strict, donc `?forcee=true` (faute de frappe) produit " +
+      "`400 VALIDATION_ERROR` au lieu d'être ignoré — l'absence de `force` réel ne peut " +
+      "pas passer pour un refus de forcer.",
     security: BEARER_SECURITY,
     parameters: [
       mediaIdParameter,
@@ -2629,6 +2650,18 @@ export function buildOpenApiDocument(): Record<string, unknown> {
         "Un corps JSON **mal formé** sort en `500 INTERNAL_ERROR` (et non en 400) :",
         "`express.json()` échoue avant le middleware `validate`. Comportement vérifié",
         "sur l'API en fonctionnement.",
+        "",
+        "### Paramètres de requête",
+        "Les schémas de *query* sont des objets **stricts** : tout paramètre non reconnu",
+        "est refusé en `400 VALIDATION_ERROR`, `details` nommant le paramètre fautif —",
+        "jamais ignoré en silence. Une faute de frappe côté client devient donc une erreur",
+        "exploitable, et la convention est identique sur **toutes** les routes.",
+        "`?sort=…` n'est reconnu que là où un tri existe réellement (`GET /events`,",
+        "`GET /publications`, en liste blanche de colonnes) ; ailleurs il est refusé,",
+        "l'ordre étant fixé par le serveur. Les listes non paginées `GET /scriptures`,",
+        "`GET /schedule` et `GET /social-links` ne reconnaissent **aucun** paramètre ;",
+        "`GET /settings` et `GET /pages/:pageKey` valident également une *query* vide",
+        "(`emptyQuerySchema`) et déclarent donc, eux aussi, un 400.",
         "",
         "### Limites",
         `- rate limiting global : 120 requêtes par minute et par IP (\`RATE_LIMIT_MAX\`),`,
