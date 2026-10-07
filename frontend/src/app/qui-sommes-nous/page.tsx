@@ -223,11 +223,6 @@ export default function QuiSommesNousPage() {
                     />
                   </div>
                 </div>
-
-                <div className="mt-6 border-t border-ccjv-line/60 pt-4 text-xs font-sans text-ccjv-ink-secondary">
-                  <em>Note historique :</em> Les étapes chronologiques détaillées
-                  sont documentées et complétées avec les archives de CCJV.
-                </div>
               </div>
             </Reveal>
           </div>
