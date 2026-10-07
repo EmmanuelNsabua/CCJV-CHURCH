@@ -8,12 +8,40 @@ import { pgEnum } from "drizzle-orm/pg-core";
  * les minuscules de `docs/005` §2.4. Le contrat du frontend prime : il est
  * implémenté et ne doit pas être cassé (docs/018 §1).
  *
- * `admin_role` est un enum à valeur unique en V1, mais un enum PostgreSQL :
- * ajouter `ROLE_DEPARTMENT_EDITOR` se fera par `ALTER TYPE ... ADD VALUE`,
- * sans migration destructrice (docs/004 §24).
+ * `admin_role` porte les **trois rôles techniques** de `docs/028` D-01.
+ * « Responsable Presse » et « Responsable Ecodume » ne sont **pas** des rôles
+ * distincts : ce sont deux **instances** du même rôle `DEPARTMENT_MANAGER`,
+ * différenciées par leur `department_id` (D-02). Le RBAC ne code donc jamais
+ * `PRESSE` ou `ECODUME` comme rôle.
+ *
+ * L'ancienne valeur `ROLE_ADMIN` **disparaît** de ce type : elle n'existait que
+ * dans l'implémentation V1, jamais dans le modèle de conception. Un enum
+ * PostgreSQL ne se modifie pas en place — la migration associée recrée le type
+ * (cf. `docs/033` §2.3.2).
  */
 
-export const adminRoleEnum = pgEnum("admin_role", ["ROLE_ADMIN"]);
+export const adminRoleEnum = pgEnum("admin_role", [
+  "SUPER_ADMIN",
+  "ADMIN",
+  "DEPARTMENT_MANAGER",
+]);
+
+/**
+ * Périmètre d'action d'un profil (`docs/028` D-01, D-02, D-03).
+ *
+ * `role` dit **ce que** le compte peut faire ; `scope` dit **sur quoi**.
+ * Un `DEPARTMENT_MANAGER` porte `DEPARTMENT` et un `department_id` non nul ;
+ * les rôles système portent `GLOBAL` (cf. `docs/032` §3.3).
+ *
+ * `PRIVATE` désigne le périmètre des données privées — les demandes de prière,
+ * dont la lecture est refusée au `SUPER_ADMIN` (D-03, D-10). Il ne se confond
+ * ni avec un rôle, ni avec `DEPARTMENT`.
+ */
+export const userScopeEnum = pgEnum("user_scope", [
+  "GLOBAL",
+  "DEPARTMENT",
+  "PRIVATE",
+]);
 
 export const publicationTypeEnum = pgEnum("publication_type", [
   "VIDEO",

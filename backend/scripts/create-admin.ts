@@ -11,8 +11,10 @@ import { logger } from "@/infrastructure/logger";
  * Deux opérations, dans cet ordre :
  * 1. création du compte auprès de **Supabase Auth** — c'est lui qui détient le
  *    mot de passe, jamais notre base (`docs/006` §2.2) ;
- * 2. création du profil applicatif dans `admin_profiles`, avec le rôle
- *    `ROLE_ADMIN`.
+ * 2. création du profil applicatif dans `admin_profiles`, avec le rôle `ADMIN`
+ *    et le scope `GLOBAL` (`docs/028` D-01, D-05 : le compte d'administration
+ *    existant devient `ADMIN` ; le `SUPER_ADMIN` est un compte **distinct**, qui
+ *    ne doit pas être créé par ce script d'amorçage).
  *
  * Si la seconde étape échoue, le compte d'authentification est supprimé :
  * on ne laisse pas derrière soi un utilisateur capable de se connecter mais
@@ -112,7 +114,8 @@ async function main(): Promise<void> {
       id: userId,
       username: args.username,
       displayName: args.username,
-      role: "ROLE_ADMIN",
+      role: "ADMIN",
+      scope: "GLOBAL",
     });
 
     logger.info(

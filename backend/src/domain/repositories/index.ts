@@ -6,6 +6,7 @@ import type {
   EventStatus,
   Leader,
   MediaAsset,
+  PersistedAdminRole,
   PrayerRequest,
   Publication,
   PublicationCategory,
@@ -17,6 +18,7 @@ import type {
   SocialLink,
   StaticPage,
   Testimony,
+  UserScope,
 } from "@/domain/entities";
 
 /**
@@ -306,7 +308,16 @@ export interface AdminProfileRepository {
     id: string;
     username: string;
     displayName?: string | null;
-    role?: "ROLE_ADMIN";
+    /**
+     * `PersistedAdminRole` et non `AdminRole` : le schéma ne connaît plus
+     * `ROLE_ADMIN`, et un enum PostgreSQL à valeur inexistante refuse
+     * l'écriture (cf. `docs/028` D-01, D-05).
+     */
+    role: PersistedAdminRole;
+    /** D-02 : `GLOBAL` pour un rôle système, `DEPARTMENT` pour un responsable. */
+    scope: UserScope;
+    /** D-02 : un seul département, et seulement pour un `DEPARTMENT_MANAGER`. */
+    departmentId?: string | null;
   }): Promise<AdminProfile>;
   list(): Promise<AdminProfile[]>;
 }

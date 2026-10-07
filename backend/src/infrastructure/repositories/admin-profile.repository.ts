@@ -1,5 +1,5 @@
 import { asc, eq, sql } from "drizzle-orm";
-import type { AdminProfile } from "@/domain/entities";
+import type { AdminProfile, PersistedAdminRole, UserScope } from "@/domain/entities";
 import type { AdminProfileRepository } from "@/domain/repositories";
 import type { Database } from "@/infrastructure/database/client";
 import type { AdminProfileRow } from "@/infrastructure/database/schema/admin";
@@ -55,23 +55,44 @@ export class DrizzleAdminProfileRepository implements AdminProfileRepository {
    * c'est l'unicité qui est insensible à la casse, pas la valeur stockée.
    * `isActive` n'est **pas** réécrit à `true` lors d'une mise à jour : relancer
    * le script ne doit pas réactiver silencieusement un accès révoqué.
+   *
+   * `role`, `scope` et `departmentId` sont **explicites et obligatoires** (le
+   * rôle et le scope) : le schéma ne leur porte aucune valeur par défaut
+   * (`docs/032` §3.3). Une habilitation ne doit jamais être implicite — D-01
+   * fait du rôle une décision, et D-02 lie le scope au rattachement.
    */
   async upsert(data: {
     id: string;
     username: string;
     displayName?: string | null;
-    role?: "ROLE_ADMIN";
+    role: PersistedAdminRole;
+    scope: UserScope;
+    departmentId?: string | null;
   }): Promise<AdminProfile> {
     const username = data.username.trim();
     const displayName = data.displayName ?? null;
-    const role = data.role ?? "ROLE_ADMIN";
+    const departmentId = data.departmentId ?? null;
 
     const [row] = await this.db
       .insert(adminProfiles)
-      .values({ id: data.id, username, displayName, role })
+      .values({
+        id: data.id,
+        username,
+        displayName,
+        role: data.role,
+        scope: data.scope,
+        departmentId,
+      })
       .onConflictDoUpdate({
         target: adminProfiles.id,
-        set: { username, displayName, role, updatedAt: new Date() },
+        set: {
+          username,
+          displayName,
+          role: data.role,
+          scope: data.scope,
+          departmentId,
+          updatedAt: new Date(),
+        },
       })
       .returning();
 

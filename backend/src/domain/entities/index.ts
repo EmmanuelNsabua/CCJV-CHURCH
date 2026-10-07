@@ -30,7 +30,44 @@ export type PublicationCategory =
   | "RESSOURCE";
 export type PublicationStatus = "DRAFT" | "PUBLISHED";
 
-export type AdminRole = "ROLE_ADMIN";
+/**
+ * Rôle technique d'un profil (`docs/028` D-01).
+ *
+ * Trois rôles arrêtés, et **aucun rôle de département** : « Responsable Presse »
+ * et « Responsable Ecodume » sont deux **instances** de `DEPARTMENT_MANAGER`,
+ * différenciées par leur `department_id` (D-02).
+ *
+ * ⚠️ **Membre hérité, transitoire.** `ROLE_ADMIN` — la valeur unique de
+ * l'implémentation V1 — a été **retirée de l'énumération PostgreSQL**
+ * `admin_role` par le Lot 1a. Elle subsiste ici, et uniquement ici, parce que
+ * les policies la passent encore à `requireRole`
+ * (`presentation/middlewares/auth.ts` et les 16 fichiers de routes) et que les
+ * tests la posent en valeur de profil — deux périmètres qui relèvent
+ * respectivement des lots 1b et 1c. La retirer maintenant casserait la
+ * compilation avant que ces lots ne l'aient traitée ; **elle doit disparaître
+ * de cette union avec eux**. Le schéma, lui, ne la connaît plus.
+ */
+export type AdminRole =
+  | "SUPER_ADMIN"
+  | "ADMIN"
+  | "DEPARTMENT_MANAGER"
+  | "ROLE_ADMIN";
+
+/**
+ * Rôles **persistables** : ceux que l'énumération PostgreSQL `admin_role`
+ * accepte réellement. Écrire `ROLE_ADMIN` en base est impossible — ce type
+ * l'interdit à la compilation, là où `AdminRole` le tolère encore pour les
+ * besoins de la transition (cf. supra).
+ */
+export type PersistedAdminRole = Exclude<AdminRole, "ROLE_ADMIN">;
+
+/**
+ * Périmètre d'action d'un profil (`user_scope`, `docs/028` D-02).
+ *
+ * `PRIVATE` désigne le périmètre des données privées — les demandes de prière,
+ * dont la lecture est refusée au `SUPER_ADMIN` (D-03, D-10).
+ */
+export type UserScope = "GLOBAL" | "DEPARTMENT" | "PRIVATE";
 
 export type PrayerConfidentiality = "private" | "community";
 export type PrayerStatus = "NEW" | "PRAYED";
