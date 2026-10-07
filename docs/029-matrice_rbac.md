@@ -164,7 +164,7 @@ can(user, action, resource)
 
 # 2. Matrice principale — `Role × Scope × Resource × Action`
 
-**17 ressources**, **96 lignes d'action**, **384 cellules de décision**. Colonnes :
+**17 ressources**, **99 lignes d'action**, **396 cellules de décision**. Colonnes :
 `SUPER_ADMIN (GLOBAL)` · `ADMIN (GLOBAL)` · `DEPARTMENT_MANAGER (DEPARTMENT)` ·
 `Visiteur (PUBLIC)`.
 
@@ -211,7 +211,7 @@ can(user, action, resource)
 | 3.7 | `ARCHIVE` (manuel) | `✔` | `✔` | `✔` | `✘` | **D-18** : « Action volontaire de l'`ADMIN` **ou du responsable du département** » |
 | 3.8 | `UNARCHIVE` / retour vers `PUBLISHED` | `✘` | `✘` | `✘` | `✘` | **D-18** : « `PUBLISHED → ARCHIVED` est **irréversible** » |
 
-**Refus explicites dans ce tableau : 11.**
+**Refus explicites dans ce tableau : 14.**
 
 > Rappels de ressource (non RBAC, mais opposables) : maximum **3 `PUBLISHED` par
 > département, potentiellement moins** (D-18) ; départage `ORDER BY published_at
@@ -231,7 +231,7 @@ can(user, action, resource)
 | 4.7 | `PUBLISH` / état brouillon | `?` 028/Q-EV3 | `?` 028/Q-EV3 | `?` 028/Q-EV3 | `?` 028/Q-EV3 | 028/Q-EV3 : « Les événements ont-ils un état brouillon/publié, ou sont-ils publiés à la création ? » |
 | 4.8 | `CREATE` avec `department_id = NULL` | `✘` | `✘` | `✘` | `✘` | **D-26** : « Un événement global au sens d'un `department_id = NULL` **n'existe pas** » |
 
-**Refus explicites dans ce tableau : 5.**
+**Refus explicites dans ce tableau : 10.**
 
 ## 2.5 Media — `media_assets`
 
@@ -245,7 +245,7 @@ can(user, action, resource)
 | 5.6 | `REPLACE` (remplacer le fichier) | `?` Q-10 | `?` Q-10 | `✘` | `✘` | 020 §7 évoque « le remplacement éventuel d'un fichier » ; D-21 n'énumère que trois droits |
 | 5.7 | `LIST` les départements autorisés d'un média | `✔` | `✔` | `?` Q-11 | `✘` | D-22 (gouvernance ADMIN/SUPER_ADMIN) ; la lecture par le responsable n'est pas tranchée |
 
-**Refus explicites dans ce tableau : 8.**
+**Refus explicites dans ce tableau : 9.**
 
 > **D-21 est le fondement du test explicite de la permission demandée :**
 > « **Pas de hiérarchie** `DELETE ⊃ MANAGE ⊃ USE` (…) Le système d'autorisation
@@ -420,17 +420,17 @@ can(user, action, resource)
 | 17.4 | `PURGE` / `DELETE` des entrées | `?` Q-17 | `?` Q-17 | `✘*` | `✘` | Rétention de l'audit non tranchée (D-16 ne porte que sur les prières) |
 | 17.5 | `READ` du **journal des accès aux `PrayerRequest`** | `?` **Q-18** | `?` Q-18 | `✘*` | `✘` | **Tension D-03 × D-10** : D-03 donne « journaux d'audit complets » — lire le journal des accès aux prières restitue **volume et dates**, ce que D-10 interdit au `SUPER_ADMIN` |
 
-**Refus explicites dans ce tableau : 6.**
+**Refus explicites dans ce tableau : 8.**
 
 ## 2.18 Synthèse chiffrée
 
 | Mesure | Valeur |
 | --- | --- |
 | Ressources couvertes | **17 / 17** |
-| Lignes d'action | **96** |
-| Cellules de décision (`17 ressources × 96 actions × 4 colonnes`) | **384** |
-| **Refus explicites** | **147** |
-| **Cellules non tranchées** | **99** |
+| Lignes d'action | **99** |
+| Cellules de décision (`17 ressources × 99 actions × 4 colonnes`) | **396** |
+| **Refus explicites** | **158** |
+| Mentions « non tranché » (cellules `?` et annotations de périmètre) | **122** |
 | Actions interdites à **tous** les rôles (règles de ressource) | 7.4, 7.5, 7.6, 8.6, 3.8, 4.8, 6.5 |
 
 ---
@@ -512,7 +512,7 @@ can(user, action, resource)
 | XD-16 | Aucune purge automatique des demandes de prière, et **aucune durée arbitraire inventée**. | D-16 | 8.6 |
 | XD-17 | `requester_contact` ne doit survivre **nulle part** : ni schéma, ni DTO, ni API, ni migration finale, ni réponse, ni donnée métier active. | D-17 | 8.1 |
 
-**Total des refus explicites, extraction X + XD : 147 cellules (§2) + 17 exclusions transverses.**
+**Total des refus explicites, extraction X + XD : 158 cellules (§2) + 17 exclusions transverses.**
 
 ---
 
@@ -1046,10 +1046,10 @@ explicitement.
 | Rôles | **3** (`SUPER_ADMIN`, `ADMIN`, `DEPARTMENT_MANAGER`) + le visiteur, non-rôle |
 | Scopes | **3** (`GLOBAL`, `DEPARTMENT`, `PRIVATE`) + `visibility_scope` d'événement (notion distincte) |
 | Ressources couvertes | **17 / 17** |
-| Lignes d'action | **96** |
-| Cellules de décision | **384** |
-| **Refus explicites** | **147** |
-| Cellules non tranchées | **99** |
+| Lignes d'action | **99** |
+| Cellules de décision | **396** |
+| **Refus explicites** | **158** |
+| Mentions « non tranché » dans §2 | **122** |
 | Règles d'exclusion X1–X27 | **22 confirmées · 3 modifiées · 0 caduque · 2 non tranchées** |
 | Exclusions nouvelles XD-01 → XD-17 | **17** |
 | Policies nommées par 024 | **7** (P-01 → P-07) |
