@@ -511,7 +511,7 @@ Uniquement celles nécessaires **avant d'écrire du code** :
 | **DB-2** | Départements : conserver Adultes/Enfants/Chorale, renommer, ou remplacer par Presse/Ecodume/Affaires Sociales ? | Lots 2, 4, 5 | **Métier** |
 | **DB-3** | Rôle des comptes administrateurs existants après migration de l'enum ? | Lot 1 | Technique, à confirmer |
 | **DB-4** | Données de contact déjà collectées sur des demandes de prière : suppression ? | Lot 8 | **Juridique et éthique** |
-| **DB-5** | Événements globaux : décision finale introuvable dans ma lecture | Lot 6 | À trancher par la documentation |
+| **DB-5** | Événements globaux : `Event.department_id` obligatoire ou nullable ? **La documentation déclare elle-même la décision non prise** — voir §Compléments | Lot 6 | **Métier — décision ouverte de la conception** |
 | **DB-6** | Modèle cryptographique : qui détient les clés, et comment le Super Admin en est-il exclu ? | Lot 8 | **Critique** |
 | **DB-7** | Multi-Admin : une clé par Admin, ou une clé partagée scellée par Admin ? | Lot 8 | Critique |
 | **DB-8** | Récupération et rotation : que se passe-t-il si tous les Admins perdent leur accès ? | Lot 8 | Critique |
@@ -522,16 +522,232 @@ mini-spécification validée **avant** d'écrire la cryptographie ; je m'y confo
 
 ---
 
+# COMPLÉMENTS ISSUS DES DÉPOUILLEMENTS DE `docs/020` À `docs/024`
+
+> Ces compléments corrigent et complètent les sections précédentes, rédigées avant
+> lecture intégrale des documents de conception. Sources : `docs/extraits/020-021-extrait.md`
+> (94 Ko) et `docs/extraits/022-024-extrait.md` (103 Ko), qui dépouillent
+> `020` (920 l.), `021` (852 l.), `022` (718 l.), `023` (861 l.) et `024` (1371 l.),
+> chaque affirmation tracée par document, section, ligne et citation littérale.
+
+## 1. Ce que les documents contiennent réellement
+
+| Document | Contenu recensé |
+| --- | --- |
+| `020` | Back-office : écrans, rôles, matrices d'autorisation (§18), 27 règles d'exclusion |
+| `021` | Modèle métier : 29 entités, **64 règles métier**, **12 invariants** (I1–I12), 3 matrices |
+| `022` | UML statique : **11 classes + 6 énumérations**, 16 relations, 6 agrégats, 6 contraintes |
+| `023` | UML dynamique : **13 diagrammes de séquence**, **3 diagrammes d'états**, 7 cas d'usage |
+| `024` | Architecture : 39 sections, 4 couches, **10 modules**, **7 policies**, 8 use cases, A1–A10, 10 interdits, **10 événements d'audit**, 12 lots |
+
+## 2. Points désormais tranchés par citation
+
+### 2.1 Identifiants — `UUID` (contradiction antérieure levée)
+
+Un **seul** type d'identifiant est écrit dans `022`, `023` et `024` : **`UUID`**
+(14 attributs dans `022` ; `024 L787` : « `departmentId` est un UUID valide »).
+**Aucune occurrence** d'`integer`, `bigint` ou `serial` dans les trois documents.
+
+⚠️ Mais `022 L666` liste explicitement *« les clés et index »* parmi les points
+**non tranchés** : **aucune clé primaire ni étrangère n'est déclarée**. Le type est
+acquis, la contrainte de clé ne l'est pas.
+
+### 2.2 `Ecodume` — renommage acté
+
+`Ecodume` est la **seule** graphie des trois documents ; **`Ecodim` : 0 occurrence**.
+Occurrences relevées : `022` L242, L342, L349 · `023` L209, L218, L220, L225, L230,
+L248, L255, L258, L259, L589, L600, L601, L605 · `024` L384, L1277.
+Le conflit **n'est évoqué nulle part** dans `022`/`023`/`024` : il n'oppose donc pas
+les documents entre eux, mais **la documentation au code** (97 occurrences).
+
+### 2.3 Départements — des exemples, pas une liste normative
+
+`022 §4 L240-L244` donne `PRESSE` / `ECODUME` / `AFFAIRES-SOCIALES` sous l'intitulé
+**« Exemples de données : »**. `AFFAIRES-SOCIALES` n'apparaît **dans aucun autre**
+des trois documents. **Aucune liste exhaustive ni normative** n'existe dans
+`022`/`023`/`024`.
+
+**Conséquence :** l'affirmation du plan initial (« le modèle cite Presse, Ecodume,
+Affaires Sociales ») était **infidèle** — ce sont des exemples. DB-2 reste ouverte,
+mais sa formulation est corrigée.
+
+### 2.4 Événements globaux — décision ouverte, déclarée comme telle
+
+**Ni autorisés, ni interdits : la décision est explicitement reportée.**
+
+- `022 L18` : *« Les choix qui restent ouverts dans le modèle métier sont
+  explicitement signalés, notamment la possibilité d'événements globaux et le
+  mécanisme cryptographique des demandes de prière. »*
+- `022 §6 L294` : *« Un événement peut-il être global à l'église et donc ne posséder
+  aucun département ? »* — L296 : cardinalité conditionnelle
+  `Department 0..1 ─────── 0..* Event` — L302 : *« Cette décision doit être arrêtée
+  avant le GEL. »*
+- `022 §14 L626-L627` : `Department 1 ───── 0..* Event` / **`[à confirmer]`**
+- `023 §18 D1 L771-L777` : *« Déterminer si `Event.department_id` est obligatoire ou
+  nullable pour permettre des événements globaux. »*
+- `024 §6.5 L296` : *« rattachement départemental si applicable »*
+- `024 §37 L1298` : les événements globaux figurent dans la liste de ce qui
+  *« ne doit pas être considéré comme implicitement résolu »*
+
+Corroboré par les absences : aucun invariant `I1`–`I12` ne porte sur `Event`
+(`021 §17`) ; aucun périmètre pour des événements globaux (`021 §18`) ; aucune ligne
+correspondante dans la matrice `020 §18`.
+
+**DB-5 n'est donc pas un défaut de lecture : c'est une décision ouverte de la conception.**
+
+### 2.5 Cryptographie des prières — principe normatif, mécanisme ouvert
+
+**Ce qui est normatif et doit être implémenté tel quel :**
+
+- Refus du Super Admin : `022 L470` — *« le Super Admin ne doit pas pouvoir obtenir
+  le contenu en clair d'une demande de prière »* ; `022 §14 L654-655` —
+  *« SUPER_ADMIN → aucune lecture PrayerRequest »* ; `023 L462`, `L807` ;
+  `024 §9 L436` — *« SUPER_ADMIN → DENY »*, `L899` — *« Le Super Admin reçoit 403. »*
+- **Refus avant déchiffrement** : `023 L487` — *« Le refus doit intervenir **avant le
+  déchiffrement**. »*, flux interdit `L491-L503` ; `024 L442`, `L458`, `L889-L897`.
+- Interdiction de la clé globale : `024 L1045` — *« la clé permettant de déchiffrer les
+  demandes de prière ne doit pas être simplement assimilée à un secret backend global »*.
+- Forme de la donnée chiffrée : `022 L161-163` — `EncryptedData` (`ciphertext`,
+  `nonce`, `keyReference`), `<<value object>>`.
+- Interface : `024 L478` — `encrypt()` / `decryptForAdmin()`.
+
+**Ce qui est explicitement ouvert :**
+
+- `022 L466` : *« Le détail cryptographique n'est volontairement pas fixé »*
+- `023 L791-L803` : liste « Formaliser : » incluant *gestion de plusieurs Admins ;
+  rotation ; révocation ; récupération ; perte de clé*
+- `024 L504` : *« Le choix concret du protocole et de la gestion multi-Admin doit être
+  arrêté avant implémentation. »*
+- `024 L1295-L1297` : points ouverts
+
+**Algorithme, longueur de clé, seuil, partage et procédure : absents de `022`/`023`/`024`.**
+
+**Conclusion :** DB-6 à DB-9 sont **confirmées comme décisions réellement ouvertes**,
+et non comme un défaut de lecture. `docs/025` §Lot 8 exige une mini-spécification
+validée avant tout code cryptographique — cette exigence porte donc sur une
+conception **à produire**, pas à retrouver.
+
+### 2.6 Rôles — trois énumérés, un quatrième jamais nommé
+
+`021 L134` annonce *« Le modèle comprend quatre rôles »* puis n'énumère que
+**`SUPER_ADMIN`, `ADMIN`, `DEPARTMENT_MANAGER`**. `docs/025 L130` reproduit le même
+schéma. Le quatrième rôle **n'est nommé nulle part**. → conflit n° 14 ci-dessous.
+
+## 3. Ce que la documentation ne traite pas
+
+À écrire « **non traité dans 020–024** » et à porter en décision, jamais à inférer :
+
+| Sujet | Constat |
+| --- | --- |
+| Contrat d'API | **Aucun** endpoint, méthode, paramètre, filtre, enveloppe de réponse ni code d'erreur. `021 §1 L16` : *« Il ne constitue pas encore le schéma SQL final, ni le contrat OpenAPI »*. Seuls : « REST / JSON » (`020 §19 L745`), 5 contrôles de requête (`020 §20 L795-801`), 7 permissions d'exemple, « validation Zod » (`021 §20.4 L746`) |
+| Concurrence de l'archivage | Rien sur transactions, verrous, isolation, conflits, ordre de départage à date égale. **Le critère même de « récence » n'est pas défini** (`021 §8.3 L331`) |
+| Types de données | **Aucun** type SQL ou TypeScript pour aucun attribut |
+| Modèle média exact | MIME, taille max, buckets, vignettes, suppression, orphelins, structure interne de `MediaAccess` (`021 §20.3`) |
+| Modèle éditorial des pages | Champs éditables, variantes, validation, fallback, contenu vide (`021 §20.4`) |
+| Statut des 8 entités frontend | `Leader`, `Testimony`, `CommunityFace`, `Verse`, `RhythmEntry`, `SocialLink`, `ScheduleEntry`, `SiteSettings` → `021 §20.5`, non tranché |
+| Suppression / historique / audit par ressource | `021 §20.6` |
+| Cycle de vie des comptes, mots de passe, sessions | Non traité |
+| Variables d'environnement | Présentes **uniquement** dans `024 §29` : `DATABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`, `CRYPTO_KEY` |
+| Procédure de gel | Uniquement dans `docs/025` ; les documents 020–024 sont **pré-GEL** |
+
+**`docs/020` est totalement muet sur la confidentialité des prières** — ce volet
+provient exclusivement de `021 §5.1`, `§6.1`, `§12`, `§13`, `§14`, `§17-I10`, `§20.2`.
+
+## 4. Conflits documentaires
+
+Toute divergence est signalée ; **aucune n'est arbitrée silencieusement** (`docs/025` §20).
+
+### 4.1 Divergences entre `020` et `021`
+
+| # | Conflit | Passages en regard |
+| --- | --- | --- |
+| C-1 | **Accès du Super Admin** | `020 §4.1 L139` : *« accéder à tous les contenus »* ⇄ `021 §5.1 L154` : *« Le rôle SUPER_ADMIN **ne peut pas lire les demandes de prière.** »* |
+| C-2 | **Droit « Utilisateurs » de l'Admin** | `020 §18 L726` : aucune ligne « Utilisateurs » ⇄ `021 §7 L250` : *« Utilisateurs \| Oui \| Création des responsables \| Non »* |
+| C-3 | **Validation préalable à la publication** | `021 §7 L273` : *« n'a pas besoin d'une validation préalable de l'Admin pour publier »* ⇄ `020 §10 L464-476` et `§22.1` laissés ouverts |
+| C-4 | **Seuil d'archivage** | `020` : *« reste à définir »* ⇄ `021` : **3 par département** |
+| C-5 | **Critère d'accès média** | `020` raisonne sur `Media.department` ⇄ `021 §17 I3` l'interdit |
+| C-7 | **Graphie du département** | `020` : « Press » ⇄ `021` : « Presse » / `PRESSE` |
+| C-11 | **Cardinalité `Notification`** | `022 L180` : `Notification 0..* → 1 PrayerRequest` (sens inverse) et relation absente de la liste `§14` |
+
+*Neuf autres divergences sont détaillées dans `docs/extraits/020-021-extrait.md` (C-1 à C-11) et six incohérences internes à `020`/`021` y sont également recensées.*
+
+### 4.2 Divergences entre `022`, `023` et `024`
+
+| # | Conflit | Passages en regard |
+| --- | --- | --- |
+| C2-1 | **Événements globaux** | `022 L626` : `obligatoire [à confirmer]` ⇄ `024 L296` : `si applicable` ⇄ `023 L777` : ouvert |
+| C2-2 | **Archivage** | `022 L272` : déclencheur unique = règle des trois ⇄ `023 L528` : *« archivage explicite autorisé »* + `024 L831` : `POST /publications/:id/archive` |
+| C2-3 | **Permissions média** — **incohérence interne à `023`** | `023 §12 L574-L580` (hiérarchie USE→MANAGE→DELETE) ⇄ `023 §12 L583` et `§18 D2 L789` (*« favorise la seconde interprétation »* = trois permissions indépendantes) |
+| C2-4 | **Super Admin** — incohérence interne à `024` | `024 §8 L419` : *« autorisé selon la politique globale »* ⇄ `§9 L436` : `DENY` |
+| C2-5 | **Clients** | `024 §25` (clients parallèles) ⇄ `§31` (chaîne Public → Backoffice → API) |
+| C2-6 | **Sens de dépendance** | `024 §31` (`Domain ↓ Infrastructure`) ⇄ `§34` (*« Le domaine ne dépend pas : Express/Drizzle/Supabase/Next.js/Railway »*) et `§2` (Domain ∥ Infrastructure) |
+| C2-7 | **URL publique des médias** | `024 §12 L555` : *« doit **éviter** »* ⇄ `§33 L1186` : interdiction ferme |
+| C2-8 | **Nom de fonction** | `023 L429` : `decryptForAuthorizedAdmin` ⇄ `024 L478` : `decryptForAdmin` |
+| C2-9 | **Nom du rôle** | `024 L438` : `MANAGER` ⇄ `022 L39`, `024 L424` : `DEPARTMENT_MANAGER` |
+| C2-10 | **Intitulé du scénario 3** | `022 L712` ⇄ `023 L20` |
+| C2-12 | **Liste des relations `§14`** | `022 L621-L636` omet `Page`, `PrayerRequest`, `Notification–PrayerRequest`, `Department 0..1–0..* UserRole` |
+
+### 4.3 Conflits avec le code existant
+
+| # | Conflit | Constat |
+| --- | --- | --- |
+| C3-1 | **`Ecodume` ⇄ `Ecodim`** | 56 occurrences dans `020`–`025`, **0** dans le code ; 97 occurrences d'`Ecodim` dans le code, **0** d'`Ecodume`. Non traité par `022`/`023`/`024` |
+| C3-2 | **`ROLE_ADMIN`** | 0 occurrence dans `020`–`025` ; rôle unique du code |
+| C3-3 | **États de prière** | Modèle : `PENDING`/`ARCHIVED`. Code : `NEW`/`PRAYED`. `PRAYED` : 0 occurrence dans les documents |
+| C3-4 | **Contact de prière** | `docs/025 §9` : *« Pas d'e-mail ni de téléphone »*. Code : `requester_contact` |
+| C3-5 | **Quatrième rôle** | `021 L134` et `docs/025 L130` annoncent **quatre** rôles, **trois** sont nommés |
+
+---
+
+# TRAÇABILITÉ
+
+Pour chaque grande section de ce plan, les documents dont elle procède.
+
+| Section du plan | Sources |
+| --- | --- |
+| Étape A — Audit | `docs/017`, `docs/019`, audit direct du code `backend/`, `docs/extraits/*` |
+| Étape A.3 — Conflits | `docs/extraits/020-021-extrait.md`, `docs/extraits/022-024-extrait.md` |
+| Étape B — Matrice | `docs/021` (entités), `docs/022` (classes/relations), code `backend/` |
+| Étape C — Lots | `docs/025 §12` (structure imposée), `docs/024 §41` (les 12 lots) |
+| Étape D — Dépendances | `docs/025 §13`, corrigé selon `docs/024 §41` |
+| Étape E — Definition of Done | `docs/025 §14` |
+| Étape F — Ordre | `docs/025 §15` |
+| Étape G — Risques | `docs/025 §16` (R1–R6), alimenté par `docs/021 §17` (invariants) |
+| Étape H — MVP | `docs/025 §17`, `docs/024 §37` (points non résolus) |
+| I.1 — Architecture | `docs/024 §2-§6` (couches, modules, 7 policies) |
+| I.2 — Migration | `docs/022` (11 classes, 6 énumérations, 16 relations), `docs/021 §17` (invariants) |
+| I.3 — API | `docs/024 §12` (modules/policies) — **le contrat détaillé n'existe pas dans 020–024** |
+| I.4 — RBAC | `docs/021 §5.1`, `§6.1`, `§7` (matrice), `020 §18` (matrice), `docs/022 §14` |
+| I.5 — Tests | `docs/025 §12 Lot 12`, `docs/024` (10 événements d'audit) |
+| I.6 — Roadmap | `docs/024 §41`, `docs/025 §13` |
+| I.7 — Décisions bloquantes | `docs/022 L18`, `L294-302`, `L626` ; `023 D1 L777`, `L791-803` ; `024 L1298`, `L504`, `L1045` ; `docs/025 §20` |
+| Compléments §1–§4 | `docs/extraits/020-021-extrait.md`, `docs/extraits/022-024-extrait.md` |
+
+---
+
 # CONCLUSION
 
 L'audit établit que le backend existant est **fonctionnel mais conçu sur un
 modèle périmé**. Le Lot 1 — identité et autorisation — est la primitive qui
 conditionne tous les autres, et il s'agit d'une **refonte**, non d'un ajout.
 
-Deux points exigent votre arbitrage avant tout code : **le renommage
-Ecodim → Ecodume** (97 occurrences dans le code, 0 dans le modèle) et **la
-spécification cryptographique des prières** (DB-6 à DB-9), dont dépend la
-promesse de confidentialité faite aux fidèles.
+La lecture intégrale de `docs/020` à `docs/024` — via les dépouillements
+citationnels de `docs/extraits/` — **corrige trois affirmations du plan initial** :
+les identifiants sont des **`UUID`** (et non un point de désaccord) ; les
+départements `PRESSE`/`ECODUME`/`AFFAIRES-SOCIALES` sont des **exemples de données**,
+pas une liste normative ; et les **événements globaux** sont une **décision ouverte
+déclarée comme telle**, non un point que j'aurais manqué.
 
-Conformément à `docs/025` §23, **aucune implémentation n'a été engagée**.
+Elle confirme en revanche, citations en main, que **la cryptographie des prières est
+une conception à produire**, non à retrouver : algorithme, gestion des clés,
+multi-Administrateur, rotation, révocation et récupération sont explicitement
+renvoyés à une formalisation ultérieure.
+
+Trois décisions exigent votre arbitrage avant tout code : **DB-1** (renommage
+Ecodim → Ecodume : 97 occurrences dans le code, 0 dans le modèle), **DB-2**
+(départements réellement retenus) et **DB-6 à DB-9** (spécification cryptographique,
+dont dépend la promesse de confidentialité faite aux fidèles). **DB-5** (événements
+globaux) doit être tranchée par vous, la documentation refusant de le faire.
+
+Conformément à `docs/025` §21 et §23, **aucune implémentation n'a été engagée**.
 Le plan attend votre validation.
