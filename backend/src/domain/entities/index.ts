@@ -28,6 +28,21 @@ export type PublicationCategory =
   | "ENSEIGNEMENT"
   | "MEDIA"
   | "RESSOURCE";
+/**
+ * Cycle de vie d'une publication **tel que la base le porte aujourd'hui**.
+ *
+ * ⚠️ Les deux valeurs ci-dessous décrivent l'**état présent** de l'énumération
+ * PostgreSQL `publication_status`. `docs/032` §3.2 en fixe **trois** : la valeur
+ * `'ARCHIVED'` s'ajoute par `ALTER TYPE … ADD VALUE` (D-18), et cette migration
+ * appartient au Lot 4 — la même opération que `docs/033` §2.3.2 décrit pour
+ * `admin_role`, à ceci près qu'aucune valeur n'est retirée.
+ *
+ * Tant que la migration n'est pas appliquée, la valeur n'existe pas en base :
+ * l'écrire ici élargirait le type au-delà de ce que PostgreSQL accepte, et
+ * l'erreur ne se produirait qu'à l'exécution. La policy juge en revanche une
+ * cible **future** — elle doit donc déjà connaître `ARCHIVED`
+ * (`publication.policy.ts`, `PublicationLifecycleState`).
+ */
 export type PublicationStatus = "DRAFT" | "PUBLISHED";
 
 /**
@@ -62,12 +77,16 @@ export type AdminRole =
 export type PersistedAdminRole = Exclude<AdminRole, "ROLE_ADMIN">;
 
 /**
- * Périmètre d'action d'un profil (`user_scope`, `docs/028` D-02).
+ * Périmètre d'action d'un profil (`admin_scope`, `docs/028` D-02, `docs/032` §2.1).
  *
- * `PRIVATE` désigne le périmètre des données privées — les demandes de prière,
- * dont la lecture est refusée au `SUPER_ADMIN` (D-03, D-10).
+ * **Deux valeurs, jamais trois.** `docs/032` §2.1 est normatif : « `PRIVATE` est
+ * un périmètre de **ressource**, jamais un scope de profil ». Le périmètre privé
+ * des demandes de prière (D-03, D-10) n'est donc **pas** déclaré ici : il est
+ * porté par la ressource et décidé par `PrayerPolicy`. L'inscrire sur le profil
+ * ferait dépendre le refus opposé au `SUPER_ADMIN` d'une donnée modifiable en
+ * base, alors que D-03 exige une garantie **cryptographique**.
  */
-export type UserScope = "GLOBAL" | "DEPARTMENT" | "PRIVATE";
+export type AdminScope = "GLOBAL" | "DEPARTMENT";
 
 export type PrayerConfidentiality = "private" | "community";
 export type PrayerStatus = "NEW" | "PRAYED";
@@ -204,6 +223,19 @@ export interface AdminProfile {
   username: string;
   displayName: string | null;
   role: AdminRole;
+  /**
+   * Périmètre du rôle (D-02). `GLOBAL` pour `SUPER_ADMIN` et `ADMIN`,
+   * `DEPARTMENT` pour un `DEPARTMENT_MANAGER`.
+   *
+   * Les policies le lisent comme un **fait** : `docs/029` §4.3 en fait l'une des
+   * quatre clauses de la décision, à côté du rôle, de l'égalité départementale
+   * et des règles de ressource. La cohérence rôle ↔ scope ↔ département est
+   * garantie en base par `admin_profiles_scope_coherence` (`docs/032` §3.1), et
+   * non par une vérification applicative qui pourrait être contournée.
+   */
+  scope: AdminScope;
+  /** Département de rattachement (D-02) : non nul si et seulement si `scope = DEPARTMENT`. */
+  departmentId: string | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

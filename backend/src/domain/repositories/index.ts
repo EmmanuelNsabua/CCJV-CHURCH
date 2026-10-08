@@ -1,5 +1,6 @@
 import type {
   AdminProfile,
+  AdminScope,
   CommunityFace,
   Department,
   Event,
@@ -18,7 +19,6 @@ import type {
   SocialLink,
   StaticPage,
   Testimony,
-  UserScope,
 } from "@/domain/entities";
 
 /**
@@ -315,7 +315,7 @@ export interface AdminProfileRepository {
      */
     role: PersistedAdminRole;
     /** D-02 : `GLOBAL` pour un rôle système, `DEPARTMENT` pour un responsable. */
-    scope: UserScope;
+    scope: AdminScope;
     /** D-02 : un seul département, et seulement pour un `DEPARTMENT_MANAGER`. */
     departmentId?: string | null;
   }): Promise<AdminProfile>;

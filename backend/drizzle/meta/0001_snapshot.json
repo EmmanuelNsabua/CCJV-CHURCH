@@ -35,7 +35,7 @@
         },
         "scope": {
           "name": "scope",
-          "type": "user_scope",
+          "type": "admin_scope",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
@@ -111,14 +111,19 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "admin_profiles_scope_coherence": {
+          "name": "admin_profiles_scope_coherence",
+          "value": "(\"admin_profiles\".\"role\" = 'DEPARTMENT_MANAGER' AND \"admin_profiles\".\"scope\" = 'DEPARTMENT' AND \"admin_profiles\".\"department_id\" IS NOT NULL) OR (\"admin_profiles\".\"role\" <> 'DEPARTMENT_MANAGER' AND \"admin_profiles\".\"scope\" = 'GLOBAL' AND \"admin_profiles\".\"department_id\" IS NULL)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.media": {
@@ -1777,13 +1782,12 @@
         "TEXTE"
       ]
     },
-    "public.user_scope": {
-      "name": "user_scope",
+    "public.admin_scope": {
+      "name": "admin_scope",
       "schema": "public",
       "values": [
         "GLOBAL",
-        "DEPARTMENT",
-        "PRIVATE"
+        "DEPARTMENT"
       ]
     }
   },

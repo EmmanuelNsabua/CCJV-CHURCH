@@ -35,6 +35,11 @@ function adminProfile(overrides: Partial<AdminProfile> = {}): AdminProfile {
     username: "pasteur",
     displayName: "Pasteur responsable",
     role: "ROLE_ADMIN",
+    // Profil hérité de la V1 : rôle système, donc périmètre global et aucun
+    // rattachement départemental — c'est exactement ce qu'exige la contrainte
+    // `admin_profiles_scope_coherence` (`docs/032` §3.1).
+    scope: "GLOBAL",
+    departmentId: null,
     isActive: true,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     updatedAt: new Date("2026-01-01T00:00:00.000Z"),

@@ -1,5 +1,5 @@
 import { asc, eq, sql } from "drizzle-orm";
-import type { AdminProfile, PersistedAdminRole, UserScope } from "@/domain/entities";
+import type { AdminProfile, AdminScope, PersistedAdminRole } from "@/domain/entities";
 import type { AdminProfileRepository } from "@/domain/repositories";
 import type { Database } from "@/infrastructure/database/client";
 import type { AdminProfileRow } from "@/infrastructure/database/schema/admin";
@@ -66,7 +66,7 @@ export class DrizzleAdminProfileRepository implements AdminProfileRepository {
     username: string;
     displayName?: string | null;
     role: PersistedAdminRole;
-    scope: UserScope;
+    scope: AdminScope;
     departmentId?: string | null;
   }): Promise<AdminProfile> {
     const username = data.username.trim();
@@ -119,6 +119,12 @@ function toEntity(row: AdminProfileRow): AdminProfile {
     username: row.username,
     displayName: row.displayName,
     role: row.role,
+    // Le scope et le rattachement ne sont pas décoratifs : `docs/029` §4.3 en
+    // fait deux des quatre clauses de toute décision d'autorisation. Les omettre
+    // ici priverait chaque policy de ses données — et un `DEPARTMENT_MANAGER`
+    // deviendrait indistinguable d'un rôle global.
+    scope: row.scope,
+    departmentId: row.departmentId,
     isActive: row.isActive,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

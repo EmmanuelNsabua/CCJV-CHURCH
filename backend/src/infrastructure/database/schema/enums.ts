@@ -33,15 +33,16 @@ export const adminRoleEnum = pgEnum("admin_role", [
  * Un `DEPARTMENT_MANAGER` porte `DEPARTMENT` et un `department_id` non nul ;
  * les rôles système portent `GLOBAL` (cf. `docs/032` §3.3).
  *
- * `PRIVATE` désigne le périmètre des données privées — les demandes de prière,
- * dont la lecture est refusée au `SUPER_ADMIN` (D-03, D-10). Il ne se confond
- * ni avec un rôle, ni avec `DEPARTMENT`.
+ * ⚠️ **Deux valeurs, et non trois.** `docs/032` §2.1 est normatif : « PRIVATE
+ * est un périmètre de **ressource**, jamais un scope de profil ». Le périmètre
+ * privé des demandes de prière (D-03, D-10) est porté par la **ressource** et
+ * décidé par `PrayerPolicy` : il n'est pas déclaré sur le profil, sinon le refus
+ * opposé au `SUPER_ADMIN` dépendrait d'une donnée modifiable — ce que D-03
+ * interdit (« garantie cryptographiquement, pas seulement par une policy »).
+ * Le nom du type lui-même (`admin_scope`, et non `user_scope`) vient de
+ * `docs/032` §3.2.
  */
-export const userScopeEnum = pgEnum("user_scope", [
-  "GLOBAL",
-  "DEPARTMENT",
-  "PRIVATE",
-]);
+export const adminScopeEnum = pgEnum("admin_scope", ["GLOBAL", "DEPARTMENT"]);
 
 export const publicationTypeEnum = pgEnum("publication_type", [
   "VIDEO",

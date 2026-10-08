@@ -1,0 +1,188 @@
+import { createPolicy } from "./policy-kit";
+
+/**
+ * Policies **P-10 à P-14** de `docs/029` §4.6 — les cinq ressources que la
+ * matrice exige et qu'**aucune décision de `docs/028` n'arbitre**.
+ *
+ * ### Pourquoi elles sont regroupées ici, et pourquoi elles refusent
+ *
+ * `docs/029` §4.6 nomme ces policies parce que leurs ressources existent dans la
+ * matrice, et signale pour chacune : « **non tranché** ». Aucune ne manque de
+ * ressource — `Leader`, `Testimony`, `CommunityFace`, `Scripture`,
+ * `ScheduleEntry`, `SiteSetting`, `SocialLink`, `AuditLog` sont toutes des
+ * tables réelles du schéma `docs/032`. Ce qui manque, c'est **qui** les
+ * administre.
+ *
+ * Refuser plutôt que deviner est la seule position tenable, et elle est
+ * documentée : `docs/029` §4.3 pose le **défaut `✘`**. Accorder « en attendant »
+ * serait pire que refuser — une permission provisoire devient permanente par
+ * oubli, et personne ne saurait plus qu'elle n'a jamais été décidée. Refuser, à
+ * l'inverse, produit une erreur `403` immédiatement visible au premier essai :
+ * l'arbitrage manquant se **manifeste** au lieu de dormir.
+ *
+ * Le regroupement dans un seul fichier n'est pas un rangement : c'est un
+ * **état**. Le jour où le commanditaire tranche, ces cinq policies se séparent
+ * et leurs tables se remplissent — la structure, elle, ne bouge pas.
+ *
+ * ### Ce qui n'est PAS reporté
+ *
+ * Une distinction stricte sépare ces refus des refus **structurels** du
+ * catalogue. `PagePolicy.canCreatePage` (`roles: []`) n'est pas une question
+ * ouverte : c'est D-23, définitivement tranché. Ici, au contraire, chacun des
+ * cinq refus porte une **référence de question**, et cette référence est
+ * l'information utile : elle dit exactement ce qui doit être décidé.
+ */
+
+/* -------------------------------------------------------------------------- */
+/*  P-10 — AuditPolicy                                                        */
+/* -------------------------------------------------------------------------- */
+
+/** Vue d'une entrée `audit_log` (`docs/032` §3.3). */
+export interface AuditPolicyResource {
+  /** `audit_log.action` — vocabulaire fermé, sans aucune valeur `PRAYER_*`. */
+  action: string;
+}
+
+/**
+ * `AuditPolicy` — lecture des journaux d'audit (`docs/029` Q-16, Q-17, Q-18).
+ *
+ * Le refus de lecture est **temporaire** et n'a rien de commun avec le refus
+ * cryptographique des prières : `docs/028` D-03 attribue au `SUPER_ADMIN` « les
+ * journaux d'audit complets », tandis que `020` §18 et `021` §7 laissent
+ * l'`ADMIN` à « selon politique / selon périmètre » — une politique qui n'existe
+ * pas. Tant qu'elle n'existe pas, la lecture reste fermée.
+ *
+ * **Invariant non négociable, indépendant de l'arbitrage :** `docs/030` A11 et
+ * l'écart E2 excluent **tout** événement `PRAYER_*` de `public.audit_log`, dont
+ * la lecture est ouverte au `SUPER_ADMIN`. Le registre des prières est
+ * `prayer_private.prayer_audit_event`, disjoint. Cette policy ne peut donc
+ * jamais accorder la lecture d'un événement de prière, quel que soit le rôle —
+ * et l'exclusion ci-dessous le garantit même si Q-16 était un jour tranchée en
+ * faveur d'une lecture large.
+ */
+export const AuditPolicy = createPolicy<AuditPolicyResource>(
+  "AuditPolicy",
+  {
+    READ: {
+      roles: [],
+      pending: "docs/029 Q-16 (qui lit le journal d'audit) · Q-17 (rétention) · Q-18 (périmètre)",
+    },
+  },
+  (admin, resource) =>
+    admin.role === "SUPER_ADMIN" && resource?.action.startsWith("PRAYER_")
+      ? "docs/030 A11, écart E2 : aucun événement de prière ne figure dans public.audit_log, et aucun ne peut y être lu (registre disjoint : prayer_private.prayer_audit_event)"
+      : null,
+);
+
+/* -------------------------------------------------------------------------- */
+/*  P-11 — EditorialEntityPolicy                                              */
+/* -------------------------------------------------------------------------- */
+
+/** Entités éditoriales déclarées persistantes par `docs/028` D-24. */
+export type EditorialEntityKind = "LEADER" | "TESTIMONY" | "COMMUNITY_FACE";
+
+/** Vue d'une entité éditoriale telle que la policy a besoin de la connaître. */
+export interface EditorialEntityPolicyResource {
+  kind: EditorialEntityKind;
+  /** `departmentId` pour un responsable : les responsables sont rattachables. */
+  departmentId?: string | null;
+}
+
+/**
+ * `EditorialEntityPolicy` — `Leader`, `Testimony`, `CommunityFace`
+ * (`docs/029` Q-14).
+ *
+ * D-24 les déclare **persistantes** — ce ne sont plus des mocks du frontend —
+ * mais **aucun rôle d'administration n'est nommé**. La distinction n'est pas
+ * anodine pour `Testimony` : `docs/032` §3.2 lui donne un statut de modération
+ * (`DRAFT`, `PENDING`, `PUBLISHED`) « nécessaire **avant** toute exposition
+ * publique » (`028/Q-PR9`). Une publication de témoignage engage la parole d'un
+ * tiers ; l'absence de titulaire nommé n'est donc pas un détail à combler au
+ * jugé.
+ */
+export const EditorialEntityPolicy = createPolicy<EditorialEntityPolicyResource>("EditorialEntityPolicy", {
+  READ: { roles: [], pending: "docs/029 Q-14 (administration des entités éditoriales)" },
+  CREATE: { roles: [], pending: "docs/029 Q-14" },
+  UPDATE: { roles: [], pending: "docs/029 Q-14" },
+  DELETE: { roles: [], pending: "docs/029 Q-14" },
+});
+
+/* -------------------------------------------------------------------------- */
+/*  P-12 — ScripturePolicy                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * `ScripturePolicy` — versets et textes bibliques (`docs/029` Q-12,
+ * `028/Q-PG2`).
+ *
+ * `028/Q-PG2` pose la question sans détour : « Les versets sont-ils éditables
+ * par le back-office ? » Tant qu'elle est ouverte, **ils ne le sont pas**.
+ *
+ * Le refus de lecture mérite une justification, puisqu'un verset n'a rien de
+ * confidentiel. Il tient à la séparation des plans : la **lecture publique** des
+ * versets est un service rendu au visiteur, qui n'appelle aucune policy
+ * administrative — c'est la route ouverte du frontend. Cette table ne gouverne
+ * que l'**administration** des versets, et c'est celle-là qui n'a pas de
+ * titulaire. Refuser ici ne prive donc personne du texte : cela prive seulement
+ * un rôle d'un droit d'écriture non arbitré.
+ */
+export const ScripturePolicy = createPolicy("ScripturePolicy", {
+  READ: { roles: [], pending: "docs/029 Q-12 · docs/028 Q-PG2 (versets éditables ?)" },
+  UPDATE: { roles: [], pending: "docs/029 Q-12 · docs/028 Q-PG2" },
+  CREATE: { roles: [], pending: "docs/029 Q-12 · docs/028 Q-PG2" },
+  DELETE: { roles: [], pending: "docs/029 Q-12 · docs/028 Q-PG2" },
+});
+
+/* -------------------------------------------------------------------------- */
+/*  P-13 — SchedulePolicy                                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * `SchedulePolicy` — rythme de rencontre (`docs/029` Q-15, D-24).
+ *
+ * D-24 conserve l'entité `ScheduleEntry` sans nommer de rôle. Le champ est
+ * **éditorial et public** — c'est l'horaire affiché aux visiteurs — et il est
+ * aujourd'hui écrit **quatre fois** avec des valeurs divergentes (`docs/031` :
+ * « chorale lundi/samedi » contre « lundi/mercredi/samedi »). Ce constat rend
+ * l'arbitrage plus urgent qu'il n'y paraît : la divergence ne se corrige pas par
+ * une permission, mais il faut un titulaire pour la corriger.
+ */
+export const SchedulePolicy = createPolicy("SchedulePolicy", {
+  READ: { roles: [], pending: "docs/029 Q-15 (administration du rythme)" },
+  UPDATE: { roles: [], pending: "docs/029 Q-15" },
+  CREATE: { roles: [], pending: "docs/029 Q-15" },
+  DELETE: { roles: [], pending: "docs/029 Q-15" },
+});
+
+/* -------------------------------------------------------------------------- */
+/*  P-14 — SiteSettingsPolicy                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * `SiteSettingsPolicy` — paramètres du site et liens sociaux (`docs/029` Q-13,
+ * Q-28, D-03, D-24, X25).
+ *
+ * **Un point est tranché, et un seul** : X25 — « Cette catégorie ne doit pas
+ * être exposée aux responsables de département. » Le refus du
+ * `DEPARTMENT_MANAGER` est donc **définitif**, et il est exprimé par une
+ * exclusion plutôt que par une ligne de table, pour la même raison que partout
+ * ailleurs dans ce catalogue : un refus de fond ne doit pas pouvoir être défait
+ * par un élargissement de la table.
+ *
+ * Ce qui reste ouvert est le périmètre de l'`ADMIN`, que D-04 ne mentionne pas
+ * (Q-13), et le sort des paramètres « globaux » au sens de D-24 (Q-28). Les deux
+ * refus sont distincts dans leur cause : l'un est une décision, l'autre une
+ * lacune. Les confondre dans un même `403` serait exact — les deux refusent —
+ * mais ferait perdre l'information qui compte au moment de l'arbitrage.
+ */
+export const SiteSettingsPolicy = createPolicy(
+  "SiteSettingsPolicy",
+  {
+    READ: { roles: [], pending: "docs/029 Q-13 (périmètre de l'ADMIN sur les paramètres)" },
+    UPDATE: { roles: [], pending: "docs/029 Q-13 · Q-28" },
+  },
+  (admin) =>
+    admin.role === "DEPARTMENT_MANAGER"
+      ? "X25 / 020 §14 : cette catégorie n'est pas exposée aux responsables de département — refus définitif (docs/028 D-24, D-03)"
+      : null,
+);

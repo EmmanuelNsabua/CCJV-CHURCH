@@ -32,15 +32,54 @@ import { logger } from "@/infrastructure/logger";
  *    Le message d'un refus est donc générique et fixe.
  */
 
-/** Actions normalisées. Le vocabulaire est fermé : une route ne peut pas en inventer. */
+/**
+ * Actions normalisées. Le vocabulaire est fermé : une route ne peut pas en
+ * inventer.
+ *
+ * Le vocabulaire **est** le catalogue de policies (`docs/029` §4.1) : chaque
+ * valeur correspond à une entrée `can<Action>` du catalogue, et une action
+ * absente d'une table est refusée par défaut. Les verbes sont volontairement
+ * **spécifiques** plutôt que génériques — `USE`, `MANAGE` et `DELETE` sont trois
+ * actions distinctes, et non trois degrés d'un même droit, parce que `docs/028`
+ * D-21 interdit toute hiérarchie entre elles : « le système d'autorisation teste
+ * **explicitement** la permission demandée ». Un verbe fourre-tout
+ * réintroduirait la déduction que D-21 refuse.
+ */
 export type PolicyAction =
+  /* Socle CRUD */
   | "CREATE"
   | "READ"
   | "UPDATE"
   | "DELETE"
+  /* Cycle de vie éditorial (D-18, D-20) */
   | "PUBLISH"
   | "ARCHIVE"
-  | "MANAGE_ACCESS";
+  | "UNARCHIVE"
+  | "READ_DRAFT"
+  /* Médias : trois droits indépendants (D-21, D-22) */
+  | "USE"
+  | "MANAGE"
+  | "REPLACE"
+  | "GRANT_ACCESS"
+  | "REVOKE_ACCESS"
+  /* Événements : portée publique, capacité de département (D-25, D-26) */
+  | "SET_VISIBILITY_SCOPE"
+  /* Prières : soumission publique, agrégat, validation, déchiffrement (D-10, D-11) */
+  | "SUBMIT"
+  | "READ_AGGREGATE"
+  | "VALIDATE"
+  | "DECRYPT"
+  /* Départements : information métier vs propriétés structurelles (020 §11) */
+  | "UPDATE_STRUCTURE"
+  | "DEACTIVATE"
+  | "EDIT_CAPABILITIES"
+  /* Pages : structure interdite à tous (D-23) */
+  | "MODIFY_STRUCTURE"
+  | "CREATE_SECTION"
+  /* Profils : création par niveau d'habilitation (D-03, D-04) */
+  | "CREATE_SUPER_ADMIN"
+  | "CREATE_ADMIN"
+  | "UPDATE_ROLE_SCOPE";
 
 /**
  * Décision d'autorisation.
@@ -57,6 +96,18 @@ export interface AuthorizationDecision {
    * générique et constant quel que soit le motif.
    */
   reason?: string;
+  /**
+   * Question **non tranchée** dont dépend la décision, quand il y en a une.
+   *
+   * Une permission refusée faute d'arbitrage et une permission refusée par
+   * décision produisent le même `403` — c'est voulu, le client n'a pas à
+   * connaître le droit. Mais elles n'ont pas la même **durée de vie**, et le
+   * serveur doit pouvoir les distinguer : cette référence rend l'arbitrage
+   * manquant visible dans un journal, un test ou une recherche de code, au lieu
+   * de le laisser dormir dans un commentaire. `docs/029` §4.1 en recense
+   * explicitement une trentaine (Q-02 à Q-28, Q-P4, Q-EV2…).
+   */
+  pending?: string;
 }
 
 /**
@@ -71,6 +122,30 @@ export type Policy<TResource = unknown> = (
   action: PolicyAction,
   resource?: TResource,
 ) => AuthorizationDecision;
+
+/**
+ * Ce qu'une route peut monter : la fonction `Policy`, ou l'objet du catalogue.
+ *
+ * Les deux formes sont acceptées, et ce n'est pas une commodité de style. Une
+ * route doit pouvoir écrire `authorize(PublicationPolicy, "READ")` — le nom de
+ * la policy **est** l'information utile à la lecture d'une route
+ * (`docs/029` §4.2 : « Une policy, appelée par **un** garde d'autorisation
+ * monté dans la chaîne de middlewares »). L'objet du catalogue expose `can`,
+ * qui est la même fonction pure ; `authorize` et `evaluate` l'acceptent donc
+ * sans que l'appelant ait à savoir laquelle des deux formes il tient.
+ *
+ * Le type est **structurel** — `{ readonly can: Policy }` — et non une
+ * référence à `ResourcePolicy` : `policy-kit` importe déjà `authorize`, et
+ * l'importer en retour fermerait un cycle de modules entre les deux fichiers.
+ */
+export type PolicyLike<TResource = unknown> =
+  | Policy<TResource>
+  | { readonly can: Policy<TResource> };
+
+/** Ramène les deux formes à la fonction pure. */
+function toPolicy<TResource>(policy: PolicyLike<TResource>): Policy<TResource> {
+  return typeof policy === "function" ? policy : policy.can;
+}
 
 export function allow(): AuthorizationDecision {
   return { allowed: true };
@@ -87,12 +162,12 @@ export function deny(reason: string): AuthorizationDecision {
  * les cellules de la matrice RBAC (`docs/029` §2) sans serveur ni jeton.
  */
 export function evaluate<TResource>(
-  policy: Policy<TResource>,
+  policy: PolicyLike<TResource>,
   admin: AdminProfile,
   action: PolicyAction,
   resource?: TResource,
 ): AuthorizationDecision {
-  return policy(admin, action, resource);
+  return toPolicy(policy)(admin, action, resource);
 }
 
 /**
@@ -122,10 +197,12 @@ export function evaluate<TResource>(
  *                ressource ici rouvrirait l'écart 403/404 que le point 2 ferme.
  */
 export function authorize<TResource>(
-  policy: Policy<TResource>,
+  policy: PolicyLike<TResource>,
   action: PolicyAction,
   extract?: (req: Request) => TResource | undefined,
 ): RequestHandler {
+  const decide = toPolicy(policy);
+
   return async (req: Request, _res: Response, next: NextFunction) => {
     // `requireAdmin` a déjà refusé les requêtes sans profil. Cette branche ne
     // duplique pas le contrôle : elle signale un montage incorrect de la route.
@@ -139,7 +216,7 @@ export function authorize<TResource>(
     // entrée légitime, que la policy traite selon ses propres règles.
     const resource = extract ? extract(req) : undefined;
 
-    const decision = await evaluate(policy, admin, action, resource);
+    const decision = await evaluate(decide, admin, action, resource);
 
     if (!decision.allowed) {
       // Le détail (rôle, action, motif) reste dans les journaux ; la ressource

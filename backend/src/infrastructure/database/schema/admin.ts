@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
   boolean,
+  check,
   index,
   pgTable,
   timestamp,
@@ -9,7 +10,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
-import { adminRoleEnum, userScopeEnum } from "./enums";
+import { adminRoleEnum, adminScopeEnum } from "./enums";
 import { departments } from "./departments";
 
 /**
@@ -49,13 +50,17 @@ export const adminProfiles = pgTable(
      * Pas de valeur par défaut, pour la même raison que `role` : un scope n'est
      * pas déductible du seul profil (`docs/032` §3.3).
      */
-    scope: userScopeEnum("scope").notNull(),
+    scope: adminScopeEnum("scope").notNull(),
     /**
      * Département de rattachement (D-02). `NULL` pour les rôles globaux.
      *
-     * `ON DELETE SET NULL` : supprimer un département ne doit **jamais** faire
-     * disparaître le compte de son responsable — le compte survit à la
-     * restructuration, sans rattachement, et reste administrable.
+     * `ON DELETE RESTRICT`, conformément à `docs/032` §3.1 : « supprimer un
+     * département ne doit pas faire disparaître silencieusement le rattachement
+     * d'un responsable ». Un référentiel organisationnel ne s'efface pas sous un
+     * compte : la suppression est refusée tant qu'un responsable y est rattaché,
+     * ce qui impose de réaffecter le compte d'abord. La contrainte de cohérence
+     * ci-dessous rend d'ailleurs l'inverse impossible : un
+     * `DEPARTMENT_MANAGER` **doit** porter un `department_id` non nul.
      *
      * `AnyPgColumn` est requis : `admin_profiles → departments → media →
      * admin_profiles` forme un cycle de références, et l'annotation coupe
@@ -63,7 +68,7 @@ export const adminProfiles = pgTable(
      */
     departmentId: uuid("department_id").references(
       (): AnyPgColumn => departments.id,
-      { onDelete: "set null" },
+      { onDelete: "restrict" },
     ),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -78,6 +83,25 @@ export const adminProfiles = pgTable(
     // Unicité insensible à la casse : « Admin » et « admin » sont le même compte.
     uniqueIndex("admin_profiles_username_lower_idx").on(sql`lower(${table.username})`),
     index("admin_profiles_role_idx").on(table.role),
+    /**
+     * D-02 explicité **en base** (`docs/032` §3.1).
+     *
+     * Un `DEPARTMENT_MANAGER` porte un scope `DEPARTMENT` **et** un
+     * `department_id` non nul ; un rôle système porte `GLOBAL` **et** aucun
+     * département. La conséquence est voulue : l'égalité départementale de
+     * `docs/029` §4.3 ne peut jamais être satisfaite par accident, et
+     * « `department_id` absent ou nul vaut refus » ne peut jamais se produire
+     * pour un responsable — la base le refuse avant la policy.
+     *
+     * Sans cette contrainte, un profil incohérent (rôle `ADMIN` avec un
+     * département, ou responsable sans rattachement) serait accepté par la base
+     * et ne serait rattrapé par aucune couche : les policies lisent `scope` et
+     * `department_id` comme des faits.
+     */
+    check(
+      "admin_profiles_scope_coherence",
+      sql`(${table.role} = 'DEPARTMENT_MANAGER' AND ${table.scope} = 'DEPARTMENT' AND ${table.departmentId} IS NOT NULL) OR (${table.role} <> 'DEPARTMENT_MANAGER' AND ${table.scope} = 'GLOBAL' AND ${table.departmentId} IS NULL)`,
+    ),
   ],
 );
 
