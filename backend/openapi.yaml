@@ -2,7 +2,7 @@ openapi: "3.1.0"
 info:
   title: "API CCJV — Centre Chrétien Jésus ma Vie"
   version: v1
-  description: "API REST Express + TypeScript servant les contenus publics du site et le\nback-office d'administration.\n\n### Préfixe\nToutes les routes métier sont montées sous `/api/v1`. Seul\n`GET /api/v1/health` échappe au rate limiting global. Une URL\ninconnue sous ce préfixe produit `404 NOT_FOUND`, au format d'erreur standard.\n\n### Authentification\nJeton porteur Supabase (`Authorization: Bearer <jeton>`), vérifié par\n`presentation/middlewares/auth.ts`. L'authentification auprès du fournisseur\nd'identité **ne confère aucun droit** : l'utilisateur doit en plus posséder un\nprofil dans `admin_profiles`, actif, et le rôle `ROLE_ADMIN` pour les routes\nd'administration. Chaque opération déclare son exigence : `security: []` pour\nune route publique, `bearerAuth` pour une route d'administration.\n\n### Enveloppes de réponse\n- collection : `{ data: [...], meta: { page, limit, total, totalPages } }` ;\n- ressource : la ressource directement, jamais enveloppée ;\n- erreur : `{ error: { code, message, details? } }` — forme unique, y compris\n  pour une erreur non maîtrisée ou une route inconnue.\n\nTrois listes bornées font exception à l'enveloppe de collection et renvoient\n`{ data: [...] }` **sans** `meta`, car elles ne sont pas paginées :\n`GET /scriptures`, `GET /schedule` et `GET /social-links`.\n\nUn corps JSON **mal formé** sort en `500 INTERNAL_ERROR` (et non en 400) :\n`express.json()` échoue avant le middleware `validate`. Comportement vérifié\nsur l'API en fonctionnement.\n\n### Paramètres de requête\nLes schémas de *query* sont des objets **stricts** : tout paramètre non reconnu\nest refusé en `400 VALIDATION_ERROR`, `details` nommant le paramètre fautif —\njamais ignoré en silence. Une faute de frappe côté client devient donc une erreur\nexploitable, et la convention est identique sur **toutes** les routes.\n`?sort=…` n'est reconnu que là où un tri existe réellement (`GET /events`,\n`GET /publications`, en liste blanche de colonnes) ; ailleurs il est refusé,\nl'ordre étant fixé par le serveur. Les listes non paginées `GET /scriptures`,\n`GET /schedule` et `GET /social-links` ne reconnaissent **aucun** paramètre ;\n`GET /settings` et `GET /pages/:pageKey` valident également une *query* vide\n(`emptyQuerySchema`) et déclarent donc, eux aussi, un 400.\n\n### Limites\n- rate limiting global : 120 requêtes par minute et par IP (`RATE_LIMIT_MAX`),\n  soit `429 RATE_LIMITED` ;\n- écriture publique `POST /prayer-requests` : 5 dépôts par heure et par IP ;\n- pagination : `page` ≥ 1 (défaut 1), `limit` 1–100 (défaut 20) ;\n- corps JSON et `urlencoded` : 1 Mo maximum ; téléversement : limite de\n  `MAX_UPLOAD_BYTES` (5 Mio par défaut), type réel du fichier vérifié.\n\n### Source de vérité\nDocument **généré** depuis l'implémentation : `npm run openapi` (script\n`src/presentation/openapi/generate.ts`), qui produit `openapi.json` et\n`openapi.yaml`. Les chemins et méthodes reprennent le montage réel de\n`src/app.ts` et des `*.routes.ts` ; les corps de requête sont les schémas Zod\ndes modules eux-mêmes ; les codes d'erreur sont les 24 valeurs de l'union\n`ErrorCode` de `shared/errors/app-error.ts`."
+  description: "API REST Express + TypeScript servant les contenus publics du site et le\nback-office d'administration.\n\n### Préfixe\nToutes les routes métier sont montées sous `/api/v1`. Seul\n`GET /api/v1/health` échappe au rate limiting global. Une URL\ninconnue sous ce préfixe produit `404 NOT_FOUND`, au format d'erreur standard.\n\n### Authentification\nJeton porteur Supabase (`Authorization: Bearer <jeton>`), vérifié par\n`presentation/middlewares/auth.ts`. L'authentification auprès du fournisseur\nd'identité **ne confère aucun droit** : l'utilisateur doit en plus posséder un\nprofil dans `admin_profiles`, actif, puis le **rôle requis par la policy de la\nressource** pour l'action demandée. Chaque opération déclare son exigence :\n`security: []` pour une route publique, `bearerAuth` pour une route\nd'administration.\n\n### Enveloppes de réponse\n- collection : `{ data: [...], meta: { page, limit, total, totalPages } }` ;\n- ressource : la ressource directement, jamais enveloppée ;\n- erreur : `{ error: { code, message, details? } }` — forme unique, y compris\n  pour une erreur non maîtrisée ou une route inconnue.\n\nTrois listes bornées font exception à l'enveloppe de collection et renvoient\n`{ data: [...] }` **sans** `meta`, car elles ne sont pas paginées :\n`GET /scriptures`, `GET /schedule` et `GET /social-links`.\n\nUn corps JSON **mal formé** sort en `500 INTERNAL_ERROR` (et non en 400) :\n`express.json()` échoue avant le middleware `validate`. Comportement vérifié\nsur l'API en fonctionnement.\n\n### Paramètres de requête\nLes schémas de *query* sont des objets **stricts** : tout paramètre non reconnu\nest refusé en `400 VALIDATION_ERROR`, `details` nommant le paramètre fautif —\njamais ignoré en silence. Une faute de frappe côté client devient donc une erreur\nexploitable, et la convention est identique sur **toutes** les routes.\n`?sort=…` n'est reconnu que là où un tri existe réellement (`GET /events`,\n`GET /publications`, en liste blanche de colonnes) ; ailleurs il est refusé,\nl'ordre étant fixé par le serveur. Les listes non paginées `GET /scriptures`,\n`GET /schedule` et `GET /social-links` ne reconnaissent **aucun** paramètre ;\n`GET /settings` et `GET /pages/:pageKey` valident également une *query* vide\n(`emptyQuerySchema`) et déclarent donc, eux aussi, un 400.\n\n### Limites\n- rate limiting global : 120 requêtes par minute et par IP (`RATE_LIMIT_MAX`),\n  soit `429 RATE_LIMITED` ;\n- écriture publique `POST /prayer-requests` : 5 dépôts par heure et par IP ;\n- pagination : `page` ≥ 1 (défaut 1), `limit` 1–100 (défaut 20) ;\n- corps JSON et `urlencoded` : 1 Mo maximum ; téléversement : limite de\n  `MAX_UPLOAD_BYTES` (5 Mio par défaut), type réel du fichier vérifié.\n\n### Source de vérité\nDocument **généré** depuis l'implémentation : `npm run openapi` (script\n`src/presentation/openapi/generate.ts`), qui produit `openapi.json` et\n`openapi.yaml`. Les chemins et méthodes reprennent le montage réel de\n`src/app.ts` et des `*.routes.ts` ; les corps de requête sont les schémas Zod\ndes modules eux-mêmes ; les codes d'erreur sont les 24 valeurs de l'union\n`ErrorCode` de `shared/errors/app-error.ts`."
 servers:
   - url: "/"
     description: "Origine courante. Les chemins documentés incluent déjà le préfixe /api/v1 : l'URL effective est donc <origine>/api/v1/…"
@@ -46,7 +46,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: "Jeton d'accès Supabase (`Authorization: Bearer <jeton>`), vérifié par `presentation/middlewares/auth.ts` (`verifyAccessToken`). Le jeton identifie l'utilisateur auprès du fournisseur d'identité ; il ne confère aucun droit à lui seul : `requireAdmin` charge ensuite le profil `admin_profiles` et exige qu'il existe, qu'il soit actif, et `requireRole` qu'il porte `ROLE_ADMIN` pour les routes d'administration."
+      description: "Jeton d'accès Supabase (`Authorization: Bearer <jeton>`), vérifié par `presentation/middlewares/auth.ts` (`verifyAccessToken`). Le jeton identifie l'utilisateur auprès du fournisseur d'identité ; il ne confère aucun droit à lui seul : `requireAdmin` charge ensuite le profil `admin_profiles` et exige qu'il existe et qu'il soit actif, puis la **policy de la ressource** décide de l'action (rôle, périmètre, égalité départementale, état de la ressource)."
   schemas:
     AdminProfile:
       type: object
@@ -69,7 +69,9 @@ components:
         role:
           type: string
           enum:
-            - ROLE_ADMIN
+            - SUPER_ADMIN
+            - ADMIN
+            - DEPARTMENT_MANAGER
     AdminProfileCollection:
       type: object
       required:
@@ -105,12 +107,76 @@ components:
         role:
           type: string
           enum:
-            - ROLE_ADMIN
+            - SUPER_ADMIN
+            - ADMIN
+            - DEPARTMENT_MANAGER
         isActive:
           type: boolean
         createdAt:
           type: string
           format: "date-time"
+    AdminUserActivation:
+      type: object
+      description: "Activation ou désactivation (cellule 1.6). `isActive` porte le sens : désactiver et réactiver sont la **même** habilitation, et une route par direction laisserait croire à deux droits distincts."
+      required:
+        - isActive
+      properties:
+        isActive:
+          type: boolean
+    AdminUserAuthorization:
+      type: object
+      description: "Réécriture complète d'une habilitation (cellule 1.5). Les trois champs sont obligatoires : la contrainte de cohérence `admin_profiles_scope_coherence` porte sur le **triplet**, et accepter une modification partielle obligerait à relire l'état courant — donc à écrire depuis un état périmé."
+      required:
+        - role
+      properties:
+        role:
+          type: string
+          enum:
+            - SUPER_ADMIN
+            - ADMIN
+            - DEPARTMENT_MANAGER
+        departmentId:
+          type:
+            - string
+            - "null"
+          format: uuid
+    AdminUserCreate:
+      type: object
+      description: "Création d'un compte et de son habilitation (`docs/023` §6). Le rôle demandé choisit la règle appliquée : un `ADMIN` peut créer un responsable et **rien d'autre** (D-04) — demander un compte `ADMIN` ou `SUPER_ADMIN` produit un `403`, exactement comme le décrit la séquence « opération interdite » de `docs/023` §6. Le département est obligatoire pour un responsable et refusé pour un rôle système (D-02, `docs/032` §3.1)."
+      required:
+        - email
+        - username
+        - role
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+        displayName:
+          type:
+            - string
+            - "null"
+          maxLength: 120
+        role:
+          type: string
+          enum:
+            - SUPER_ADMIN
+            - ADMIN
+            - DEPARTMENT_MANAGER
+        departmentId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "Obligatoire pour `DEPARTMENT_MANAGER`, interdit sinon."
+        password:
+          type: string
+          minLength: 12
+          description: "Mot de passe **provisoire**, facultatif. S'il est omis, le serveur en génère un — qui n'est **jamais** renvoyé par l'API dans les deux cas. Aucun document n'arrête la remise du premier identifiant : c'est un point ouvert."
     CommunityFace:
       type: object
       description: "Visage de la communauté (`community-face.serializer.ts`) : `name` ← `personName`."
@@ -227,7 +293,9 @@ components:
                 - PRAYER_REQUEST_NOT_FOUND
                 - MEDIA_NOT_FOUND
                 - SETTING_NOT_FOUND
+                - PROFILE_NOT_FOUND
                 - DUPLICATE_SLUG
+                - DUPLICATE_EMAIL
                 - CONFLICT
                 - FILE_TOO_LARGE
                 - INVALID_FILE_TYPE
@@ -533,7 +601,7 @@ components:
           minimum: 0
     PrayerRequest:
       type: object
-      description: "Vue **administrative** d'une demande de prière (`prayer-request.serializer.ts`). Seule forme à porter le texte de l'intention et les coordonnées ; elle n'est produite que par des routes montées derrière `requireAnyAdmin`."
+      description: "Vue **administrative** d'une demande de prière (`prayer-request.serializer.ts`). Seule forme à porter le texte de l'intention et les coordonnées ; elle n'est produite que par des routes montées derrière l'authentification administrative **et** admises par `PrayerPolicy`, qui refuse ce domaine au `SUPER_ADMIN` (D-10)."
       required:
         - id
         - requestText
@@ -1103,7 +1171,7 @@ paths:
       tags:
         - departments
       summary: "Créer un département"
-      description: "Administration (`ROLE_ADMIN`). Le slug est dérivé du nom et suffixé jusqu'à être libre ; un slug explicite déjà pris est refusé en `DUPLICATE_SLUG`."
+      description: "Administration (`ADMIN` ou `SUPER_ADMIN`, jamais un responsable — D-03, D-04). Le slug est dérivé du nom et suffixé jusqu'à être libre ; un slug explicite déjà pris est refusé en `DUPLICATE_SLUG`."
       security:
         - bearerAuth: []
       requestBody:
@@ -1163,6 +1231,7 @@ paths:
                     - "null"
                   minimum: 0
                   maximum: 10000
+                capabilities: {}
                 slug:
                   type: string
                   minLength: 2
@@ -1298,6 +1367,7 @@ paths:
                     - "null"
                   minimum: 0
                   maximum: 10000
+                capabilities: {}
       responses:
         "200":
           description: "Ressource mise à jour."
@@ -1845,7 +1915,7 @@ paths:
                 publishedAt:
                   type: string
                   format: date
-                  default: "2026-10-06"
+                  default: "2026-10-08"
                 slug:
                   type: string
                   minLength: 2
@@ -3987,7 +4057,7 @@ paths:
       tags:
         - admin
       summary: "Lister les profils administratifs"
-      description: "Administration au sens plein (`ROLE_ADMIN`) : expose l'annuaire administratif, avec l'état d'activation et la date de création de chaque profil. Collection paginée, sans filtre serveur."
+      description: "Annuaire administratif, avec l'état d'activation et la date de création de chaque profil. Collection paginée, sans filtre serveur. Réservé au `SUPER_ADMIN` : le périmètre de lecture de l'`ADMIN` n'est pas arbitré (docs/029 Q-02), et le refus par défaut s'applique (docs/029 §4.3)."
       security:
         - bearerAuth: []
       parameters:
@@ -4021,6 +4091,124 @@ paths:
           "$ref": "#/components/responses/AuthenticationRequired"
         "403":
           "$ref": "#/components/responses/Forbidden"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/admin/users":
+    post:
+      operationId: adminUsersCreate
+      tags:
+        - admin
+      summary: "Créer un compte d'administration"
+      description: "Crée le compte d'authentification puis son habilitation, et **compense** — en supprimant le compte d'authentification — si l'écriture du profil échoue : on ne laisse pas derrière soi un utilisateur capable de s'authentifier et dépourvu de tout droit. Le mot de passe n'est jamais renvoyé. `409 DUPLICATE_EMAIL` si l'adresse est déjà enregistrée ; `403` si le rôle demandé est hors du pouvoir de l'appelant."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/AdminUserCreate"
+      responses:
+        "201":
+          description: "Compte créé."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminProfileSummary"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/admin/users/{id}/authorization":
+    patch:
+      operationId: adminUsersUpdateAuthorization
+      tags:
+        - admin
+      summary: "Réécrire l'habilitation d'un compte"
+      description: "Rôle, périmètre et rattachement. Réservé au `SUPER_ADMIN` : le périmètre de l'`ADMIN` sur cette action n'est pas arbitré (docs/029 Q-02), et administrer un compte `SUPER_ADMIN` ne l'est pas davantage (Q-03) — les deux refus sont donc appliqués."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "Identifiant `admin_profiles.id` du compte visé."
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/AdminUserAuthorization"
+      responses:
+        "200":
+          description: "Habilitation mise à jour."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminProfileSummary"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/admin/users/{id}/activation":
+    patch:
+      operationId: adminUsersSetActivation
+      tags:
+        - admin
+      summary: "Désactiver ou réactiver un compte"
+      description: "La révocation est **immédiate** (D-14) : le profil est mis à jour avant le fournisseur d'identité, parce que c'est `is_active` que la chaîne d'accès relit à chaque requête — donc ce qui invalide les jetons déjà émis. Une désactivation ne touche pas au rôle : réactiver rend le compte tel qu'il était. Aucune route ne supprime un compte (cellule 1.8, Q-24)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "Identifiant `admin_profiles.id` du compte visé."
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/AdminUserActivation"
+      responses:
+        "200":
+          description: "État du compte mis à jour."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminProfileSummary"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
         "429":
           "$ref": "#/components/responses/RateLimited"
         "500":

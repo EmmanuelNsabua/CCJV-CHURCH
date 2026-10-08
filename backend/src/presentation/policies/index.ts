@@ -83,7 +83,13 @@ export { PagePolicy, type PagePolicyResource } from "./page.policy";
 
 export { PrayerPolicy, type PrayerPolicyResource } from "./prayer.policy";
 
-export { UserPolicy, assertSingleDepartment, type UserPolicyResource } from "./user.policy";
+export {
+  UserPolicy,
+  asUserPolicyResource,
+  assertSingleDepartment,
+  type ProfileState,
+  type UserPolicyResource,
+} from "./user.policy";
 
 export {
   MediaAccessPolicy,

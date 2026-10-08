@@ -36,12 +36,49 @@ import { createPolicy } from "./policy-kit";
  * action qu'on aurait oublié de fermer.
  */
 
-/** Vue d'un profil **cible** telle que la policy a besoin de la connaître. */
-export interface UserPolicyResource {
-  id: string;
+/** Habilitation d'un profil : rôle, périmètre, rattachement. */
+export interface ProfileState {
   role: AdminRole;
   scope: AdminScope;
   departmentId: string | null;
+}
+
+/**
+ * Vue d'un profil **cible** telle que la policy a besoin de la connaître.
+ *
+ * ### Pourquoi deux états, et non un seul
+ *
+ * Une même requête porte souvent **deux** habilitations : celle que le compte a
+ * aujourd'hui, et celle qu'on veut lui écrire. Les confondre produit un défaut
+ * précis, et silencieux. `docs/028` D-04 interdit à l'`ADMIN` d'administrer un
+ * compte `SUPER_ADMIN` (XD-03), et `docs/029` Q-03 laisse ouverte la même
+ * question pour un `SUPER_ADMIN` vis-à-vis d'un autre. Si la policy ne lit que
+ * l'état **demandé**, alors une requête qui réécrit un `SUPER_ADMIN` en `ADMIN`
+ * présente un rôle ordinaire — l'exclusion ne se déclenche pas, et le compte
+ * suprême est administré sans que rien ne l'ait signalé.
+ *
+ * Inversement, si la policy ne lisait que l'état **actuel**, elle ne pourrait pas
+ * vérifier la cohérence rôle ↔ périmètre de ce qu'on s'apprête à écrire, et
+ * laisserait passer un responsable sans département.
+ *
+ * Les deux informations sont donc explicites, et chacune sert ce qu'elle est
+ * seule à pouvoir dire : `current` décide des **exclusions**, `requested` décide
+ * de la **cohérence**.
+ */
+export interface UserPolicyResource {
+  id: string;
+  /**
+   * État **actuel** du compte cible.
+   *
+   * Pour une **création**, il n'y a pas d'état actuel : la convention est d'y
+   * placer le rôle demandé, et `requested` reste absent. C'est exact — un compte
+   * en cours de création n'a pas d'histoire à administrer.
+   */
+  current: ProfileState;
+  /**
+   * Habilitation **demandée** (cellule 1.5), absente hors réécriture.
+   */
+  requested?: ProfileState;
 }
 
 export const UserPolicy = createPolicy<UserPolicyResource>(
@@ -64,14 +101,14 @@ export const UserPolicy = createPolicy<UserPolicyResource>(
        * (`docs/032` §3.1). Vérifier deux fois est délibéré : l'erreur remontée
        * par la base est une `500`, celle-ci est un refus lisible.
        */
-      resource: (_, resource) => assertCoherentProfile(resource, "SUPER_ADMIN"),
+      resource: (_, resource) => assertCoherentProfile(resource),
     },
 
     /** `canCreateAdmin` — `SUPER_ADMIN` **uniquement** (D-03). */
     CREATE_ADMIN: {
       roles: ["SUPER_ADMIN"],
       scopes: ["GLOBAL"],
-      resource: (_, resource) => assertCoherentProfile(resource, "ADMIN"),
+      resource: (_, resource) => assertCoherentProfile(resource),
     },
 
     /**
@@ -85,7 +122,7 @@ export const UserPolicy = createPolicy<UserPolicyResource>(
     CREATE: {
       roles: ["SUPER_ADMIN", "ADMIN"],
       scopes: ["GLOBAL"],
-      resource: (_, resource) => assertCoherentProfile(resource, "DEPARTMENT_MANAGER"),
+      resource: (_, resource) => assertCoherentProfile(resource),
     },
 
     /**
@@ -117,9 +154,14 @@ export const UserPolicy = createPolicy<UserPolicyResource>(
       scopes: ["GLOBAL"],
       pending: "docs/029 Q-02 · Q-03",
       resource: (admin, resource) => {
+        // L'exclusion est évaluée sur l'état **actuel** de la cible : c'est
+        // administrer un compte `SUPER_ADMIN` qui est en cause, pas le rôle
+        // qu'on prétend lui donner. Sans cela, réécrire ce compte en `ADMIN`
+        // suffirait à faire disparaître la cible de l'exclusion — le défaut
+        // exact que la séparation `current` / `requested` ferme.
         const untranched = refuseSuperAdminTargetBySuperAdmin(admin, resource);
         if (!untranched.allowed) return untranched;
-        return assertCoherentProfile(resource, undefined);
+        return assertCoherentProfile(resource);
       },
     },
 
@@ -165,7 +207,7 @@ export const UserPolicy = createPolicy<UserPolicyResource>(
    * immanquablement oubliée sur la dernière ajoutée.
    */
   (admin, resource) =>
-    admin.role === "ADMIN" && resource?.role === "SUPER_ADMIN"
+    admin.role === "ADMIN" && resource?.current.role === "SUPER_ADMIN"
       ? "docs/028 D-04, XD-03 : un ADMIN ne peut ni créer, ni modifier, ni désactiver un compte SUPER_ADMIN"
       : null,
 );
@@ -180,29 +222,26 @@ export const UserPolicy = createPolicy<UserPolicyResource>(
  * reste l'autorité — un chemin qui contournerait cette fonction ne gagnerait
  * rien, la contrainte s'appliquant à l'écriture.
  *
- * @param expectedRole Rôle attendu par l'action ; `undefined` pour une mise à
- *                     jour, où c'est la cohérence interne de la cible qui est
- *                     vérifiée plutôt que son rôle.
+ * L'état vérifié est celui qui **sera écrit** : `requested` lorsqu'une
+ * habilitation est réécrite, `current` sinon (création, ou action qui ne change
+ * pas l'habilitation). Vérifier `current` lors d'une réécriture reviendrait à
+ * valider l'ancien état et à laisser passer le nouveau — l'inverse exact de ce
+ * que la contrainte protège.
  */
 function assertCoherentProfile(
   resource: UserPolicyResource | undefined,
-  expectedRole: PersistedAdminRole | undefined,
 ): AuthorizationDecision {
   if (!resource) return allow();
 
-  if (expectedRole && resource.role !== expectedRole) {
-    return deny(
-      `Action réservée à la création d'un profil ${expectedRole} : le rôle cible est ${resource.role}`,
-    );
-  }
+  const state = resource.requested ?? resource.current;
+  const isManager = state.role === "DEPARTMENT_MANAGER";
 
-  const isManager = resource.role === "DEPARTMENT_MANAGER";
-  if (isManager && (resource.scope !== "DEPARTMENT" || !resource.departmentId)) {
+  if (isManager && (state.scope !== "DEPARTMENT" || !state.departmentId)) {
     return deny(
       "Un DEPARTMENT_MANAGER porte un scope DEPARTMENT et un département de rattachement non nul (docs/028 D-02)",
     );
   }
-  if (!isManager && (resource.scope !== "GLOBAL" || resource.departmentId)) {
+  if (!isManager && (state.scope !== "GLOBAL" || state.departmentId)) {
     return deny(
       "Un rôle système porte un scope GLOBAL et aucun département : docs/028 D-02, contrainte admin_profiles_scope_coherence (docs/032 §3.1)",
     );
@@ -229,12 +268,34 @@ function refuseSuperAdminTargetBySuperAdmin(
   admin: AdminProfile,
   resource: UserPolicyResource | undefined,
 ): AuthorizationDecision {
-  if (admin.role === "SUPER_ADMIN" && resource?.role === "SUPER_ADMIN") {
+  // `current`, jamais `requested` : ce qui est en cause, c'est le compte que l'on
+  // administre — et non le rôle qu'on prétend lui donner.
+  if (admin.role === "SUPER_ADMIN" && resource?.current.role === "SUPER_ADMIN") {
     return deny(
       "docs/029 Q-03 : administrer un compte SUPER_ADMIN depuis l'application n'est pas tranché — refus par défaut (docs/029 §4.3)",
     );
   }
   return allow();
+}
+
+/**
+ * Traduit un profil du domaine en ressource de policy.
+ *
+ * Existe pour qu'aucun appelant n'ait à reconstruire `current` à la main : le
+ * jour où `AdminProfile` gagne un champ qui compte pour une décision (un état
+ * d'habilitation, une date de révocation), c'est **ici** que la traduction se
+ * met à jour — au lieu d'être oubliée dans l'un des trois services qui
+ * administrent des comptes.
+ */
+export function asUserPolicyResource(profile: AdminProfile): UserPolicyResource {
+  return {
+    id: profile.id,
+    current: {
+      role: profile.role,
+      scope: profile.scope,
+      departmentId: profile.departmentId,
+    },
+  };
 }
 
 /**

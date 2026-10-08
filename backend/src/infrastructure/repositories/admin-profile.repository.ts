@@ -111,6 +111,58 @@ export class DrizzleAdminProfileRepository implements AdminProfileRepository {
 
     return rows.map(toEntity);
   }
+
+  /**
+   * Réécrit l'habilitation d'un profil (rôle, scope, rattachement).
+   *
+   * `updatedAt` est rafraîchi explicitement : `$onUpdate` ne se déclenche que
+   * sur les colonnes gérées par Drizzle, et une modification d'habilitation doit
+   * laisser une trace temporelle — c'est le seul indice d'audit disponible tant
+   * que `audit_log` n'est pas en place (Lot 17 de `docs/032`).
+   *
+   * Aucune vérification de cohérence ici : la contrainte
+   * `admin_profiles_scope_coherence` la porte en base. La dupliquer créerait deux
+   * autorités pour une même règle, et la seconde finirait par diverger.
+   */
+  async updateAuthorization(
+    id: string,
+    data: {
+      role: PersistedAdminRole;
+      scope: AdminScope;
+      departmentId?: string | null;
+    },
+  ): Promise<AdminProfile | null> {
+    const [row] = await this.db
+      .update(adminProfiles)
+      .set({
+        role: data.role,
+        scope: data.scope,
+        departmentId: data.departmentId ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(adminProfiles.id, id))
+      .returning();
+
+    return row ? toEntity(row) : null;
+  }
+
+  /**
+   * Active ou désactive un profil, **sans** toucher à son habilitation.
+   *
+   * `isActive` est la seule colonne écrite : un compte révoqué puis réactivé
+   * retrouve exactement le rôle et le périmètre qu'il avait. C'est ce que
+   * `docs/028` D-03 attend d'une « désactivation » — couper l'accès, pas effacer
+   * l'habilitation.
+   */
+  async setActive(id: string, isActive: boolean): Promise<AdminProfile | null> {
+    const [row] = await this.db
+      .update(adminProfiles)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(adminProfiles.id, id))
+      .returning();
+
+    return row ? toEntity(row) : null;
+  }
 }
 
 function toEntity(row: AdminProfileRow): AdminProfile {

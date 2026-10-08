@@ -29,8 +29,17 @@ export type ErrorCode =
   | "PRAYER_REQUEST_NOT_FOUND"
   | "MEDIA_NOT_FOUND"
   | "SETTING_NOT_FOUND"
+  | "PROFILE_NOT_FOUND"
   // Conflits
   | "DUPLICATE_SLUG"
+  /**
+   * Adresse déjà enregistrée chez le fournisseur d'identité.
+   *
+   * Distinct de `CONFLICT` : c'est une situation que l'administrateur **corrige
+   * lui-même** en changeant d'adresse, et le client doit pouvoir le lui dire
+   * précisément. Un code générique l'obligerait à deviner quel champ reprendre.
+   */
+  | "DUPLICATE_EMAIL"
   | "CONFLICT"
   // Fichiers
   | "FILE_TOO_LARGE"
@@ -102,6 +111,23 @@ export class ConflictError extends AppError {
 export class DuplicateSlugError extends ConflictError {
   constructor(slug: string) {
     super("DUPLICATE_SLUG", `Le slug « ${slug} » est déjà utilisé`, { slug });
+  }
+}
+
+/**
+ * L'adresse est déjà enregistrée chez le fournisseur d'identité.
+ *
+ * L'adresse **n'est pas** reprise dans le message : elle vient d'être saisie par
+ * l'appelant, et la répéter dans une réponse la ferait circuler une fois de plus
+ * sans utilité. Le champ fautif suffit — le client sait laquelle il a envoyée.
+ */
+export class DuplicateEmailError extends ConflictError {
+  constructor() {
+    super(
+      "DUPLICATE_EMAIL",
+      "Un compte d'authentification existe déjà pour cette adresse",
+      { champ: "email" },
+    );
   }
 }
 

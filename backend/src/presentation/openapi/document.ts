@@ -159,8 +159,10 @@ const ERROR_CODES = [
   "PRAYER_REQUEST_NOT_FOUND",
   "MEDIA_NOT_FOUND",
   "SETTING_NOT_FOUND",
+  "PROFILE_NOT_FOUND",
   // Conflits
   "DUPLICATE_SLUG",
+  "DUPLICATE_EMAIL",
   "CONFLICT",
   // Fichiers
   "FILE_TOO_LARGE",
@@ -2622,6 +2624,144 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     responses: {
       200: jsonResponse("Collection paginée de profils.", "AdminProfileCollection"),
       ...adminResponses(),
+    },
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Gestion des comptes d'administration (Lot 2)                          */
+  /* ---------------------------------------------------------------------- */
+
+  registry.registerComponent("schemas", "AdminUserCreate", {
+    type: "object",
+    description:
+      "Création d'un compte et de son habilitation (`docs/023` §6). Le rôle demandé " +
+      "choisit la règle appliquée : un `ADMIN` peut créer un responsable et **rien " +
+      "d'autre** (D-04) — demander un compte `ADMIN` ou `SUPER_ADMIN` produit un " +
+      "`403`, exactement comme le décrit la séquence « opération interdite » de " +
+      "`docs/023` §6. Le département est obligatoire pour un responsable et refusé " +
+      "pour un rôle système (D-02, `docs/032` §3.1).",
+    required: ["email", "username", "role"],
+    properties: {
+      email: { type: "string", format: "email", maxLength: 254 },
+      username: { type: "string", minLength: 3, maxLength: 50 },
+      displayName: { type: ["string", "null"], maxLength: 120 },
+      role: { type: "string", enum: ["SUPER_ADMIN", "ADMIN", "DEPARTMENT_MANAGER"] },
+      departmentId: {
+        type: ["string", "null"],
+        format: "uuid",
+        description: "Obligatoire pour `DEPARTMENT_MANAGER`, interdit sinon.",
+      },
+      password: {
+        type: "string",
+        minLength: 12,
+        description:
+          "Mot de passe **provisoire**, facultatif. S'il est omis, le serveur en " +
+          "génère un — qui n'est **jamais** renvoyé par l'API dans les deux cas. " +
+          "Aucun document n'arrête la remise du premier identifiant : c'est un point ouvert.",
+      },
+    },
+  });
+
+  registry.registerComponent("schemas", "AdminUserAuthorization", {
+    type: "object",
+    description:
+      "Réécriture complète d'une habilitation (cellule 1.5). Les trois champs sont " +
+      "obligatoires : la contrainte de cohérence `admin_profiles_scope_coherence` " +
+      "porte sur le **triplet**, et accepter une modification partielle obligerait à " +
+      "relire l'état courant — donc à écrire depuis un état périmé.",
+    required: ["role"],
+    properties: {
+      role: { type: "string", enum: ["SUPER_ADMIN", "ADMIN", "DEPARTMENT_MANAGER"] },
+      departmentId: { type: ["string", "null"], format: "uuid" },
+    },
+  });
+
+  registry.registerComponent("schemas", "AdminUserActivation", {
+    type: "object",
+    description:
+      "Activation ou désactivation (cellule 1.6). `isActive` porte le sens : " +
+      "désactiver et réactiver sont la **même** habilitation, et une route par " +
+      "direction laisserait croire à deux droits distincts.",
+    required: ["isActive"],
+    properties: { isActive: { type: "boolean" } },
+  });
+
+  const adminUserIdParameter = {
+    name: "id",
+    in: "path" as const,
+    required: true,
+    schema: { type: "string" as const, format: "uuid" },
+    description: "Identifiant `admin_profiles.id` du compte visé.",
+  };
+
+  registerRoute(registry, {
+    method: "post",
+    path: `${API_BASE_PATH}/admin/users`,
+    operationId: "adminUsersCreate",
+    tags: ["admin"],
+    summary: "Créer un compte d'administration",
+    description:
+      "Crée le compte d'authentification puis son habilitation, et **compense** — en " +
+      "supprimant le compte d'authentification — si l'écriture du profil échoue : on " +
+      "ne laisse pas derrière soi un utilisateur capable de s'authentifier et dépourvu " +
+      "de tout droit. Le mot de passe n'est jamais renvoyé. `409 DUPLICATE_EMAIL` si " +
+      "l'adresse est déjà enregistrée ; `403` si le rôle demandé est hors du pouvoir " +
+      "de l'appelant.",
+    security: BEARER_SECURITY,
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: schemaRef("AdminUserCreate") } },
+    },
+    responses: {
+      201: jsonResponse("Compte créé.", "AdminProfileSummary"),
+      ...adminResponses({ 409: responseRef("Conflict") }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "patch",
+    path: `${API_BASE_PATH}/admin/users/{id}/authorization`,
+    operationId: "adminUsersUpdateAuthorization",
+    tags: ["admin"],
+    summary: "Réécrire l'habilitation d'un compte",
+    description:
+      "Rôle, périmètre et rattachement. Réservé au `SUPER_ADMIN` : le périmètre de " +
+      "l'`ADMIN` sur cette action n'est pas arbitré (docs/029 Q-02), et administrer un " +
+      "compte `SUPER_ADMIN` ne l'est pas davantage (Q-03) — les deux refus sont donc " +
+      "appliqués.",
+    security: BEARER_SECURITY,
+    parameters: [adminUserIdParameter],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: schemaRef("AdminUserAuthorization") } },
+    },
+    responses: {
+      200: jsonResponse("Habilitation mise à jour.", "AdminProfileSummary"),
+      ...adminResponses({ 404: responseRef("NotFound") }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "patch",
+    path: `${API_BASE_PATH}/admin/users/{id}/activation`,
+    operationId: "adminUsersSetActivation",
+    tags: ["admin"],
+    summary: "Désactiver ou réactiver un compte",
+    description:
+      "La révocation est **immédiate** (D-14) : le profil est mis à jour avant le " +
+      "fournisseur d'identité, parce que c'est `is_active` que la chaîne d'accès relit " +
+      "à chaque requête — donc ce qui invalide les jetons déjà émis. Une désactivation " +
+      "ne touche pas au rôle : réactiver rend le compte tel qu'il était. Aucune route " +
+      "ne supprime un compte (cellule 1.8, Q-24).",
+    security: BEARER_SECURITY,
+    parameters: [adminUserIdParameter],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: schemaRef("AdminUserActivation") } },
+    },
+    responses: {
+      200: jsonResponse("État du compte mis à jour.", "AdminProfileSummary"),
+      ...adminResponses({ 404: responseRef("NotFound") }),
     },
   });
 

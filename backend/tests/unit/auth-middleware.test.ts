@@ -77,6 +77,14 @@ function fakeAdminProfiles(
     async list() {
       return [];
     },
+    async updateAuthorization() {
+      throw new Error(
+        "updateAuthorization ne doit pas être appelé par les middlewares",
+      );
+    },
+    async setActive() {
+      throw new Error("setActive ne doit pas être appelé par les middlewares");
+    },
   };
 }
 

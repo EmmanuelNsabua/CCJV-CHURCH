@@ -1,5 +1,8 @@
 import type { Database } from "@/infrastructure/database/client";
 import { db } from "@/infrastructure/database/client";
+import type { AdminIdentityProvider } from "@/domain/identity/admin-identity-provider";
+import { supabaseAdmin } from "@/infrastructure/supabase/client";
+import { SupabaseAdminIdentityProvider } from "@/infrastructure/supabase/admin-identity.provider";
 import type { StorageService } from "@/infrastructure/supabase/storage";
 import { storageService } from "@/infrastructure/supabase/storage";
 import { logger } from "@/infrastructure/logger";
@@ -72,6 +75,15 @@ import { createAdminRouter } from "@/modules/admin/admin.routes";
 export interface AppDependencies {
   db: Database;
   storage: StorageService;
+  /**
+   * Port d'identité (Supabase Auth).
+   *
+   * Figure au premier niveau, et non dans `repositories` : ce n'est pas de la
+   * persistance applicative, c'est un **fournisseur externe**, et le confondre
+   * avec un repository ferait croire qu'il range des données du domaine — alors
+   * qu'il ne détient que des secrets d'authentification (`docs/006` §2.2).
+   */
+  identities: AdminIdentityProvider;
   logger: typeof logger;
   repositories: {
     adminProfiles: DrizzleAdminProfileRepository;
@@ -117,10 +129,16 @@ export interface AppDependencies {
  * `overrides` permet aux tests d'injecter des doubles sans base de données.
  */
 export function createContainer(
-  overrides: Partial<Pick<AppDependencies, "db" | "storage" | "repositories">> = {},
+  overrides: Partial<
+    Pick<AppDependencies, "db" | "storage" | "repositories" | "identities">
+  > = {},
 ): AppDependencies {
   const database = overrides.db ?? db;
   const storage = overrides.storage ?? storageService;
+  // Port d'identité : Supabase Auth. Injecté, jamais importé par un service —
+  // c'est ce qui rend les règles d'habilitation testables sans réseau.
+  const identities =
+    overrides.identities ?? new SupabaseAdminIdentityProvider(supabaseAdmin);
 
   const repositories =
     overrides.repositories ??
@@ -155,10 +173,14 @@ export function createContainer(
     staticPages: new StaticPageService(repositories.staticPages),
     media: new MediaService(repositories.media, storage),
     prayerRequests: new PrayerRequestService(repositories.prayerRequests),
-    admin: new AdminService(repositories.adminProfiles),
+    admin: new AdminService(
+      repositories.adminProfiles,
+      repositories.departments,
+      identities,
+    ),
   } satisfies AppDependencies["services"];
 
-  return { db: database, storage, logger, repositories, services };
+  return { db: database, storage, identities, logger, repositories, services };
 }
 
 /**

@@ -370,4 +370,36 @@ export interface AdminProfileRepository {
     departmentId?: string | null;
   }): Promise<AdminProfile>;
   list(): Promise<AdminProfile[]>;
+
+  /**
+   * Réécrit **l'habilitation** d'un profil existant : rôle, scope, rattachement.
+   *
+   * Opération distincte d'`upsert`, et la séparation est structurante. `upsert`
+   * crée ou remplace un profil à partir d'un identifiant fourni par l'appelant —
+   * c'est l'amorçage, un acte d'exploitation. Ici, il s'agit de **redistribuer
+   * un pouvoir** sur un compte qui existe déjà, ce que `docs/029` cellule 1.5
+   * réserve au `SUPER_ADMIN` (l'`ADMIN` y est en `?` Q-02, donc refusé).
+   *
+   * La cohérence rôle ↔ scope ↔ département n'est pas vérifiée ici : elle est
+   * portée par la contrainte `admin_profiles_scope_coherence` (`docs/032` §3.1),
+   * que la base applique à l'écriture. Le service la vérifie **avant** pour
+   * rendre un refus lisible, mais c'est la base qui garantit.
+   *
+   * Renvoie `null` si le profil n'existe pas — jamais une erreur : l'appelant
+   * décide si l'absence est un `404` (une route) ou un cas normal (un script).
+   */
+  updateAuthorization(
+    id: string,
+    data: { role: PersistedAdminRole; scope: AdminScope; departmentId?: string | null },
+  ): Promise<AdminProfile | null>;
+
+  /**
+   * Active ou désactive un profil. `null` si le profil n'existe pas.
+   *
+   * Ne touche **pas** au rôle ni au périmètre : `docs/028` D-03 distingue la
+   * révocation d'accès de la gestion des habilitations, et confondre les deux
+   * ferait perdre l'habilitation au moment précis où l'on veut seulement couper
+   * l'accès — au point qu'une réactivation ne saurait plus quel rôle rendre.
+   */
+  setActive(id: string, isActive: boolean): Promise<AdminProfile | null>;
 }

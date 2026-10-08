@@ -312,10 +312,19 @@ describe("Média — aucun partage par défaut, aucune hiérarchie entre les dro
 /* -------------------------------------------------------------------------- */
 
 describe("Profils — D-04 : l'ADMIN n'est pas inférieur, il est différent", () => {
-  const target = (role: AdminRole) =>
+  /**
+   * Une cible de policy porte **deux** états : celui du compte aujourd'hui
+   * (`current`) et celui qu'on veut écrire (`requested`). Les confondre est le
+   * défaut que la séparation ferme : une requête qui réécrit un `SUPER_ADMIN` en
+   * `ADMIN` présenterait un rôle ordinaire, et l'exclusion XD-03 ne se
+   * déclencherait pas.
+   */
+  const state = (role: AdminRole) =>
     role === "DEPARTMENT_MANAGER"
-      ? { id: "t", role, scope: "DEPARTMENT" as AdminScope, departmentId: DEPARTMENT_A }
-      : { id: "t", role, scope: "GLOBAL" as AdminScope, departmentId: null };
+      ? { role, scope: "DEPARTMENT" as AdminScope, departmentId: DEPARTMENT_A }
+      : { role, scope: "GLOBAL" as AdminScope, departmentId: null };
+
+  const target = (role: AdminRole) => ({ id: "t", current: state(role) });
 
   it("N-13 — un ADMIN ne crée pas un ADMIN (D-03)", () => {
     expect(evaluate(UserPolicy, admin, "CREATE_ADMIN", target("ADMIN")).allowed).toBe(false);
@@ -332,16 +341,55 @@ describe("Profils — D-04 : l'ADMIN n'est pas inférieur, il est différent", (
     expect(results.every((r) => !r.allowed)).toBe(true);
   });
 
+  /**
+   * Le cas serré : le compte administré **est** un `SUPER_ADMIN`, et la requête
+   * prétend lui écrire un rôle ordinaire. L'exclusion doit se déclencher sur
+   * `current`, pas sur `requested` — sinon il suffirait de rétrograder le compte
+   * dans la même requête pour pouvoir l'administrer.
+   */
+  it("XD-03 ne se contourne pas en réécrivant le rôle dans la même requête", () => {
+    const disguised = {
+      id: "t",
+      current: state("SUPER_ADMIN"),
+      requested: state("ADMIN"),
+    };
+
+    expect(evaluate(UserPolicy, admin, "UPDATE_ROLE_SCOPE", disguised).allowed).toBe(false);
+  });
+
+  it("Q-03 — un SUPER_ADMIN n'administre pas non plus un compte SUPER_ADMIN", () => {
+    const other = { id: "t", current: state("SUPER_ADMIN"), requested: state("ADMIN") };
+    expect(evaluate(UserPolicy, superAdmin, "UPDATE_ROLE_SCOPE", other).allowed).toBe(false);
+    expect(evaluate(UserPolicy, superAdmin, "DEACTIVATE", other).allowed).toBe(false);
+  });
+
   it("D-04 — l'ADMIN crée un responsable : c'est SA capacité propre", () => {
     expect(evaluate(UserPolicy, admin, "CREATE", target("DEPARTMENT_MANAGER")).allowed).toBe(true);
   });
 
   it("D-02 — un responsable sans département est refusé avant toute écriture", () => {
-    const incoherent = { id: "t", role: "DEPARTMENT_MANAGER" as AdminRole, scope: "DEPARTMENT" as AdminScope, departmentId: null };
+    const incoherent = { id: "t", current: { role: "DEPARTMENT_MANAGER" as AdminRole, scope: "DEPARTMENT" as AdminScope, departmentId: null } };
     expect(evaluate(UserPolicy, superAdmin, "CREATE", incoherent).allowed).toBe(false);
     // Un rôle système porteur d'un département est tout aussi incohérent.
-    const wrongScope = { id: "t", role: "ADMIN" as AdminRole, scope: "DEPARTMENT" as AdminScope, departmentId: DEPARTMENT_A };
+    const wrongScope = { id: "t", current: { role: "ADMIN" as AdminRole, scope: "DEPARTMENT" as AdminScope, departmentId: DEPARTMENT_A } };
     expect(evaluate(UserPolicy, superAdmin, "CREATE_ADMIN", wrongScope).allowed).toBe(false);
+  });
+
+  it("la cohérence est vérifiée sur l'état DEMANDÉ, pas sur l'ancien", () => {
+    // Le compte est un responsable cohérent ; la requête demande un état
+    // incohérent (un rôle système **avec** un département). Vérifier `current`
+    // laisserait passer cette écriture.
+    const account = { id: "t", current: state("DEPARTMENT_MANAGER") };
+    const incoherentWrite = {
+      ...account,
+      requested: {
+        role: "ADMIN" as AdminRole,
+        scope: "GLOBAL" as AdminScope,
+        departmentId: DEPARTMENT_A,
+      },
+    };
+
+    expect(evaluate(UserPolicy, superAdmin, "UPDATE_ROLE_SCOPE", incoherentWrite).allowed).toBe(false);
   });
 });
 
@@ -433,7 +481,10 @@ describe("Pages et paramètres — des refus qui ne dépendent d'aucun rôle", (
   });
 
   it("cellule 1.7 / Q-03 — un SUPER_ADMIN n'administre pas un autre SUPER_ADMIN depuis l'application", () => {
-    const other = { id: "autre", role: "SUPER_ADMIN" as AdminRole, scope: "GLOBAL" as AdminScope, departmentId: null };
+    const other = {
+      id: "autre",
+      current: { role: "SUPER_ADMIN" as AdminRole, scope: "GLOBAL" as AdminScope, departmentId: null },
+    };
     expect(evaluate(UserPolicy, superAdmin, "UPDATE_ROLE_SCOPE", other).allowed).toBe(false);
     expect(evaluate(UserPolicy, superAdmin, "DEACTIVATE", other).allowed).toBe(false);
   });
