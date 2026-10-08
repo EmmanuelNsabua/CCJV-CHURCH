@@ -2447,6 +2447,375 @@ export function buildOpenApiDocument(): Record<string, unknown> {
   });
 
   /* ---------------------------------------------------------------------- */
+  /*  Droits d'accès aux médias (Lot 5)                                     */
+  /* ---------------------------------------------------------------------- */
+
+  /*
+   * Quatre opérations, quatre actions **distinctes** — c'est le cœur de D-21 :
+   * lire les droits, les accorder, les modifier et les retirer ne sont pas quatre
+   * degrés d'un même droit, mais quatre décisions. Elles délèguent toutes à
+   * `MediaAccessPolicy`, qui emprunte à `MediaPolicy` la formulation de « seul
+   * l'ADMIN ou le SUPER_ADMIN accorde » (`docs/029` §4.6) : une seule règle, deux
+   * portes d'entrée.
+   *
+   * Toutes administratives : le registre des autorisations dit qui peut faire
+   * quoi, et cette information n'appartient pas aux visiteurs.
+   */
+
+  const granteeTypeParameter = parameter({
+    name: "granteeType",
+    in: "path",
+    required: true,
+    description:
+      "Type de destinataire : un département, ou un profil nommément désigné.",
+    // Une liste fermée, comme pour toute énumération de l'API : la colonne
+    // `grantee_type` est polymorphe, et son rôle est justement de dire comment
+    // interpréter `granteeId`. Accepter une valeur libre rendrait une
+    // autorisation ambiguë — accordée à une entité non identifiée.
+    schema: { type: "string", enum: ["DEPARTMENT", "ADMIN_PROFILE"] },
+  });
+  const granteeIdParameter = pathParameter(
+    "granteeId",
+    "Identifiant du destinataire (`departments.id` ou `admin_profiles.id`, selon `granteeType`).",
+    "uuid",
+  );
+
+  registry.registerComponent("schemas", "MediaAccess", {
+    type: "object",
+    description:
+      "Droits d'accès d'un média (`docs/032` §3.4). Les **trois droits sont " +
+      "indépendants** : `canManage` n'implique pas `canUse`, et `canDelete` ne se " +
+      "déduit d'aucun autre (D-21). Tous les booléens sont toujours présents, y " +
+      "compris `false` — un objet qui omettrait un droit inviterait à le déduire.",
+    required: [
+      "id",
+      "mediaId",
+      "granteeType",
+      "granteeId",
+      "canUse",
+      "canManage",
+      "canDelete",
+      "grantedBy",
+      "grantedAt",
+    ],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      mediaId: { type: "string", format: "uuid" },
+      granteeType: { type: "string", enum: ["DEPARTMENT", "ADMIN_PROFILE"] },
+      granteeId: { type: "string", format: "uuid" },
+      canUse: { type: "boolean", description: "Référencer le média dans un contenu." },
+      canManage: { type: "boolean", description: "Modifier la ressource média." },
+      canDelete: {
+        type: "boolean",
+        description: "Jamais accordé à un département (XD-07).",
+      },
+      grantedBy: {
+        type: "string",
+        format: "uuid",
+        description:
+          "Auteur du grant — la preuve de qui a autorisé quoi (`docs/029` §2.6).",
+      },
+      grantedAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+    },
+  });
+
+  registry.registerComponent("schemas", "MediaAccessGrant", {
+    type: "object",
+    description:
+      "Corps d'un accord de droits. Un accès qui n'accorde **rien** est refusé " +
+      "(400 en validation, et `media_access_at_least_one_right` en base), et un " +
+      "département ne peut **jamais** recevoir `DELETE` (XD-07) — le schéma comme " +
+      "la base le refusent, avec le même effet.",
+    required: ["granteeType", "granteeId"],
+    properties: {
+      granteeType: { type: "string", enum: ["DEPARTMENT", "ADMIN_PROFILE"] },
+      granteeId: { type: "string", format: "uuid" },
+      canUse: { type: "boolean", default: false },
+      canManage: { type: "boolean", default: false },
+      canDelete: { type: "boolean", default: false },
+    },
+  });
+
+  registry.registerComponent("schemas", "MediaRights", {
+    type: "object",
+    description: "Réécriture des trois droits d'une ligne existante (cellule 6.3).",
+    properties: {
+      canUse: { type: "boolean", default: false },
+      canManage: { type: "boolean", default: false },
+      canDelete: { type: "boolean", default: false },
+    },
+  });
+
+  registerRoute(registry, {
+    method: "get",
+    path: `${API_BASE_PATH}/media/{id}/access`,
+    operationId: "mediaAccessList",
+    tags: ["media"],
+    summary: "Lister les droits d'accès d'un média",
+    description:
+      "Qui peut utiliser ce média, et pour quoi faire. Liste **bornée et non " +
+      "paginée** : elle est rendue dans l'enveloppe `{ data: [...] }`, sans `meta` " +
+      "— comme celles de `scriptures`, `schedule` et `social-links`. Réservé au " +
+      "`SUPER_ADMIN` et à l'`ADMIN` : la lecture par un responsable n'est pas " +
+      "arbitrée (docs/029 Q-11, cellule 6.1), et le refus par défaut s'applique. " +
+      "À ne pas confondre avec le **registre des médias** (cellule 5.2), qui, lui, " +
+      "est ouvert au responsable pour les médias où un droit existe.",
+    security: BEARER_SECURITY,
+    parameters: [mediaIdParameter],
+    responses: {
+      200: {
+        description: "Droits d'accès du média.",
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["data"],
+              properties: {
+                data: {
+                  type: "array",
+                  items: schemaRef("MediaAccess"),
+                },
+              },
+            },
+          },
+        },
+      },
+      ...adminResponses({
+        404: errorResponse("`MEDIA_NOT_FOUND` — aucun média ne correspond à cet identifiant."),
+      }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "post",
+    path: `${API_BASE_PATH}/media/{id}/access`,
+    operationId: "mediaAccessGrant",
+    tags: ["media"],
+    summary: "Accorder un accès à un média",
+    description:
+      "`SUPER_ADMIN` ou `ADMIN` uniquement : « L'`ADMIN` ou le `SUPER_ADMIN` accorde " +
+      "l'autorisation » (D-22). Un responsable ne peut **jamais** s'accorder un " +
+      "accès, ni à lui-même ni à son département (XD-08). Aucun partage par défaut " +
+      "(XD-09) : sans cette opération, un département ne voit rien. `409` si ce " +
+      "destinataire dispose déjà d'une ligne — elle se **modifie**, elle ne se " +
+      "duplique pas, pour que l'auteur du grant initial reste attribuable.",
+    security: BEARER_SECURITY,
+    parameters: [mediaIdParameter],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: schemaRef("MediaAccessGrant") } },
+    },
+    responses: {
+      201: jsonResponse("Droits accordés.", "MediaAccess"),
+      ...adminResponses({
+        404: errorResponse("`MEDIA_NOT_FOUND` — aucun média ne correspond à cet identifiant."),
+        409: errorResponse(
+          "`CONFLICT` — règle refusée par la base : droits portant `DELETE` sur un " +
+            "département (XD-07), ligne déjà existante, aucun droit accordé, ou " +
+            "destinataire inexistant.",
+        ),
+      }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "patch",
+    path: `${API_BASE_PATH}/media/{id}/access/{granteeType}/{granteeId}`,
+    operationId: "mediaAccessUpdate",
+    tags: ["media"],
+    summary: "Modifier les droits d'un destinataire",
+    description:
+      "Réécrit les trois droits d'une ligne existante (cellule 6.3). `SUPER_ADMIN` " +
+      "ou `ADMIN` uniquement : modifier un droit est la même opération qu'en " +
+      "accorder un, à une ligne près. Les trois droits sont **remplacés**, jamais " +
+      "fusionnés : une modification partielle obligerait à relire l'état courant, " +
+      "donc à écrire depuis un état périmé.",
+    security: BEARER_SECURITY,
+    parameters: [mediaIdParameter, granteeTypeParameter, granteeIdParameter],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: schemaRef("MediaRights") } },
+    },
+    responses: {
+      200: jsonResponse("Droits mis à jour.", "MediaAccess"),
+      ...adminResponses({
+        404: errorResponse(
+          "`MEDIA_NOT_FOUND` ou `MEDIA_ACCESS_NOT_FOUND` — le média, ou la ligne de " +
+            "droits de ce destinataire, n'existe pas.",
+        ),
+        409: errorResponse("`CONFLICT` — règle refusée par la base (XD-07, ligne vide)."),
+      }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "delete",
+    path: `${API_BASE_PATH}/media/{id}/access/{granteeType}/{granteeId}`,
+    operationId: "mediaAccessRevoke",
+    tags: ["media"],
+    summary: "Retirer un accès",
+    description:
+      "Le retrait **supprime la ligne** au lieu de mettre les trois droits à " +
+      "`false` : « l'autorisation se retire par `DELETE` » (`docs/029` §2.6), et une " +
+      "ligne vide est de toute façon interdite par la base. `SUPER_ADMIN` ou " +
+      "`ADMIN` uniquement.",
+    security: BEARER_SECURITY,
+    parameters: [mediaIdParameter, granteeTypeParameter, granteeIdParameter],
+    responses: {
+      204: { description: "Accès retiré : corps vide." },
+      ...adminResponses({
+        404: errorResponse(
+          "`MEDIA_NOT_FOUND` ou `MEDIA_ACCESS_NOT_FOUND` — il n'y a aucun droit à retirer.",
+        ),
+      }),
+    },
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  Notifications (Lot 7)                                                 */
+  /* ---------------------------------------------------------------------- */
+
+  /*
+   * Aucune route ne désigne un destinataire : il est toujours le profil
+   * authentifié. `docs/029` §2.9 fait d'une notification une donnée **adressée**,
+   * et une route acceptant un identifiant ouvrirait la boîte de réception de
+   * quelqu'un d'autre. Ne pas exposer l'entrée est plus sûr que la refuser.
+   *
+   * Aucune route de création non plus : aucune cellule `CREATE` n'existe dans la
+   * matrice, et le créateur est le **système** au dépôt d'une demande de prière
+   * (`docs/030` §6.2) — son garde, D-10, est porté par le service et garanti par
+   * un trigger de la base.
+   */
+
+  registry.registerComponent("schemas", "Notification", {
+    type: "object",
+    description:
+      "Notification adressée à **un** administrateur (`docs/032` §3.3). Elle dit " +
+      "qu'un événement a eu lieu, jamais de quoi il s'agit : aucun contenu, aucun " +
+      "nom, aucun extrait, aucune longueur. Cette interdiction est **structurelle** " +
+      "— les colonnes n'existent pas.",
+    required: ["id", "type", "isRead", "createdAt"],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      type: {
+        type: "string",
+        enum: [
+          "PRAYER_REQUEST_RECEIVED",
+          "KEY_REGISTERED",
+          "KEY_REVOKED",
+          "RECOVERY_KEY_CHANGED",
+        ],
+      },
+      referenceId: {
+        type: ["string", "null"],
+        description:
+          "Identifiant de la ressource référencée (demande de prière, clé) — " +
+          "jamais un fragment de texte.",
+      },
+      isRead: { type: "boolean" },
+      createdAt: { type: "string", format: "date-time" },
+    },
+  });
+
+  const notificationIdParameter = pathParameter(
+    "id",
+    "Identifiant UUID de la notification.",
+    "uuid",
+  );
+
+  registry.registerComponent("schemas", "NotificationCollection", {
+    type: "object",
+    required: ["data", "meta"],
+    properties: {
+      data: { type: "array", items: schemaRef("Notification") },
+      meta: schemaRef("PaginationMeta"),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "get",
+    path: `${API_BASE_PATH}/notifications`,
+    operationId: "notificationsList",
+    tags: ["notifications"],
+    summary: "Boîte de réception de l'appelant",
+    description:
+      "Les notifications **du profil authentifié**, les plus récentes d'abord. " +
+      "Aucun paramètre ne permet de demander la boîte d'un autre : le destinataire " +
+      "est toujours `req.admin.id`. Le domaine des notifications est réservé à " +
+      "l'`ADMIN` — D-10 le ferme entièrement au `SUPER_ADMIN`, cycle de vie des " +
+      "clés compris (`docs/030` §4.7, §6.2), et le responsable n'y a aucune part.",
+    security: BEARER_SECURITY,
+    parameters: [
+      ...PAGINATION_PARAMETERS,
+      enumQueryParameter(
+        "unreadOnly",
+        "`true` pour ne rendre que les notifications non lues. Seules les chaînes " +
+          "`true` et `false` sont acceptées — `Boolean(\"false\")` vaut `true`.",
+        ["true", "false"],
+        "false",
+      ),
+    ],
+    responses: {
+      200: jsonResponse("Collection paginée de notifications.", "NotificationCollection"),
+      ...adminResponses(),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "get",
+    path: `${API_BASE_PATH}/notifications/unread-count`,
+    operationId: "notificationsUnreadCount",
+    tags: ["notifications"],
+    summary: "Nombre de notifications non lues",
+    description:
+      "Indicateur de la barre de navigation. Aucune requête de *query* n'est " +
+      "reconnue (objet strict) : un `?nimportequoi=1` est refusé en " +
+      "`400 VALIDATION_ERROR` plutôt qu'ignoré.",
+    security: BEARER_SECURITY,
+    responses: {
+      200: {
+        description: "Compteur.",
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["unread"],
+              properties: { unread: { type: "integer", minimum: 0 } },
+            },
+          },
+        },
+      },
+      ...adminResponses(),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "patch",
+    path: `${API_BASE_PATH}/notifications/{id}/read`,
+    operationId: "notificationsMarkRead",
+    tags: ["notifications"],
+    summary: "Marquer une notification comme lue",
+    description:
+      "**Idempotent** : marquer une notification déjà lue renvoie `200` sans rien " +
+      "changer — rejouer un marquage n'est pas une faute. Une notification " +
+      "appartenant à un autre produit le **même `404`** qu'une notification " +
+      "inexistante : distinguer `403` et `404` révélerait l'existence d'une donnée " +
+      "adressée à quelqu'un d'autre (`docs/029` §4.5, règles de non-fuite).",
+    security: BEARER_SECURITY,
+    parameters: [notificationIdParameter],
+    responses: {
+      200: jsonResponse("Notification marquée comme lue.", "Notification"),
+      ...adminResponses({
+        404: errorResponse(
+          "`NOTIFICATION_NOT_FOUND` — aucune notification ne correspond à cet " +
+            "identifiant **ou** elle appartient à un autre destinataire.",
+        ),
+      }),
+    },
+  });
+
+  /* ---------------------------------------------------------------------- */
   /*  Demandes de prière                                                    */
   /* ---------------------------------------------------------------------- */
 

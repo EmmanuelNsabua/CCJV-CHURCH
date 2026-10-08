@@ -292,7 +292,9 @@ components:
                 - SOCIAL_LINK_NOT_FOUND
                 - PRAYER_REQUEST_NOT_FOUND
                 - MEDIA_NOT_FOUND
+                - MEDIA_ACCESS_NOT_FOUND
                 - SETTING_NOT_FOUND
+                - NOTIFICATION_NOT_FOUND
                 - PROFILE_NOT_FOUND
                 - DUPLICATE_SLUG
                 - DUPLICATE_EMAIL
@@ -533,6 +535,77 @@ components:
         createdAt:
           type: string
           format: "date-time"
+    MediaAccess:
+      type: object
+      description: "Droits d'accès d'un média (`docs/032` §3.4). Les **trois droits sont indépendants** : `canManage` n'implique pas `canUse`, et `canDelete` ne se déduit d'aucun autre (D-21). Tous les booléens sont toujours présents, y compris `false` — un objet qui omettrait un droit inviterait à le déduire."
+      required:
+        - id
+        - mediaId
+        - granteeType
+        - granteeId
+        - canUse
+        - canManage
+        - canDelete
+        - grantedBy
+        - grantedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        mediaId:
+          type: string
+          format: uuid
+        granteeType:
+          type: string
+          enum:
+            - DEPARTMENT
+            - ADMIN_PROFILE
+        granteeId:
+          type: string
+          format: uuid
+        canUse:
+          type: boolean
+          description: "Référencer le média dans un contenu."
+        canManage:
+          type: boolean
+          description: "Modifier la ressource média."
+        canDelete:
+          type: boolean
+          description: "Jamais accordé à un département (XD-07)."
+        grantedBy:
+          type: string
+          format: uuid
+          description: "Auteur du grant — la preuve de qui a autorisé quoi (`docs/029` §2.6)."
+        grantedAt:
+          type: string
+          format: "date-time"
+        updatedAt:
+          type: string
+          format: "date-time"
+    MediaAccessGrant:
+      type: object
+      description: "Corps d'un accord de droits. Un accès qui n'accorde **rien** est refusé (400 en validation, et `media_access_at_least_one_right` en base), et un département ne peut **jamais** recevoir `DELETE` (XD-07) — le schéma comme la base le refusent, avec le même effet."
+      required:
+        - granteeType
+        - granteeId
+      properties:
+        granteeType:
+          type: string
+          enum:
+            - DEPARTMENT
+            - ADMIN_PROFILE
+        granteeId:
+          type: string
+          format: uuid
+        canUse:
+          type: boolean
+          default: false
+        canManage:
+          type: boolean
+          default: false
+        canDelete:
+          type: boolean
+          default: false
     MediaCollection:
       type: object
       required:
@@ -545,6 +618,19 @@ components:
             "$ref": "#/components/schemas/Media"
         meta:
           "$ref": "#/components/schemas/PaginationMeta"
+    MediaRights:
+      type: object
+      description: "Réécriture des trois droits d'une ligne existante (cellule 6.3)."
+      properties:
+        canUse:
+          type: boolean
+          default: false
+        canManage:
+          type: boolean
+          default: false
+        canDelete:
+          type: boolean
+          default: false
     MediaUsageReport:
       type: object
       description: "Où un média est utilisé (`media.serializer.ts`). `usages` ne contient que les emplacements qui le référencent réellement."
@@ -576,6 +662,47 @@ components:
               count:
                 type: integer
                 minimum: 1
+    Notification:
+      type: object
+      description: "Notification adressée à **un** administrateur (`docs/032` §3.3). Elle dit qu'un événement a eu lieu, jamais de quoi il s'agit : aucun contenu, aucun nom, aucun extrait, aucune longueur. Cette interdiction est **structurelle** — les colonnes n'existent pas."
+      required:
+        - id
+        - type
+        - isRead
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - PRAYER_REQUEST_RECEIVED
+            - KEY_REGISTERED
+            - KEY_REVOKED
+            - RECOVERY_KEY_CHANGED
+        referenceId:
+          type:
+            - string
+            - "null"
+          description: "Identifiant de la ressource référencée (demande de prière, clé) — jamais un fragment de texte."
+        isRead:
+          type: boolean
+        createdAt:
+          type: string
+          format: "date-time"
+    NotificationCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Notification"
+        meta:
+          "$ref": "#/components/schemas/PaginationMeta"
     PaginationMeta:
       type: object
       description: "Métadonnées de pagination, présentes sur les seules réponses de collection (`buildPaginationMeta`). `totalPages` vaut 0 lorsque la collection est vide."
@@ -3555,6 +3682,7 @@ paths:
                   additionalProperties: {}
               required:
                 - content
+              additionalProperties: false
       responses:
         "200":
           description: "Contenu mis à jour."
@@ -3788,6 +3916,349 @@ paths:
                 "$ref": "#/components/schemas/ErrorResponse"
         "409":
           description: "`CONFLICT` — le média est encore utilisé et `force` n'est pas `true`. `details: { total, usages }`."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/media/{id}/access":
+    get:
+      operationId: mediaAccessList
+      tags:
+        - media
+      summary: "Lister les droits d'accès d'un média"
+      description: "Qui peut utiliser ce média, et pour quoi faire. Liste **bornée et non paginée** : elle est rendue dans l'enveloppe `{ data: [...] }`, sans `meta` — comme celles de `scriptures`, `schedule` et `social-links`. Réservé au `SUPER_ADMIN` et à l'`ADMIN` : la lecture par un responsable n'est pas arbitrée (docs/029 Q-11, cellule 6.1), et le refus par défaut s'applique. À ne pas confondre avec le **registre des médias** (cellule 5.2), qui, lui, est ouvert au responsable pour les médias où un droit existe."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID du média."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "Droits d'accès du média."
+          content:
+            "application/json":
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      "$ref": "#/components/schemas/MediaAccess"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`MEDIA_NOT_FOUND` — aucun média ne correspond à cet identifiant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    post:
+      operationId: mediaAccessGrant
+      tags:
+        - media
+      summary: "Accorder un accès à un média"
+      description: "`SUPER_ADMIN` ou `ADMIN` uniquement : « L'`ADMIN` ou le `SUPER_ADMIN` accorde l'autorisation » (D-22). Un responsable ne peut **jamais** s'accorder un accès, ni à lui-même ni à son département (XD-08). Aucun partage par défaut (XD-09) : sans cette opération, un département ne voit rien. `409` si ce destinataire dispose déjà d'une ligne — elle se **modifie**, elle ne se duplique pas, pour que l'auteur du grant initial reste attribuable."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID du média."
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/MediaAccessGrant"
+      responses:
+        "201":
+          description: "Droits accordés."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/MediaAccess"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`MEDIA_NOT_FOUND` — aucun média ne correspond à cet identifiant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "409":
+          description: "`CONFLICT` — règle refusée par la base : droits portant `DELETE` sur un département (XD-07), ligne déjà existante, aucun droit accordé, ou destinataire inexistant."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/media/{id}/access/{granteeType}/{granteeId}":
+    patch:
+      operationId: mediaAccessUpdate
+      tags:
+        - media
+      summary: "Modifier les droits d'un destinataire"
+      description: "Réécrit les trois droits d'une ligne existante (cellule 6.3). `SUPER_ADMIN` ou `ADMIN` uniquement : modifier un droit est la même opération qu'en accorder un, à une ligne près. Les trois droits sont **remplacés**, jamais fusionnés : une modification partielle obligerait à relire l'état courant, donc à écrire depuis un état périmé."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID du média."
+          schema:
+            type: string
+            format: uuid
+        - name: granteeType
+          in: path
+          required: true
+          description: "Type de destinataire : un département, ou un profil nommément désigné."
+          schema:
+            type: string
+            enum:
+              - DEPARTMENT
+              - ADMIN_PROFILE
+        - name: granteeId
+          in: path
+          required: true
+          description: "Identifiant du destinataire (`departments.id` ou `admin_profiles.id`, selon `granteeType`)."
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/MediaRights"
+      responses:
+        "200":
+          description: "Droits mis à jour."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/MediaAccess"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`MEDIA_NOT_FOUND` ou `MEDIA_ACCESS_NOT_FOUND` — le média, ou la ligne de droits de ce destinataire, n'existe pas."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "409":
+          description: "`CONFLICT` — règle refusée par la base (XD-07, ligne vide)."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    delete:
+      operationId: mediaAccessRevoke
+      tags:
+        - media
+      summary: "Retirer un accès"
+      description: "Le retrait **supprime la ligne** au lieu de mettre les trois droits à `false` : « l'autorisation se retire par `DELETE` » (`docs/029` §2.6), et une ligne vide est de toute façon interdite par la base. `SUPER_ADMIN` ou `ADMIN` uniquement."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID du média."
+          schema:
+            type: string
+            format: uuid
+        - name: granteeType
+          in: path
+          required: true
+          description: "Type de destinataire : un département, ou un profil nommément désigné."
+          schema:
+            type: string
+            enum:
+              - DEPARTMENT
+              - ADMIN_PROFILE
+        - name: granteeId
+          in: path
+          required: true
+          description: "Identifiant du destinataire (`departments.id` ou `admin_profiles.id`, selon `granteeType`)."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: "Accès retiré : corps vide."
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`MEDIA_NOT_FOUND` ou `MEDIA_ACCESS_NOT_FOUND` — il n'y a aucun droit à retirer."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/notifications":
+    get:
+      operationId: notificationsList
+      tags:
+        - notifications
+      summary: "Boîte de réception de l'appelant"
+      description: "Les notifications **du profil authentifié**, les plus récentes d'abord. Aucun paramètre ne permet de demander la boîte d'un autre : le destinataire est toujours `req.admin.id`. Le domaine des notifications est réservé à l'`ADMIN` — D-10 le ferme entièrement au `SUPER_ADMIN`, cycle de vie des clés compris (`docs/030` §4.7, §6.2), et le responsable n'y a aucune part."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: "Numéro de page (commence à 1). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          description: "Taille de page (1 à 100 inclus). Valeur hors bornes ⇒ 400 VALIDATION_ERROR."
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: unreadOnly
+          in: query
+          required: false
+          description: "`true` pour ne rendre que les notifications non lues. Seules les chaînes `true` et `false` sont acceptées — `Boolean(\"false\")` vaut `true`."
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+            default: "false"
+      responses:
+        "200":
+          description: "Collection paginée de notifications."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/NotificationCollection"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/notifications/unread-count":
+    get:
+      operationId: notificationsUnreadCount
+      tags:
+        - notifications
+      summary: "Nombre de notifications non lues"
+      description: "Indicateur de la barre de navigation. Aucune requête de *query* n'est reconnue (objet strict) : un `?nimportequoi=1` est refusé en `400 VALIDATION_ERROR` plutôt qu'ignoré."
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Compteur."
+          content:
+            "application/json":
+              schema:
+                type: object
+                required:
+                  - unread
+                properties:
+                  unread:
+                    type: integer
+                    minimum: 0
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/notifications/{id}/read":
+    patch:
+      operationId: notificationsMarkRead
+      tags:
+        - notifications
+      summary: "Marquer une notification comme lue"
+      description: "**Idempotent** : marquer une notification déjà lue renvoie `200` sans rien changer — rejouer un marquage n'est pas une faute. Une notification appartenant à un autre produit le **même `404`** qu'une notification inexistante : distinguer `403` et `404` révélerait l'existence d'une donnée adressée à quelqu'un d'autre (`docs/029` §4.5, règles de non-fuite)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "Identifiant UUID de la notification."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "Notification marquée comme lue."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Notification"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          description: "`NOTIFICATION_NOT_FOUND` — aucune notification ne correspond à cet identifiant **ou** elle appartient à un autre destinataire."
           content:
             "application/json":
               schema:
