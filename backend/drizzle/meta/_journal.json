@@ -15,6 +15,13 @@
       "when": 1791415525720,
       "tag": "0001_lowly_frightful_four",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791419366907,
+      "tag": "0002_easy_magik",
+      "breakpoints": true
     }
   ]
 }

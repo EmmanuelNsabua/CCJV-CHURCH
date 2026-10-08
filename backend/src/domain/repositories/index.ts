@@ -20,6 +20,7 @@ import type {
   StaticPage,
   Testimony,
 } from "@/domain/entities";
+import type { DepartmentCapability } from "@/domain/departments/capabilities";
 
 /**
  * Contrats de persistance.
@@ -188,6 +189,55 @@ export interface DepartmentRepository {
   create(data: DepartmentInput, slug: string): Promise<Department>;
   update(id: string, data: Partial<DepartmentInput>): Promise<Department | null>;
   remove(id: string): Promise<boolean>;
+}
+
+/**
+ * Capacités de département — contrat **séparé** de `DepartmentRepository`.
+ *
+ * `docs/004` §9 et l'Interface Segregation : un service ne reçoit que ce dont il
+ * a besoin. Ici la séparation a une raison plus précise que l'élégance. Une
+ * capacité n'est **pas** un attribut éditorial du département : elle décide de la
+ * **portée publique** d'un événement (D-25, D-26), et son écriture est
+ * l'opération la plus sensible du modèle — `docs/029` §5.3 la désigne comme
+ * « le vecteur d'escalade le plus direct ». La ranger dans le même contrat que
+ * `update()` la rendrait accessible par toute couche qui reçoit déjà le
+ * repository des départements — c'est-à-dire, à terme, par le service public.
+ *
+ * Le contrat est donc étroit par construction : **lire** les capacités d'un
+ * département, les **accorder**, les **retirer**. Rien d'autre — et surtout pas
+ * de méthode qui les modifierait au détour d'une mise à jour de fiche.
+ */
+export interface DepartmentCapabilityRepository {
+  /**
+   * Capacités d'un département.
+   *
+   * Sert aujourd'hui à l'outil d'exploitation, qui affiche l'état **avant** et
+   * **après** un grant : un opérateur doit pouvoir constater qu'une capacité
+   * était déjà accordée plutôt que de le supposer. Ce sera également la lecture
+   * du chemin événementiel (Lot 6), où la portée publique d'un événement est
+   * dérivée de la capacité du département (D-25, D-26).
+   */
+  listForDepartment(departmentId: string): Promise<DepartmentCapability[]>;
+
+  /**
+   * Accorde une capacité, de façon **idempotente**.
+   *
+   * `ON CONFLICT DO NOTHING` plutôt qu'une erreur : accorder deux fois la même
+   * capacité n'est pas une faute de l'appelant, c'est un état désiré déjà
+   * atteint. Les scripts d'exploitation doivent pouvoir être rejoués sans échouer
+   * — c'est exactement ce que `docs/033` exige d'une étape de migration.
+   *
+   * `grantedBy` est conservé (`granted_by`, `RESTRICT`) : `docs/032` §3.5 le
+   * déclare facultatif, mais l'attribution est ce qui rend un grant auditable.
+   */
+  grant(data: {
+    departmentId: string;
+    capability: DepartmentCapability;
+    grantedBy?: string | null;
+  }): Promise<void>;
+
+  /** Retire une capacité. `false` si elle n'était pas accordée. */
+  revoke(departmentId: string, capability: DepartmentCapability): Promise<boolean>;
 }
 
 export interface EventRepository {

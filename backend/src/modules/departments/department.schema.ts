@@ -41,6 +41,40 @@ export const listDepartmentQuerySchema = paginationQuerySchema;
 export type DepartmentListQuery = PaginationQuery;
 
 /**
+ * `capabilities` **n'est pas** un champ de saisie de ce module, et ce refus est
+ * explicite plutôt que silencieux.
+ *
+ * Trois raisons, dans l'ordre d'importance :
+ *
+ * 1. **C'est une donnée d'autorisation, pas un attribut éditorial.** Une capacité
+ *    décide de la portée publique des événements d'un département (D-25, D-26).
+ *    L'accepter ici la ferait passer par la route qui édite la fiche d'un
+ *    département — c'est-à-dire par le pouvoir le moins surveillé du modèle.
+ * 2. **L'arbitrage est ouvert.** `docs/029` Q-06 (« qui édite les capacités »)
+ *    n'est pas tranchée, et `docs/029` §5.3 en fait « le vecteur d'escalade le
+ *    plus direct » : un responsable qui pourrait modifier les capacités de son
+ *    propre département s'attribuerait la portée globale. `DepartmentPolicy`
+ *    refuse donc `EDIT_CAPABILITIES` à **tout le monde**.
+ * 3. **Le silence serait pire que le refus.** Un objet Zod, par défaut,
+ *    *retire* les clés inconnues : un client envoyant `capabilities` aurait reçu
+ *    un `200` sur un département inchangé, et aurait cru l'opération réussie.
+ *    Pour une donnée d'autorisation, un faux succès est le pire des retours.
+ *
+ * Écrire une capacité passe aujourd'hui par l'exploitation
+ * (`npm run dept:capability`), qui exige l'auteur du grant pour que la ligne
+ * reste attribuable (`docs/032` §3.5). Le jour où Q-06 est tranchée, une route
+ * dédiée portera `authorize(DepartmentPolicy, "EDIT_CAPABILITIES")` — et ce
+ * champ cessera alors d'être refusé ici, sans que la policy change de nature.
+ */
+const refusedCapabilities = z
+  .unknown()
+  .optional()
+  .refine((value) => value === undefined, {
+    message:
+      "Les capacités d'un département ne se modifient pas par cette route : elles décident la portée publique des événements (docs/028 D-25), et savoir qui peut les éditer n'est pas tranché (docs/029 Q-06).",
+  });
+
+/**
  * Champs communs à la création et à la mise à jour.
  *
  * `nullish()` et non `optional()` : un administrateur doit pouvoir **vider** un
@@ -72,6 +106,7 @@ const departmentFields = {
   bannerMediaId: z.uuid("L'identifiant de média doit être un UUID").nullish(),
   galleryMediaIds: z.array(z.uuid("Identifiant de média invalide")).max(60).optional(),
   position: z.coerce.number().int().min(0).max(10_000).optional(),
+  capabilities: refusedCapabilities,
 };
 
 export const createDepartmentSchema = z.object({

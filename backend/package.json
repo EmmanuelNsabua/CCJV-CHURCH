@@ -21,7 +21,8 @@
     "db:studio": "drizzle-kit studio",
     "seed": "tsx src/infrastructure/database/seed.ts",
     "openapi": "tsx src/presentation/openapi/generate.ts",
-    "admin:create": "tsx scripts/create-admin.ts"
+    "admin:create": "tsx scripts/create-admin.ts",
+    "dept:capability": "tsx scripts/grant-department-capability.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^9.1.0",
