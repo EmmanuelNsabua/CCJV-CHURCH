@@ -6,7 +6,10 @@ import type {
   Event,
   EventStatus,
   Leader,
+  MediaAccess,
+  MediaAccessRights,
   MediaAsset,
+  MediaGranteeType,
   PersistedAdminRole,
   PrayerRequest,
   Publication,
@@ -338,6 +341,75 @@ export interface MediaRepository {
   remove(id: string): Promise<boolean>;
   /** Nombre de références à ce média (galeries, couvertures, portraits). */
   countReferences(mediaId: string): Promise<number>;
+}
+
+/**
+ * Droits d'accès aux médias (`docs/028` D-21, D-22, `docs/032` §3.4).
+ *
+ * Contrat **séparé** de `MediaRepository`, et la séparation porte une décision :
+ * un média n'appartient à personne (X27 : pas de `media.department_id`), son
+ * accès est une **autorisation explicite**. Ranger les droits dans le même
+ * contrat que le média laisserait croire qu'ils sont un attribut du fichier —
+ * c'est-à-dire exactement le rattachement que D-22 interdit.
+ *
+ * Aucune méthode n'accorde quoi que ce soit « par défaut » : `grant` est un acte
+ * délibéré, et il n'existe aucun chemin qui créerait une ligne de droits au
+ * moment du téléversement (XD-09).
+ */
+export interface MediaAccessRepository {
+  /** Droits d'un média, tous destinataires confondus. */
+  listForMedia(mediaId: string): Promise<MediaAccess[]>;
+
+  /**
+   * Droits de **plusieurs** médias en une requête.
+   *
+   * Existe pour un cas réel et non par anticipation : la lecture du registre
+   * (cellule 5.2) rend une **collection**, et la policy doit savoir, média par
+   * média, ce que l'acteur a le droit d'y voir. Une requête par média ferait un
+   * N+1 sur une page de vingt.
+   */
+  listForMediaIds(mediaIds: readonly string[]): Promise<Map<string, MediaAccess[]>>;
+
+  /** La ligne de droits d'un couple (média, destinataire), ou `null`. */
+  findFor(
+    mediaId: string,
+    granteeType: MediaGranteeType,
+    granteeId: string,
+  ): Promise<MediaAccess | null>;
+
+  /**
+   * Accorde des droits. Échoue si le couple existe déjà — l'unicité est garantie
+   * par la base (deux index uniques partiels), et un `ON CONFLICT` masquerait une
+   * double intention plutôt que de la signaler.
+   */
+  grant(data: {
+    mediaId: string;
+    granteeType: MediaGranteeType;
+    granteeId: string;
+    rights: MediaAccessRights;
+    grantedBy: string;
+  }): Promise<MediaAccess>;
+
+  /**
+   * Réécrit les trois droits d'une ligne existante.
+   *
+   * `updatedAt` est écrit par le repository : la base porte
+   * `CHECK (updated_at >= granted_at)`, et une horloge fournie par l'appelant
+   * pourrait la violer.
+   */
+  updateRights(
+    mediaId: string,
+    granteeType: MediaGranteeType,
+    granteeId: string,
+    rights: MediaAccessRights,
+  ): Promise<MediaAccess | null>;
+
+  /** Retire tous les droits d'un destinataire (action `REVOKE`, `docs/029` §2.6). */
+  revoke(
+    mediaId: string,
+    granteeType: MediaGranteeType,
+    granteeId: string,
+  ): Promise<boolean>;
 }
 
 export interface PrayerRequestRepository {

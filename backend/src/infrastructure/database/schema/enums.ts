@@ -74,4 +74,34 @@ export const prayerConfidentialityEnum = pgEnum("prayer_confidentiality", [
   "community",
 ]);
 
+/**
+ * Destinataire d'un accès média (`docs/032` §3.2, `media_grantee_type`).
+ *
+ * Deux formes, et deux seulement : un **département** (l'accès profite à tous ses
+ * responsables) ou un **profil** nommément désigné. `media_access.grantee_id`
+ * étant polymorphe, c'est cette colonne qui dit comment l'interpréter — et c'est
+ * aussi elle qui porte les deux index uniques partiels, un par type de
+ * destinataire (`docs/032` §3.4).
+ */
+export const mediaGranteeTypeEnum = pgEnum("media_grantee_type", [
+  "DEPARTMENT",
+  "ADMIN_PROFILE",
+]);
+
+/**
+ * Vocabulaire des droits média (`docs/032` §3.2).
+ *
+ * ⚠️ **Ce type ne sert de colonne nulle part**, et c'est délibéré : `media_access`
+ * porte **trois colonnes booléennes indépendantes**, parce que D-21 interdit toute
+ * hiérarchie (« pas de hiérarchie `DELETE ⊃ MANAGE ⊃ USE` »). Un type énuméré
+ * unique aurait au contraire suggéré une échelle — le genre de forme qui produit
+ * une déduction. Il est conservé pour ce qu'il documente : le **vocabulaire
+ * arrêté** des trois droits, et la trace de la décision.
+ */
+export const mediaAccessModeEnum = pgEnum("media_access_mode", [
+  "USE",
+  "MANAGE",
+  "DELETE",
+]);
+
 export const prayerStatusEnum = pgEnum("prayer_status", ["NEW", "PRAYED"]);

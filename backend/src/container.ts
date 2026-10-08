@@ -16,6 +16,7 @@ import { DrizzleDepartmentRepository } from "@/infrastructure/repositories/depar
 import { DrizzleEventRepository } from "@/infrastructure/repositories/event.repository";
 import { DrizzleLeaderRepository } from "@/infrastructure/repositories/leader.repository";
 import { DrizzleMediaRepository } from "@/infrastructure/repositories/media.repository";
+import { DrizzleMediaAccessRepository } from "@/infrastructure/repositories/media-access.repository";
 import { DrizzlePrayerRequestRepository } from "@/infrastructure/repositories/prayer-request.repository";
 import { DrizzlePublicationRepository } from "@/infrastructure/repositories/publication.repository";
 import { DrizzleScheduleRepository } from "@/infrastructure/repositories/schedule.repository";
@@ -99,6 +100,7 @@ export interface AppDependencies {
     settings: DrizzleSettingRepository;
     staticPages: DrizzleStaticPageRepository;
     media: DrizzleMediaRepository;
+    mediaAccess: DrizzleMediaAccessRepository;
     prayerRequests: DrizzlePrayerRequestRepository;
   };
   services: {
@@ -156,6 +158,7 @@ export function createContainer(
       settings: new DrizzleSettingRepository(database),
       staticPages: new DrizzleStaticPageRepository(database),
       media: new DrizzleMediaRepository(database),
+      mediaAccess: new DrizzleMediaAccessRepository(database),
       prayerRequests: new DrizzlePrayerRequestRepository(database),
     } satisfies AppDependencies["repositories"]);
 
@@ -171,7 +174,7 @@ export function createContainer(
     socialLinks: new SocialLinkService(repositories.socialLinks),
     settings: new SettingService(repositories.settings, repositories.socialLinks),
     staticPages: new StaticPageService(repositories.staticPages),
-    media: new MediaService(repositories.media, storage),
+    media: new MediaService(repositories.media, storage, repositories.mediaAccess),
     prayerRequests: new PrayerRequestService(repositories.prayerRequests),
     admin: new AdminService(
       repositories.adminProfiles,

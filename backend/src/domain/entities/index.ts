@@ -130,6 +130,58 @@ export interface MediaAsset {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Droits d'accès aux médias                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Les **trois droits indépendants** d'un accès média (`docs/028` D-21, `docs/032`
+ * §3.4).
+ *
+ * Ils sont trois, et **aucun ne se déduit d'un autre** : « pas de hiérarchie
+ * `DELETE ⊃ MANAGE ⊃ USE`» (D-21). Le système teste donc **explicitement** la
+ * permission demandée, et le schéma le garantit de son côté avec trois colonnes
+ * booléennes indépendantes — « aucun drapeau agrégé, aucun niveau, aucun
+ * ordinal ».
+ *
+ * Ce type vit dans le domaine et non dans la policy : la persistance, le service
+ * et la policy jugent les **mêmes** droits, et deux déclarations jumelles
+ * finiraient par diverger — la policy autoriserait ce que le repository refuse.
+ */
+export interface MediaAccessRights {
+  canUse: boolean;
+  canManage: boolean;
+  canDelete: boolean;
+}
+
+/** Type de destinataire d'un accès média (`docs/032` §3.2, `media_grantee_type`). */
+export type MediaGranteeType = "DEPARTMENT" | "ADMIN_PROFILE";
+
+/**
+ * Ligne de droits d'accès (`public.media_access`, `docs/032` §3.4).
+ *
+ * `granteeId` désigne **un département ou un profil** selon `granteeType` : la
+ * colonne est polymorphe et n'a **aucune clé étrangère** — une FK conditionnelle
+ * n'existe pas en SQL. L'intégrité de la cible est portée par un trigger
+ * PostgreSQL (`media_access_check_grantee`) que `docs/033` M-H1 crée avec la
+ * table ; `docs/033` R-NT1 signale honnêtement que ce trigger reste
+ * « contournable par désactivation », et laisse la question ouverte.
+ *
+ * `grantedBy` n'est pas décoratif : `docs/029` §2.6 en fait la **preuve de qui a
+ * autorisé quoi**. La FK est en `RESTRICT` — supprimer l'auteur d'un grant est
+ * refusé tant que le grant subsiste, sinon l'autorisation deviendrait
+ * inattribuable.
+ */
+export interface MediaAccess extends MediaAccessRights {
+  id: string;
+  mediaId: string;
+  granteeType: MediaGranteeType;
+  granteeId: string;
+  grantedBy: string;
+  grantedAt: Date;
+  updatedAt: Date;
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Départements et événements                                                */
 /* -------------------------------------------------------------------------- */
 

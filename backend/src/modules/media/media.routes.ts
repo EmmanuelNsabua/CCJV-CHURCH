@@ -4,13 +4,16 @@ import { env } from "@/config/env";
 import { PayloadTooLargeError, ValidationError } from "@/shared/errors/app-error";
 import type { AuthDependencies } from "@/presentation/middlewares/auth";
 import { requireAuthenticatedAdmin } from "@/presentation/middlewares/auth";
-import { authorize, MediaPolicy } from "@/presentation/policies";
+import { authorize, MediaAccessPolicy, MediaPolicy } from "@/presentation/policies";
 import { validate } from "@/presentation/middlewares/validate";
 import { createMediaController } from "./media.controller";
 import {
   deleteMediaQuerySchema,
+  grantMediaAccessSchema,
   listQuerySchema,
   mediaIdParamSchema,
+  mediaRightsSchema,
+  paramsWithMediaAccessSchema,
   uploadMediaBodySchema,
 } from "./media.schema";
 import type { MediaService } from "./media.service";
@@ -120,6 +123,54 @@ export function createMediaRouter(deps: MediaRouterDeps): Router {
     authorize(MediaPolicy, "DELETE"),
     validate({ params: mediaIdParamSchema, query: deleteMediaQuerySchema }),
     controller.remove,
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /*  Droits d'accès (docs/028 D-21, D-22)                                  */
+  /* ---------------------------------------------------------------------- */
+
+  /*
+   * Quatre routes, quatre actions **distinctes** — et cette distinction est le
+   * cœur de D-21 : lire les droits, les accorder, les modifier et les retirer
+   * sont quatre décisions différentes, jamais quatre degrés d'un même droit.
+   * `MediaAccessPolicy` porte les deux dernières ; les deux premières délèguent
+   * à `MediaPolicy` (`docs/029` §4.6), pour qu'il n'existe qu'une seule
+   * formulation de « seul l'ADMIN ou le SUPER_ADMIN accorde ».
+   *
+   * Aucune de ces routes n'est publique : le registre des autorisations dit qui
+   * peut faire quoi, et cette information n'appartient pas aux visiteurs.
+   */
+
+  router.get(
+    "/:id/access",
+    ...admin,
+    authorize(MediaAccessPolicy, "READ"),
+    validate({ params: mediaIdParamSchema }),
+    controller.listAccess,
+  );
+
+  router.post(
+    "/:id/access",
+    ...admin,
+    authorize(MediaAccessPolicy, "GRANT_ACCESS"),
+    validate({ params: mediaIdParamSchema, body: grantMediaAccessSchema }),
+    controller.grantAccess,
+  );
+
+  router.patch(
+    "/:id/access/:granteeType/:granteeId",
+    ...admin,
+    authorize(MediaAccessPolicy, "UPDATE"),
+    validate({ params: paramsWithMediaAccessSchema, body: mediaRightsSchema }),
+    controller.updateAccess,
+  );
+
+  router.delete(
+    "/:id/access/:granteeType/:granteeId",
+    ...admin,
+    authorize(MediaAccessPolicy, "REVOKE_ACCESS"),
+    validate({ params: paramsWithMediaAccessSchema }),
+    controller.revokeAccess,
   );
 
   return router;

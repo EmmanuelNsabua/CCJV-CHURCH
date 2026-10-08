@@ -73,3 +73,82 @@ export const deleteMediaQuerySchema = z.strictObject({
 });
 
 export type DeleteMediaQuery = z.infer<typeof deleteMediaQuerySchema>;
+
+/* -------------------------------------------------------------------------- */
+/*  Droits d'accès (docs/028 D-21, D-22)                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Destinataire d'un accès : un département, ou un profil nommément désigné.
+ *
+ * C'est `docs/032` §3.4 (`media_grantee_type`) : la colonne est polymorphe, et
+ * c'est ce champ qui dit comment lire l'identifiant. Un client ne peut donc pas
+ * accorder un accès « à quelqu'un » sans dire de quel type de destinataire il
+ * s'agit — l'ambiguïté serait une autorisation donnée à une entité non
+ * identifiée.
+ */
+export const mediaGranteeTypeSchema = z.enum(["DEPARTMENT", "ADMIN_PROFILE"], "Type de destinataire invalide");
+
+export const mediaAccessTargetSchema = z.object({
+  granteeType: mediaGranteeTypeSchema,
+  granteeId: z.uuid("Identifiant de destinataire invalide"),
+});
+
+export type MediaAccessTargetParams = z.infer<typeof mediaAccessTargetSchema>;
+
+/**
+ * Les trois droits, **indépendants**, et le refus d'une ligne vide.
+ *
+ * Le raffinement reproduit ici `media_access_at_least_one_right` : la base
+ * refuserait de toute façon, mais elle le ferait après la décision d'accès, et
+ * avec un message de contrainte. Refuser à la validation rend la réponse
+ * exploitable — le client sait *quel champ* il a oublié, et non qu'une contrainte
+ * SQL a échoué.
+ *
+ * Aucun des trois n'est déduit d'un autre (D-21) : un `canManage: true` n'ouvre
+ * jamais `canUse`, et le schéma ne propose aucun raccourci qui le laisserait
+ * croire.
+ */
+export const mediaRightsSchema = z
+  .object({
+    canUse: z.boolean().default(false),
+    canManage: z.boolean().default(false),
+    canDelete: z.boolean().default(false),
+  })
+  .refine((rights) => rights.canUse || rights.canManage || rights.canDelete, {
+    message:
+      "Un accès doit accorder au moins un droit (USE, MANAGE ou DELETE) : un droit vide n'est pas une autorisation",
+  });
+
+export type MediaRightsBody = z.infer<typeof mediaRightsSchema>;
+
+/**
+ * Refus explicite de `canDelete` sur un grant à un **département** (XD-07).
+ *
+ * La base l'interdit aussi (`media_access_department_no_delete`), et cette
+ * redondance est assumée : elle transforme une erreur de contrainte en refus
+ * lisible **avant** toute écriture. Le contrôle porte sur le couple
+ * (destinataire, droits), donc sur le corps entier.
+ */
+export const grantMediaAccessSchema = z
+  .object({
+    granteeType: mediaGranteeTypeSchema,
+    granteeId: z.uuid("Identifiant de destinataire invalide"),
+    canUse: z.boolean().default(false),
+    canManage: z.boolean().default(false),
+    canDelete: z.boolean().default(false),
+  })
+  .refine((value) => value.canUse || value.canManage || value.canDelete, {
+    message:
+      "Un accès doit accorder au moins un droit (USE, MANAGE ou DELETE)",
+  })
+  .refine((value) => value.granteeType !== "DEPARTMENT" || value.canDelete === false, {
+    message:
+      "Un accès accordé à un département ne peut jamais porter DELETE (docs/028 XD-07, D-21)",
+  });
+
+export type GrantMediaAccessBody = z.infer<typeof grantMediaAccessSchema>;
+
+export const paramsWithMediaAccessSchema = mediaIdParamSchema.merge(mediaAccessTargetSchema);
+
+export type ParamsWithMediaAccess = z.infer<typeof paramsWithMediaAccessSchema>;

@@ -22,6 +22,13 @@
       "when": 1791419366907,
       "tag": "0002_easy_magik",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791422346526,
+      "tag": "0003_medical_blue_blade",
+      "breakpoints": true
     }
   ]
 }

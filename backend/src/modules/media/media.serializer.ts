@@ -1,4 +1,4 @@
-import type { MediaAsset } from "@/domain/entities";
+import type { MediaAccess, MediaAsset } from "@/domain/entities";
 import type { MediaUsage } from "@/infrastructure/repositories/media.repository";
 import type { MediaUsageReport } from "./media.service";
 
@@ -73,5 +73,45 @@ export function toMediaUsageReportDto(report: MediaUsageReport): MediaUsageRepor
     media: toMediaDto(report.media),
     total: report.total,
     usages: report.usages.map(toMediaUsageDto),
+  };
+}
+
+/**
+ * Droits d'accès d'un média, tels que le back-office doit les lire.
+ *
+ * Les trois droits sont émis **séparément** et toujours présents, y compris
+ * `false` : c'est la seule forme qui ne laisse pas croire à une hiérarchie. Un
+ * objet `{ use, manage }` sans `delete` inviterait à lire « et donc il peut
+ * supprimer » — la déduction exacte que D-21 interdit.
+ *
+ * `grantedBy` et `grantedAt` sont exposés : une autorisation doit rester
+ * **attribuable** dans l'interface qui la montre (`docs/029` §2.6 — l'auteur du
+ * grant est la preuve de qui a autorisé quoi).
+ */
+export interface MediaAccessDto {
+  id: string;
+  mediaId: string;
+  granteeType: "DEPARTMENT" | "ADMIN_PROFILE";
+  granteeId: string;
+  canUse: boolean;
+  canManage: boolean;
+  canDelete: boolean;
+  grantedBy: string;
+  grantedAt: string;
+  updatedAt: string;
+}
+
+export function toMediaAccessDto(access: MediaAccess): MediaAccessDto {
+  return {
+    id: access.id,
+    mediaId: access.mediaId,
+    granteeType: access.granteeType,
+    granteeId: access.granteeId,
+    canUse: access.canUse,
+    canManage: access.canManage,
+    canDelete: access.canDelete,
+    grantedBy: access.grantedBy,
+    grantedAt: access.grantedAt.toISOString(),
+    updatedAt: access.updatedAt.toISOString(),
   };
 }

@@ -28,6 +28,7 @@ export type ErrorCode =
   | "SOCIAL_LINK_NOT_FOUND"
   | "PRAYER_REQUEST_NOT_FOUND"
   | "MEDIA_NOT_FOUND"
+  | "MEDIA_ACCESS_NOT_FOUND"
   | "SETTING_NOT_FOUND"
   | "PROFILE_NOT_FOUND"
   // Conflits
