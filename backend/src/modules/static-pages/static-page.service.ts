@@ -1,24 +1,36 @@
 import type { ZodType } from "zod";
 import type { StaticPage } from "@/domain/entities";
 import type { StaticPageRepository } from "@/domain/repositories";
-import { getPageContentSchema } from "@/domain/content/page-content";
+import { getPageContentSchema, readPageContent } from "@/domain/content/page-content";
 import { NotFoundError, ValidationError } from "@/shared/errors/app-error";
+import { formatIssues } from "@/shared/http/issues";
 
 /**
  * Règles métier des pages éditables.
  *
- * Le contenu n'est jamais écrit en aveugle : il est validé par le schéma de la
- * page (`docs/018` §5). Deux refus distincts :
+ * Le contenu n'est jamais écrit en aveugle : il est validé par le contrat de la
+ * page (`docs/031` §3.2). Deux refus distincts à l'écriture :
  * - `pageKey` inconnue → `PAGE_NOT_FOUND` (404) : le frontend ne saurait pas
  *   lire cette page ;
  * - contenu non conforme → `VALIDATION_ERROR` (400) avec le détail des champs.
+ *
+ * **La lecture, elle, ne refuse rien.** Elle applique la tolérance de
+ * `docs/031` §3.5 règle C : le contenu est normalisé puis filtré champ par
+ * champ, et ce qui n'est pas lisible est **omis** — le frontend reprend alors sa
+ * constante de code. Une ligne écrite sous un ancien contrat ne peut donc pas
+ * empêcher une page de se rendre, ni provoquer un `500`.
+ *
+ * Cette asymétrie est le cœur du lot : **strict à l'entrée, tolérant à la
+ * sortie**. Un backend strict des deux côtés casserait le site à la première
+ * évolution de contrat ; tolérant des deux côtés, il laisserait écrire
+ * n'importe quoi.
  */
 export class StaticPageService {
   constructor(private readonly pages: StaticPageRepository) {}
 
   /**
-   * Schéma de la page, ou 404 si la clé n'est pas éditable.
-   * `isKnownPageKey` (exporté par le registre) permet au back-office d'énumérer
+   * Contrat de la page, ou 404 si la clé n'est pas éditable.
+   * `knownPageKeys` (exporté par le registre) permet au back-office d'énumérer
    * les pages éditables sans dupliquer la liste.
    */
   private schemaFor(pageKey: string): ZodType {
@@ -33,6 +45,14 @@ export class StaticPageService {
     return schema;
   }
 
+  /**
+   * Lecture publique, **tolérante**.
+   *
+   * Le contenu servi est celui que le contrat accepte de reconnaître : les
+   * champs illisibles sont absents plutôt que remplacés, et la page garde ses
+   * textes de code pour eux (`docs/031` §4.3 : « Le texte manquant n'est jamais
+   * remplacé par un texte inventé »).
+   */
   async getByKey(pageKey: string): Promise<StaticPage> {
     this.schemaFor(pageKey);
 
@@ -44,7 +64,8 @@ export class StaticPageService {
         { pageKey },
       );
     }
-    return page;
+
+    return { ...page, content: readPageContent(pageKey, page.content) };
   }
 
   async updateContent(
@@ -58,14 +79,21 @@ export class StaticPageService {
     if (!parsed.success) {
       throw new ValidationError(
         `Contenu invalide pour la page « ${pageKey} »`,
-        parsed.error.issues.map((issue) => ({
-          champ: issue.path.map(String).join(".") || "(racine)",
-          message: issue.message,
-        })),
+        // Le format des détails est celui du middleware de validation, réutilisé
+        // tel quel : `docs/031` §3.4 exige que `details` **nomme** la clé fautive
+        // (« `sections` », ou la faute de frappe « `heroTittle` »), y compris
+        // quand le refus vient d'une clé non reconnue — cas où Zod ne remplit pas
+        // `path` et où un format écrit à la main produirait `(racine)`.
+        formatIssues(parsed.error),
       );
     }
 
-    return this.pages.upsert(pageKey, toContentRecord(parsed.data), updatedBy);
+    const stored = await this.pages.upsert(pageKey, toContentRecord(parsed.data), updatedBy);
+
+    // Ce qui est renvoyé est **relu** par le chemin de lecture, comme le fera la
+    // prochaine requête : la réponse d'écriture et la lecture publique disent
+    // ainsi exactement la même chose, et ne peuvent pas diverger.
+    return { ...stored, content: readPageContent(pageKey, stored.content) };
   }
 }
 

@@ -1,6 +1,7 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import type { ZodType } from "zod";
 import { ValidationError } from "@/shared/errors/app-error";
+import { formatIssues } from "@/shared/http/issues";
 
 /**
  * Validation des entrées par Zod.
@@ -11,51 +12,17 @@ import { ValidationError } from "@/shared/errors/app-error";
  *
  * Toute donnée validée **remplace** la donnée brute sur la requête : un
  * controller ne peut donc pas, par inadvertance, lire un champ non validé.
+ *
+ * Le format des `details` vient de `shared/http/issues` et non d'ici : le service
+ * des pages produit le même format pour valider un **contenu**, dont le schéma
+ * dépend de la `pageKey`. Une seule implémentation, donc un seul format — importer
+ * depuis la présentation aurait inversé le sens des dépendances (`docs/004` §9).
  */
 
 export interface ValidationSchemas {
   body?: ZodType;
   params?: ZodType;
   query?: ZodType;
-}
-
-/**
- * Traduit les problèmes Zod au format `{ champ, message }` de l'API.
- *
- * Cas particulier des **clés inconnues** (objets stricts) : Zod produit un
- * problème unique, de `path` vide, dont la liste `keys` porte les clés fautives.
- * Les déclarer une par une donne un `details` exploitable — le client lit
- * `champ: "nimportequoi"` et corrige sa faute de frappe, au lieu d'un
- * `champ: "(racine)"` qui ne désigne rien.
- */
-function formatIssues(error: unknown): { champ: string; message: string }[] {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "issues" in error &&
-    Array.isArray((error as { issues: unknown[] }).issues)
-  ) {
-    return (
-      error as {
-        issues: { path: PropertyKey[]; message: string; keys?: PropertyKey[] }[];
-      }
-    ).issues.flatMap((issue) => {
-      if (Array.isArray(issue.keys) && issue.keys.length > 0) {
-        return issue.keys.map((key) => ({
-          champ: String(key),
-          message: `Champ non reconnu : « ${String(key)} »`,
-        }));
-      }
-
-      return [
-        {
-          champ: issue.path.map(String).join(".") || "(racine)",
-          message: issue.message,
-        },
-      ];
-    });
-  }
-  return [];
 }
 
 export function validate(schemas: ValidationSchemas): RequestHandler {
