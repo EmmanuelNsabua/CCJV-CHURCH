@@ -29,6 +29,13 @@
       "when": 1791422346526,
       "tag": "0003_medical_blue_blade",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791422936960,
+      "tag": "0004_complete_guardian",
+      "breakpoints": true
     }
   ]
 }

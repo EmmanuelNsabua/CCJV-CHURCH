@@ -381,6 +381,47 @@ export interface PrayerRequest {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Notifications                                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Types de notification (`docs/032` §3.2, `docs/030` §6.2).
+ *
+ * Liste **fermée et minimale** : `docs/032` refuse d'y ajouter « une valeur
+ * générique de notification métier » faute de décision. Les quatre valeurs
+ * viennent toutes d'un texte — une pour le dépôt d'une demande de prière, trois
+ * pour le cycle de vie des clés.
+ */
+export type NotificationType =
+  | "PRAYER_REQUEST_RECEIVED"
+  | "KEY_REGISTERED"
+  | "KEY_REVOKED"
+  | "RECOVERY_KEY_CHANGED";
+
+/**
+ * Notification adressée à **un** administrateur (`docs/032` §3.3).
+ *
+ * Ce que cette entité **ne porte pas**, et c'est structurel : aucun contenu,
+ * aucun nom, aucun extrait, aucune longueur, aucune liste de destinataires.
+ * `referenceId` est un identifiant, jamais un fragment de texte — la table ne
+ * possède même pas les colonnes qui permettraient l'inverse.
+ *
+ * La conséquence est visible dans le type : il n'existe aucun champ où loger une
+ * donnée de prière. Une notification dit « quelque chose est arrivé », elle ne
+ * dit jamais quoi.
+ */
+export interface Notification {
+  id: string;
+  /** Destinataire unique (`notifications.recipient_user_id`). */
+  recipientUserId: string;
+  type: NotificationType;
+  /** Identifiant référencé (polymorphe, sans FK). Jamais un contenu. */
+  referenceId: string | null;
+  isRead: boolean;
+  createdAt: Date;
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Pagination                                                                */
 /* -------------------------------------------------------------------------- */
 

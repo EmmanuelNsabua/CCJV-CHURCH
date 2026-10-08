@@ -144,6 +144,7 @@ export function createApp(deps: AppDependencies = createContainer()): Express {
   app.use(`${apiBasePath}/media`, routers.media);
   app.use(`${apiBasePath}/prayer-requests`, routers.prayerRequests);
   app.use(`${apiBasePath}/admin`, routers.admin);
+  app.use(`${apiBasePath}/notifications`, routers.notifications);
 
   // --- Gestion des erreurs (toujours en dernier) ---------------------------
   app.use(notFoundHandler);

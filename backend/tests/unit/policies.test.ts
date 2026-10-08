@@ -518,7 +518,7 @@ describe("Pages et paramètres — des refus qui ne dépendent d'aucun rôle", (
 /* -------------------------------------------------------------------------- */
 
 describe("Notifications — D-10 ferme la voie indirecte", () => {
-  it("N-04 — aucune notification de prière n'atteint le SUPER_ADMIN", () => {
+  it("N-04 — aucune notification du domaine des prières n'atteint le SUPER_ADMIN", () => {
     const decision = evaluate(NotificationPolicy, superAdmin, "READ", {
       recipientUserId: ADMIN_ID,
       type: "PRAYER_REQUEST_RECEIVED",
@@ -527,12 +527,46 @@ describe("Notifications — D-10 ferme la voie indirecte", () => {
     expect(decision.reason).toContain("D-10");
   });
 
-  it("D-10 ne prive pas le SUPER_ADMIN des notifications de sécurité (docs/030 §4.7)", () => {
-    const decision = evaluate(NotificationPolicy, superAdmin, "READ", {
-      recipientUserId: superAdmin.id,
-      type: "KEY_REVOKED",
+  /**
+   * **Correction d'une lecture antérieure.**
+   *
+   * Ce test affirmait d'abord l'inverse — que D-10 ne privait pas le
+   * `SUPER_ADMIN` des notifications de **sécurité des clés**, au motif qu'il
+   * devait pouvoir constater la révocation d'une clé. C'était une déduction, et
+   * elle contredisait le texte : `docs/032` §3.3, qui transcrit le trigger
+   * `notifications_check_recipient_role`, écrit que ces notifications vont « à
+   * TOUS les Admins et **JAMAIS** au `SUPER_ADMIN` » (`docs/030` §4.7 et §6.2).
+   *
+   * Le cycle de vie des clés de prière appartient au **domaine des prières** :
+   * D-10 le ferme entièrement au `SUPER_ADMIN`, comme le reste.
+   */
+  it("D-10 ferme aussi au SUPER_ADMIN les notifications de sécurité des clés (docs/030 §4.7)", () => {
+    for (const type of ["KEY_REGISTERED", "KEY_REVOKED", "RECOVERY_KEY_CHANGED"] as const) {
+      const decision = evaluate(NotificationPolicy, superAdmin, "READ", {
+        recipientUserId: superAdmin.id,
+        type,
+      });
+
+      expect({ type, allowed: decision.allowed }).toEqual({ type, allowed: false });
+      expect(decision.reason).toContain("D-10");
+    }
+  });
+
+  it("un DEPARTMENT_MANAGER n'a aucune part au domaine des prières", () => {
+    const decision = evaluate(NotificationPolicy, managerA, "READ", {
+      recipientUserId: managerA.id,
+      type: "PRAYER_REQUEST_RECEIVED",
     });
-    expect(decision.allowed).toBe(true);
+
+    expect(decision.allowed).toBe(false);
+  });
+
+  it("l'ADMIN, lui, reçoit les notifications du domaine", () => {
+    for (const type of ["PRAYER_REQUEST_RECEIVED", "KEY_REVOKED"] as const) {
+      expect(
+        evaluate(NotificationPolicy, admin, "READ", { recipientUserId: ADMIN_ID, type }).allowed,
+      ).toBe(true);
+    }
   });
 
   it("une notification se lit par identité, jamais par rôle", () => {

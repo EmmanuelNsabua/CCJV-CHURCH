@@ -10,6 +10,8 @@ import type {
   MediaAccessRights,
   MediaAsset,
   MediaGranteeType,
+  Notification,
+  NotificationType,
   PersistedAdminRole,
   PrayerRequest,
   Publication,
@@ -421,6 +423,43 @@ export interface PrayerRequestRepository {
   create(data: PrayerRequestInput): Promise<PrayerRequest>;
   markHandled(id: string): Promise<PrayerRequest | null>;
   remove(id: string): Promise<boolean>;
+}
+
+/**
+ * Notifications (`docs/032` §3.3).
+ *
+ * Contrat **étroit** : lire sa boîte, marquer comme lue, créer. Il n'existe
+ * volontairement **aucune** méthode de suppression : la rétention des
+ * notifications n'est tranchée nulle part (`docs/029` Q-17), et
+ * `NotificationPolicy.DELETE` refuse tout le monde. Une méthode absente ne peut
+ * pas être appelée par erreur.
+ *
+ * `listForRecipient` prend le destinataire en **paramètre obligatoire**, jamais
+ * une option : une lecture de notifications sans destinataire serait une lecture
+ * de toutes les notifications, c'est-à-dire une fuite entre administrateurs. Le
+ * contrat rend cet oubli impossible plutôt que de compter sur la vigilance.
+ */
+export interface NotificationRepository {
+  /** Boîte de réception d'**un** administrateur, les plus récentes d'abord. */
+  listForRecipient(
+    recipientUserId: string,
+    options: ListOptions,
+    filters: { unreadOnly?: boolean },
+  ): Promise<ListResult<Notification>>;
+
+  findById(id: string): Promise<Notification | null>;
+
+  /** Nombre de notifications non lues — indicateur de boîte de réception. */
+  countUnread(recipientUserId: string): Promise<number>;
+
+  create(data: {
+    recipientUserId: string;
+    type: NotificationType;
+    referenceId?: string | null;
+  }): Promise<Notification>;
+
+  /** Marque comme lue ; `false` si la notification n'existe pas ou l'était déjà. */
+  markAsRead(id: string): Promise<Notification | null>;
 }
 
 export interface AdminProfileRepository {

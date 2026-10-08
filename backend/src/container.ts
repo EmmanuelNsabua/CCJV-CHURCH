@@ -17,6 +17,7 @@ import { DrizzleEventRepository } from "@/infrastructure/repositories/event.repo
 import { DrizzleLeaderRepository } from "@/infrastructure/repositories/leader.repository";
 import { DrizzleMediaRepository } from "@/infrastructure/repositories/media.repository";
 import { DrizzleMediaAccessRepository } from "@/infrastructure/repositories/media-access.repository";
+import { DrizzleNotificationRepository } from "@/infrastructure/repositories/notification.repository";
 import { DrizzlePrayerRequestRepository } from "@/infrastructure/repositories/prayer-request.repository";
 import { DrizzlePublicationRepository } from "@/infrastructure/repositories/publication.repository";
 import { DrizzleScheduleRepository } from "@/infrastructure/repositories/schedule.repository";
@@ -43,6 +44,8 @@ import { StaticPageService } from "@/modules/static-pages/static-page.service";
 import { MediaService } from "@/modules/media/media.service";
 import { PrayerRequestService } from "@/modules/prayer-requests/prayer-request.service";
 import { AdminService } from "@/modules/admin/admin.service";
+import { NotificationService } from "@/modules/notifications/notification.service";
+import { createNotificationRouter } from "@/modules/notifications/notification.routes";
 
 /* -------------------------------------------------------------------------- */
 /*  Routers                                                                   */
@@ -101,6 +104,7 @@ export interface AppDependencies {
     staticPages: DrizzleStaticPageRepository;
     media: DrizzleMediaRepository;
     mediaAccess: DrizzleMediaAccessRepository;
+    notifications: DrizzleNotificationRepository;
     prayerRequests: DrizzlePrayerRequestRepository;
   };
   services: {
@@ -118,6 +122,7 @@ export interface AppDependencies {
     media: MediaService;
     prayerRequests: PrayerRequestService;
     admin: AdminService;
+    notifications: NotificationService;
   };
 }
 
@@ -159,6 +164,7 @@ export function createContainer(
       staticPages: new DrizzleStaticPageRepository(database),
       media: new DrizzleMediaRepository(database),
       mediaAccess: new DrizzleMediaAccessRepository(database),
+      notifications: new DrizzleNotificationRepository(database),
       prayerRequests: new DrizzlePrayerRequestRepository(database),
     } satisfies AppDependencies["repositories"]);
 
@@ -181,6 +187,7 @@ export function createContainer(
       repositories.departments,
       identities,
     ),
+    notifications: new NotificationService(repositories.notifications),
   } satisfies AppDependencies["services"];
 
   return { db: database, storage, identities, logger, repositories, services };
@@ -223,6 +230,10 @@ export function createRouters(deps: AppDependencies) {
       authDeps,
     }),
     admin: createAdminRouter({ service: deps.services.admin, authDeps }),
+    notifications: createNotificationRouter({
+      service: deps.services.notifications,
+      authDeps,
+    }),
   };
 }
 

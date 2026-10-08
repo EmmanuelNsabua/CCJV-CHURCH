@@ -105,3 +105,27 @@ export const mediaAccessModeEnum = pgEnum("media_access_mode", [
 ]);
 
 export const prayerStatusEnum = pgEnum("prayer_status", ["NEW", "PRAYED"]);
+
+/**
+ * Types de notification (`docs/032` §3.2, `notification_type`).
+ *
+ * Liste **volontairement minimale**, et c'est une décision : `docs/032` §3.2
+ * refuse d'ajouter « une valeur générique de notification métier » — « aucune
+ * décision n'a été prise ». Les quatre valeurs existantes viennent toutes d'un
+ * texte :
+ *
+ * - `PRAYER_REQUEST_RECEIVED` — la « **seule** valeur existante » de `023`/`022`
+ *   (`docs/030` §6.2) ;
+ * - `KEY_REGISTERED`, `KEY_REVOKED`, `RECOVERY_KEY_CHANGED` — exigées par
+ *   `docs/030` §4.7 et §6.2 pour le cycle de vie des clés de prière.
+ *
+ * ⚠️ **Aucune valeur `PRAYER_*` n'existe dans `audit_log`** (`docs/030` A11) : le
+ * registre d'audit général est lisible par le `SUPER_ADMIN`, et un événement de
+ * prière y serait une fuite. Les deux vocabulaires ne se croisent pas.
+ */
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "PRAYER_REQUEST_RECEIVED",
+  "KEY_REGISTERED",
+  "KEY_REVOKED",
+  "RECOVERY_KEY_CHANGED",
+]);

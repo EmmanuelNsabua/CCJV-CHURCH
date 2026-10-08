@@ -30,6 +30,7 @@ export type ErrorCode =
   | "MEDIA_NOT_FOUND"
   | "MEDIA_ACCESS_NOT_FOUND"
   | "SETTING_NOT_FOUND"
+  | "NOTIFICATION_NOT_FOUND"
   | "PROFILE_NOT_FOUND"
   // Conflits
   | "DUPLICATE_SLUG"

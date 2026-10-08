@@ -94,18 +94,41 @@ export const NotificationPolicy = createPolicy<NotificationPolicyResource>(
     DELETE: { roles: [], pending: "docs/029 Q-17 · rétention non tranchée" },
   },
   /**
-   * **D-10 — aucune notification de prière pour le `SUPER_ADMIN`.**
+   * **Le domaine des notifications est réservé à l'`ADMIN`.**
    *
-   * L'exclusion porte sur le **couple** (destinataire, type), et non sur le rôle
-   * seul : un `SUPER_ADMIN` doit pouvoir recevoir les notifications de sécurité
-   * de `docs/030` §4.7 — sans quoi il ne pourrait pas constater la révocation
-   * d'une clé, et l'obligation de séparation des secrets deviendrait
-   * inapplicable. C'est le type de notification qui délimite le domaine
-   * interdit, jamais le rôle qui le reçoit.
+   * Cette exclusion est la transcription exacte des **deux règles** que
+   * `docs/032` §3.3 fait appliquer par le trigger `notifications_check_recipient_role`
+   * — et elle doit dire la même chose que lui, sinon la policy et la base
+   * divergeraient, au point qu'une ligne impossible en base serait servie par
+   * l'API (ou l'inverse).
+   *
+   * | Type | Destinataire admis (`docs/030` §6.2) |
+   * | --- | --- |
+   * | `PRAYER_REQUEST_RECEIVED` | un `ADMIN` **actif** uniquement |
+   * | `KEY_REGISTERED`, `KEY_REVOKED`, `RECOVERY_KEY_CHANGED` | les `ADMIN` uniquement, **jamais** le `SUPER_ADMIN` |
+   *
+   * Les deux règles se résument donc à une seule : **rôle `ADMIN`, sinon refus**.
+   * Le `DEPARTMENT_MANAGER` n'y a aucune part (le domaine des prières n'est pas
+   * départemental), et le `SUPER_ADMIN` non plus.
+   *
+   * ⚠️ **Correction assumée d'une version antérieure.** La première rédaction de
+   * cette policy laissait au `SUPER_ADMIN` les notifications de **sécurité des
+   * clés**, au motif qu'il « devait pouvoir constater une révocation ». C'était une
+   * déduction de ma part, et elle contredisait le texte : `docs/032` §3.3 écrit
+   * que ces notifications vont « à TOUS les Admins et **JAMAIS** au
+   * `SUPER_ADMIN` » (`docs/030` §4.7 et §6.2). Le domaine des prières, y compris
+   * le cycle de vie de ses clés, est **entièrement fermé** au `SUPER_ADMIN` —
+   * c'est le sens de D-10 : « le domaine `PrayerRequest` est fonctionnellement
+   * inexistant pour lui ».
+   *
+   * L'exclusion est évaluée **avant** la table : elle vaut donc pour toute action
+   * présente ou future, et aucune ligne ajoutée plus tard ne pourra la rouvrir.
    */
   (admin, resource) =>
-    admin.role === "SUPER_ADMIN" && resource?.type === "PRAYER_REQUEST_RECEIVED"
-      ? "docs/028 D-10 : le SUPER_ADMIN ne reçoit ni ne lit aucune notification relative à une demande de prière (N-04)"
+    resource !== undefined && admin.role !== "ADMIN"
+      ? admin.role === "SUPER_ADMIN"
+        ? "docs/028 D-10 : le domaine des prières — notifications comprises — est fonctionnellement inexistant pour le SUPER_ADMIN (docs/030 §4.7, §6.2)"
+        : "docs/030 §6.2 : une notification du domaine des prières ne peut viser qu'un ADMIN — le périmètre départemental n'y donne aucun accès"
       : null,
 );
 
