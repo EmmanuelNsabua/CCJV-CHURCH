@@ -2,7 +2,8 @@ import type { Request, Response } from "express";
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import type { AuthDependencies } from "@/presentation/middlewares/auth";
-import { requireAnyAdmin } from "@/presentation/middlewares/auth";
+import { requireAuthenticatedAdmin } from "@/presentation/middlewares/auth";
+import { authorize, PrayerPolicy } from "@/presentation/policies";
 import { validate } from "@/presentation/middlewares/validate";
 import { sendError } from "@/shared/http/respond";
 import {
@@ -23,8 +24,11 @@ import type { PrayerRequestService } from "./prayer-request.service";
  * les trois routes de lecture sont montées derrière `...admin` et que le
  * repository lui-même n'offre aucune recherche par critère libre.
  *
- * Ordre imposé : `authenticate` → `requireAdmin` → `requireRole` → `validate`
- * (`IMPLEMENTATION_SPEC` §6.2). Seule la création est publique.
+ * Ordre imposé : `authenticate` → `requireAdmin` → `authorize(PrayerPolicy,
+ * ACTION)` → `validate` (`IMPLEMENTATION_SPEC` §6.2). Seule la création est
+ * publique : n'étant précédée d'aucune authentification, elle est la seule
+ * route du router à ne monter aucun `authorize` — une policy statue sur un
+ * profil administratif, qu'un visiteur ne porte pas.
  */
 
 export interface PrayerRequestRouterDeps {
@@ -76,7 +80,7 @@ export function createPrayerRequestRouter(
   const controller = createPrayerRequestController(deps.service);
 
   // Réservé à l'administration : aucun `GET` de ce router n'est monté sans.
-  const admin = requireAnyAdmin(deps.authDeps, "ROLE_ADMIN");
+  const admin = requireAuthenticatedAdmin(deps.authDeps);
 
   // --- Écriture PUBLIQUE : visiteurs non connectés --------------------------
   // Rate limit dédié, appliqué à cette seule route, avant la validation.
@@ -91,18 +95,21 @@ export function createPrayerRequestRouter(
   router.get(
     "/",
     ...admin,
+    authorize(PrayerPolicy, "READ"),
     validate({ query: listPrayerRequestsQuerySchema }),
     controller.list,
   );
   router.get(
     "/:id",
     ...admin,
+    authorize(PrayerPolicy, "READ"),
     validate({ params: prayerRequestIdParamsSchema }),
     controller.get,
   );
   router.patch(
     "/:id",
     ...admin,
+    authorize(PrayerPolicy, "VALIDATE"),
     validate({
       params: prayerRequestIdParamsSchema,
       body: updatePrayerRequestSchema,
@@ -112,6 +119,7 @@ export function createPrayerRequestRouter(
   router.delete(
     "/:id",
     ...admin,
+    authorize(PrayerPolicy, "DELETE"),
     validate({ params: prayerRequestIdParamsSchema }),
     controller.remove,
   );

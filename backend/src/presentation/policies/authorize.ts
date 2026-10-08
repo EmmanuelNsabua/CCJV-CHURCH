@@ -69,6 +69,7 @@ export type PolicyAction =
   | "READ_AGGREGATE"
   | "VALIDATE"
   | "DECRYPT"
+  | "PURGE"
   /* Départements : information métier vs propriétés structurelles (020 §11) */
   | "UPDATE_STRUCTURE"
   | "DEACTIVATE"

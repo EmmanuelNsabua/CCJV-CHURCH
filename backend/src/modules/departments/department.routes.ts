@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { AuthDependencies } from "@/presentation/middlewares/auth";
-import { requireAnyAdmin } from "@/presentation/middlewares/auth";
+import { requireAuthenticatedAdmin } from "@/presentation/middlewares/auth";
+import { authorize, DepartmentPolicy } from "@/presentation/policies";
 import { validate } from "@/presentation/middlewares/validate";
 import { createDepartmentController } from "./department.controller";
 import {
@@ -19,8 +20,10 @@ import type { DepartmentService } from "./department.service";
  *
  * La séparation lecture publique / écriture administrée est explicite : aucune
  * route d'écriture n'est déclarée sans `...admin` (cahier §8). L'ordre des
- * middlewares est `authenticate` → `requireAdmin` → `requireRole` → `validate` :
- * on n'analyse jamais le corps d'une requête non authentifiée.
+ * middlewares est `authenticate` → `requireAdmin` →
+ * `authorize(DepartmentPolicy, ACTION)` → `validate` : on n'analyse jamais le
+ * corps d'une requête non authentifiée, ni celui d'une requête dont la policy
+ * n'a pas encore admis l'action.
  */
 export interface DepartmentRouterDeps {
   service: DepartmentService;
@@ -30,7 +33,7 @@ export interface DepartmentRouterDeps {
 export function createDepartmentRouter(deps: DepartmentRouterDeps): Router {
   const router = Router();
   const controller = createDepartmentController(deps.service);
-  const admin = requireAnyAdmin(deps.authDeps, "ROLE_ADMIN");
+  const admin = requireAuthenticatedAdmin(deps.authDeps);
 
   // --- Lecture publique -----------------------------------------------------
   router.get("/", validate({ query: listDepartmentQuerySchema }), controller.list);
@@ -44,12 +47,14 @@ export function createDepartmentRouter(deps: DepartmentRouterDeps): Router {
   router.post(
     "/",
     ...admin,
+    authorize(DepartmentPolicy, "CREATE"),
     validate({ body: createDepartmentSchema }),
     controller.create,
   );
   router.patch(
     "/:idOrSlug",
     ...admin,
+    authorize(DepartmentPolicy, "UPDATE"),
     validate({
       params: departmentIdOrSlugSchema,
       body: updateDepartmentSchema,
@@ -59,6 +64,7 @@ export function createDepartmentRouter(deps: DepartmentRouterDeps): Router {
   router.delete(
     "/:idOrSlug",
     ...admin,
+    authorize(DepartmentPolicy, "DELETE"),
     validate({ params: departmentIdOrSlugSchema }),
     controller.remove,
   );

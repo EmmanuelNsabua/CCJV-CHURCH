@@ -123,20 +123,23 @@ export const EventPolicy = createPolicy<EventPolicyResource>("EventPolicy", {
   },
 
   /**
-   * `canSetVisibilityScope` — **dérivé de la capacité du département** (D-25,
-   * D-26), et non du rôle.
+   * `canSetVisibilityScope` — **refus pour tous** : `?` Q-06 (cellule 4.6),
+   * `docs/029` §4.1 P-03 (« `?` pour tous »).
    *
-   * `ADMIN` et `SUPER_ADMIN` peuvent tout porter : leur périmètre est global, la
-   * portée publique d'un événement n'est donc pas contrainte pour eux. Un
-   * `DEPARTMENT_MANAGER` ne peut fixer `GLOBAL` que si **son** département porte
-   * la capacité — la règle est la même que pour les actions précédentes, écrite
-   * une fois dans `refuseGlobalWithoutCapability`.
+   * La nuance est importante et facile à manquer : D-25/D-26 **tranchent** que la
+   * portée globale est une **capacité du département**, mais `docs/029` §5.3
+   * laisse explicitement ouverte la question « **qui édite les capacités** ».
+   * Re-scoper un événement après coup est donc refusé à tout le monde, y compris
+   * au `SUPER_ADMIN` — pendant que la capacité, elle, agit **à la création** :
+   * `CREATE` et `UPDATE` la consultent via `refuseGlobalWithoutCapability`.
+   *
+   * Autrement dit : on ne **change** pas la portée d'un événement existant (aucune
+   * décision ne l'autorise) ; on peut **créer** un événement global si — et
+   * seulement si — le département en porte la capacité (D-25, D-26).
    */
   SET_VISIBILITY_SCOPE: {
-    roles: ["SUPER_ADMIN", "ADMIN", "DEPARTMENT_MANAGER"],
-    department: "equality",
-    pending: "docs/029 Q-06 (qui édite les capacités)",
-    resource: refuseGlobalWithoutCapability,
+    roles: [],
+    pending: "docs/029 Q-06 · cellule 4.6 (qui attribue la portée globale)",
   },
 });
 

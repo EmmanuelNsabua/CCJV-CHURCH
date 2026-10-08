@@ -11,7 +11,9 @@ import type {
  *
  * - `PrayerRequestDto` : la vue **administrative**, seule à porter le texte de
  *   l'intention et les coordonnées. Elle n'est produite que par des routes
- *   montées derrière `requireAnyAdmin` ;
+ *   montées derrière l'authentification administrative **et** admises par
+ *   `PrayerPolicy` — policy qui refuse ce domaine au `SUPER_ADMIN` (D-10) et le
+ *   réserve à l'`ADMIN` ;
  * - `PrayerRequestCreatedDto` : l'accusé de réception renvoyé au visiteur qui
  *   vient de déposer sa demande. Il ne contient **ni le texte, ni le prénom, ni
  *   le contact** : ces données n'ont aucune utilité pour le client qui les a

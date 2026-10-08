@@ -7,6 +7,7 @@ import {
   authenticate,
   requireAdmin,
   requireAnyAdmin,
+  requireAuthenticatedAdmin,
   requireRole,
 } from "@/presentation/middlewares/auth";
 import { AppError, isAppError } from "@/shared/errors/app-error";
@@ -34,10 +35,11 @@ function adminProfile(overrides: Partial<AdminProfile> = {}): AdminProfile {
     id: ADMIN_ID,
     username: "pasteur",
     displayName: "Pasteur responsable",
-    role: "ROLE_ADMIN",
-    // Profil hérité de la V1 : rôle système, donc périmètre global et aucun
-    // rattachement départemental — c'est exactement ce qu'exige la contrainte
-    // `admin_profiles_scope_coherence` (`docs/032` §3.1).
+    // Le compte administratif de production est un `ADMIN` (D-05). `ROLE_ADMIN`
+    // n'existe plus : ni ici, ni dans l'énumération PostgreSQL `admin_role`.
+    role: "ADMIN",
+    // Rôle système : périmètre global et aucun rattachement départemental —
+    // exactement ce qu'exige `admin_profiles_scope_coherence` (`docs/032` §3.1).
     scope: "GLOBAL",
     departmentId: null,
     isActive: true,
@@ -267,12 +269,25 @@ describe("requireAdmin", () => {
 /*  requireRole                                                               */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * `requireRole` survit au Lot 1c, mais **plus aucune route ne la monte**.
+ *
+ * Depuis la disparition de `ROLE_ADMIN`, la décision de rôle appartient aux
+ * policies (`docs/029` §4.2 range « un `if (req.admin.role === …)` » parmi les
+ * interdits, et un `requireRole` monté sur une route est exactement cela,
+ * dispersé dans la chaîne de middlewares). Le rôle seul ne suffit d'ailleurs
+ * plus : une décision dépend du rôle, du **scope**, de l'**égalité
+ * départementale** et de la **ressource** (`docs/029` §4.3).
+ *
+ * Les tests ci-dessous portent donc sur le **contrat de middleware** — ordre,
+ * codes, non-fuite du motif — et non sur une règle métier.
+ */
 describe("requireRole", () => {
   it("laisse passer un administrateur portant le rôle exigé", () => {
     const { req, res, next } = createMocks();
-    req.admin = adminProfile();
+    req.admin = adminProfile({ role: "ADMIN" });
 
-    requireRole("ROLE_ADMIN")(req, res, next as unknown as NextFunction);
+    requireRole("ADMIN")(req, res, next as unknown as NextFunction);
 
     expect(next).toHaveBeenCalledTimes(1);
     expect(next).toHaveBeenCalledWith();
@@ -280,11 +295,15 @@ describe("requireRole", () => {
 
   it("refuse un rôle différent du rôle exigé", () => {
     const { req, res, next } = createMocks();
-    // Rôle applicatif futur : la fabrique est prête pour `docs/001` §3, même si
-    // `ROLE_ADMIN` est le seul rôle de la V1.
-    req.admin = adminProfile({ role: "ROLE_DEPARTMENT" as AdminRole });
+    // Un responsable de département n'est pas « un ADMIN en moins » : D-04 en
+    // fait un rôle **différent**, aux pouvoirs disjoints.
+    req.admin = adminProfile({
+      role: "DEPARTMENT_MANAGER",
+      scope: "DEPARTMENT",
+      departmentId: "8f2c1d34-5b6e-4f70-9a11-2c3d4e5f6a7b",
+    });
 
-    requireRole("ROLE_ADMIN")(req, res, next as unknown as NextFunction);
+    requireRole("ADMIN")(req, res, next as unknown as NextFunction);
 
     const error = expectAppError(firstError(next), "FORBIDDEN", 403);
     expect(error.message).toMatch(/rôle/i);
@@ -294,7 +313,7 @@ describe("requireRole", () => {
     const { req, res, next } = createMocks();
     req.admin = adminProfile();
 
-    requireRole("ROLE_DEPARTMENT" as AdminRole)(req, res, next as unknown as NextFunction);
+    requireRole()(req, res, next as unknown as NextFunction);
 
     expectAppError(firstError(next), "FORBIDDEN", 403);
   });
@@ -302,9 +321,68 @@ describe("requireRole", () => {
   it("exige une authentification préalable", () => {
     const { req, res, next } = createMocks();
 
-    requireRole("ROLE_ADMIN")(req, res, next as unknown as NextFunction);
+    requireRole("ADMIN")(req, res, next as unknown as NextFunction);
 
     expectAppError(firstError(next), "AUTH_REQUIRED", 401);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  requireAuthenticatedAdmin                                                  */
+/* -------------------------------------------------------------------------- */
+
+describe("requireAuthenticatedAdmin", () => {
+  /**
+   * C'est la chaîne que monte **toute** route protégée depuis le Lot 1c :
+   * `authenticate` → `requireAdmin`, puis la policy de la ressource décide.
+   */
+  it("assemble authentification et profil actif, dans cet ordre", async () => {
+    const deps = { adminProfiles: fakeAdminProfiles(adminProfile()) };
+    const chain = requireAuthenticatedAdmin(deps);
+
+    // Deux middlewares, et pas trois : l'absence de `requireRole` est le point
+    // du lot. La décision de rôle a quitté la chaîne pour la policy.
+    expect(chain).toHaveLength(2);
+
+    // 1. Sans en-tête : refus immédiat à l'authentification (401, jamais 403).
+    const sansEntete = createMocks();
+    await chain[0]?.(sansEntete.req, sansEntete.res, sansEntete.next as unknown as NextFunction);
+    expectAppError(firstError(sansEntete.next), "AUTH_REQUIRED", 401);
+
+    // 2. Avec une identité vérifiée : le profil actif est chargé et attaché.
+    const authentifie = createMocks({ auth: authenticatedUser() });
+    await chain[1]?.(
+      authentifie.req,
+      authentifie.res,
+      authentifie.next as unknown as NextFunction,
+    );
+    expect(authentifie.next).toHaveBeenCalledWith();
+    expect(authentifie.req.admin).toBeDefined();
+  });
+
+  it("accepte les trois rôles de D-01 : aucun n'est filtré par la chaîne", async () => {
+    for (const role of ["SUPER_ADMIN", "ADMIN", "DEPARTMENT_MANAGER"] as const) {
+      const profil =
+        role === "DEPARTMENT_MANAGER"
+          ? adminProfile({
+              role,
+              scope: "DEPARTMENT",
+              departmentId: "8f2c1d34-5b6e-4f70-9a11-2c3d4e5f6a7b",
+            })
+          : adminProfile({ role, scope: "GLOBAL", departmentId: null });
+
+      const deps = { adminProfiles: fakeAdminProfiles(profil) };
+      const chain = requireAuthenticatedAdmin(deps);
+      const mocks = createMocks({ auth: authenticatedUser() });
+
+      await chain[1]?.(mocks.req, mocks.res, mocks.next as unknown as NextFunction);
+
+      // Le refus éventuel appartient à la policy, jamais à cette chaîne : un
+      // `SUPER_ADMIN` doit pouvoir atteindre la policy qui le refuse (D-10),
+      // sinon le refus serait un 401/403 de middleware, pas une décision tracée.
+      expect(mocks.next).toHaveBeenCalledWith();
+      expect(mocks.req.admin?.role).toBe(role);
+    }
   });
 });
 
@@ -315,7 +393,7 @@ describe("requireRole", () => {
 describe("requireAnyAdmin", () => {
   it("assemble authentification, profil actif et rôle, dans cet ordre", async () => {
     const deps = { adminProfiles: fakeAdminProfiles(adminProfile()) };
-    const chain = requireAnyAdmin(deps, "ROLE_ADMIN");
+    const chain = requireAnyAdmin(deps, "ADMIN");
 
     expect(chain).toHaveLength(3);
 

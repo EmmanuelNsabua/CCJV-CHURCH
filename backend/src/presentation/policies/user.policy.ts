@@ -1,4 +1,4 @@
-import type { AdminRole, AdminScope, PersistedAdminRole } from "@/domain/entities";
+import type { AdminProfile, AdminRole, AdminScope, PersistedAdminRole } from "@/domain/entities";
 import { allow, deny, type AuthorizationDecision } from "./authorize";
 import { createPolicy } from "./policy-kit";
 
@@ -115,8 +115,12 @@ export const UserPolicy = createPolicy<UserPolicyResource>(
     UPDATE_ROLE_SCOPE: {
       roles: ["SUPER_ADMIN"],
       scopes: ["GLOBAL"],
-      pending: "docs/029 Q-02",
-      resource: (_, resource) => assertCoherentProfile(resource, undefined),
+      pending: "docs/029 Q-02 · Q-03",
+      resource: (admin, resource) => {
+        const untranched = refuseSuperAdminTargetBySuperAdmin(admin, resource);
+        if (!untranched.allowed) return untranched;
+        return assertCoherentProfile(resource, undefined);
+      },
     },
 
     /**
@@ -135,7 +139,8 @@ export const UserPolicy = createPolicy<UserPolicyResource>(
     DEACTIVATE: {
       roles: ["SUPER_ADMIN"],
       scopes: ["GLOBAL"],
-      pending: "docs/028 Q-A4 (désactivation par l'ADMIN)",
+      pending: "docs/028 Q-A4 · docs/029 Q-03",
+      resource: refuseSuperAdminTargetBySuperAdmin,
     },
 
     /**
@@ -185,7 +190,7 @@ function assertCoherentProfile(
 ): AuthorizationDecision {
   if (!resource) return allow();
 
-  if (expectedRole && resource.role !== expectedRole && resource.role !== "ROLE_ADMIN") {
+  if (expectedRole && resource.role !== expectedRole) {
     return deny(
       `Action réservée à la création d'un profil ${expectedRole} : le rôle cible est ${resource.role}`,
     );
@@ -197,12 +202,38 @@ function assertCoherentProfile(
       "Un DEPARTMENT_MANAGER porte un scope DEPARTMENT et un département de rattachement non nul (docs/028 D-02)",
     );
   }
-  if (!isManager && resource.role !== "ROLE_ADMIN" && (resource.scope !== "GLOBAL" || resource.departmentId)) {
+  if (!isManager && (resource.scope !== "GLOBAL" || resource.departmentId)) {
     return deny(
       "Un rôle système porte un scope GLOBAL et aucun département : docs/028 D-02, contrainte admin_profiles_scope_coherence (docs/032 §3.1)",
     );
   }
 
+  return allow();
+}
+
+/**
+ * Un `SUPER_ADMIN` ne peut pas administrer un autre `SUPER_ADMIN` — **Q-03**.
+ *
+ * La cellule 1.7 de `docs/029` §2.1 laisse cette case en `?` : « 028 ne dit pas
+ * si un `SUPER_ADMIN` peut en administrer un autre (ni lui-même) ». Le refus par
+ * défaut s'applique donc, et il est **volontairement visible** ici plutôt
+ * qu'obtenu par l'absence d'un rôle dans une liste.
+ *
+ * Ce n'est pas une précaution théorique : le compte `SUPER_ADMIN` est créé
+ * **hors de l'application** (règle d'arrêt du mandat — l'identité doit être
+ * désignée par l'organisation). Une policy qui permettrait à un `SUPER_ADMIN` de
+ * modifier un autre `SUPER_ADMIN` ouvrirait donc, depuis un compte applicatif, une
+ * voie sur un compte que l'application n'a jamais eu le droit de fabriquer.
+ */
+function refuseSuperAdminTargetBySuperAdmin(
+  admin: AdminProfile,
+  resource: UserPolicyResource | undefined,
+): AuthorizationDecision {
+  if (admin.role === "SUPER_ADMIN" && resource?.role === "SUPER_ADMIN") {
+    return deny(
+      "docs/029 Q-03 : administrer un compte SUPER_ADMIN depuis l'application n'est pas tranché — refus par défaut (docs/029 §4.3)",
+    );
+  }
   return allow();
 }
 

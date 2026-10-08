@@ -163,8 +163,30 @@ export const PrayerPolicy = createPolicy<PrayerPolicyResource>(
      */
     DELETE: { roles: [], pending: "docs/029 Q-19 · docs/028 D-16 (aucune durée arbitraire)" },
 
-    /** `canPurge` — purge automatique : **`false`** (D-16, XD-16). */
-    ARCHIVE: { roles: [], pending: "docs/028 D-16, XD-16 — refus structurel" },
+    /**
+     * `canArchive` — **`ADMIN` uniquement** (cellule 8.4).
+     *
+     * La matrice groupe « `VALIDATE` / `ARCHIVE` » dans la même cellule : les deux
+     * sont des actes **manuels** de traitement, réservés à l'`ADMIN`, et tous deux
+     * refusés au `SUPER_ADMIN` par l'exclusion ci-dessus.
+     *
+     * Il ne faut pas la confondre avec la **purge**, qui est une autre action
+     * (`PURGE`) et un autre destinataire : personne.
+     */
+    ARCHIVE: { roles: ["ADMIN"], scopes: ["GLOBAL"] },
+
+    /**
+     * `canPurge` — purge **automatique** : `false` pour tout le monde (D-16,
+     * XD-16, cellule 8.6).
+     *
+     * L'action est distincte d'`ARCHIVE`, et la distinction est le cœur de D-16.
+     * `docs/028` n'interdit pas à un administrateur de traiter une demande ; il
+     * interdit à **un mécanisme** de la faire disparaître au bout d'un délai que
+     * personne n'a fixé. Une purge est un effacement **sans auteur** : c'est
+     * pourquoi elle est refusée à tous les rôles, y compris ceux qui peuvent
+     * archiver.
+     */
+    PURGE: { roles: [], pending: "docs/028 D-16, XD-16 — refus structurel" },
   },
   /**
    * **L'exclusion fondatrice (D-10, X19, XD-01).**

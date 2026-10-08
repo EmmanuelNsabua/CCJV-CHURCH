@@ -48,33 +48,35 @@ export type PublicationStatus = "DRAFT" | "PUBLISHED";
 /**
  * Rôle technique d'un profil (`docs/028` D-01).
  *
- * Trois rôles arrêtés, et **aucun rôle de département** : « Responsable Presse »
- * et « Responsable Ecodume » sont deux **instances** de `DEPARTMENT_MANAGER`,
- * différenciées par leur `department_id` (D-02).
+ * Trois rôles arrêtés, et **aucun rôle de département** : « Responsable »
+ * d'un département et « Responsable » d'un autre sont deux **instances** de
+ * `DEPARTMENT_MANAGER`, différenciées par leur `department_id` (D-02). Le RBAC
+ * ne code donc **jamais** le nom d'un département (`docs/028` D-09, XD-06,
+ * invariant I12 de `021` §11).
  *
- * ⚠️ **Membre hérité, transitoire.** `ROLE_ADMIN` — la valeur unique de
- * l'implémentation V1 — a été **retirée de l'énumération PostgreSQL**
- * `admin_role` par le Lot 1a. Elle subsiste ici, et uniquement ici, parce que
- * les policies la passent encore à `requireRole`
- * (`presentation/middlewares/auth.ts` et les 16 fichiers de routes) et que les
- * tests la posent en valeur de profil — deux périmètres qui relèvent
- * respectivement des lots 1b et 1c. La retirer maintenant casserait la
- * compilation avant que ces lots ne l'aient traitée ; **elle doit disparaître
- * de cette union avec eux**. Le schéma, lui, ne la connaît plus.
+ * ⚠️ **`ROLE_ADMIN` a disparu.** La valeur unique de l'implémentation V1 n'existe
+ * plus ni ici, ni dans l'énumération PostgreSQL `admin_role` (Lot 1a, D-05 : le
+ * compte de production devient `ADMIN`). Elle a survécu une itération comme
+ * **membre transitoire** de cette union, le temps que les routes cessent de la
+ * réclamer ; le Lot 1c les a toutes converties à la chaîne
+ * `requireAuthenticatedAdmin` + `authorize(Policy, ACTION)`, et le membre est
+ * parti avec elles. Le laisser aurait maintenu un rôle que la base refuse
+ * d'écrire — un type qui ment sur ce qui est persistable.
  */
-export type AdminRole =
-  | "SUPER_ADMIN"
-  | "ADMIN"
-  | "DEPARTMENT_MANAGER"
-  | "ROLE_ADMIN";
+export type AdminRole = "SUPER_ADMIN" | "ADMIN" | "DEPARTMENT_MANAGER";
 
 /**
  * Rôles **persistables** : ceux que l'énumération PostgreSQL `admin_role`
- * accepte réellement. Écrire `ROLE_ADMIN` en base est impossible — ce type
- * l'interdit à la compilation, là où `AdminRole` le tolère encore pour les
- * besoins de la transition (cf. supra).
+ * accepte réellement.
+ *
+ * Depuis la disparition de `ROLE_ADMIN`, cet alias désigne exactement
+ * `AdminRole`. Il est **conservé** parce qu'il nomme une distinction qui, elle,
+ * demeure : un type de rôle *métier* et un type de rôle *écrivable* ne sont pas
+ * la même promesse, et le jour où l'un des deux bougerait, c'est ici que la
+ * divergence devrait s'exprimer — plutôt que dans les vingt fichiers qui
+ * importent aujourd'hui `PersistedAdminRole` pour écrire en base.
  */
-export type PersistedAdminRole = Exclude<AdminRole, "ROLE_ADMIN">;
+export type PersistedAdminRole = AdminRole;
 
 /**
  * Périmètre d'action d'un profil (`admin_scope`, `docs/028` D-02, `docs/032` §2.1).

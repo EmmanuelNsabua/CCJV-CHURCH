@@ -127,9 +127,16 @@ describe("PrayerRequest — le domaine est inexistant pour le SUPER_ADMIN (D-10)
     expect(evaluate(PrayerPolicy, admin, "DECRYPT", envelope).allowed).toBe(true);
   });
 
-  it("D-16 — aucune purge automatique, aucune suppression : la durée de conservation n'est pas arbitrée", () => {
+  it("D-16 / cellule 8.6 — la purge automatique est refusée à tout le monde, l'archivage manuel reste à l'ADMIN", () => {
+    for (const who of [superAdmin, admin, managerA]) {
+      expect(evaluate(PrayerPolicy, who, "PURGE").allowed).toBe(false);
+    }
+    // Cellule 8.4 : « VALIDATE / ARCHIVE » sont des actes manuels de traitement,
+    // réservés à l'ADMIN — et refusés au SUPER_ADMIN par l'exclusion D-10.
+    expect(evaluate(PrayerPolicy, admin, "ARCHIVE").allowed).toBe(true);
+    expect(evaluate(PrayerPolicy, superAdmin, "ARCHIVE").allowed).toBe(false);
+    // Cellule 8.5 : la suppression manuelle n'est pas tranchée (Q-19) → refus.
     expect(evaluate(PrayerPolicy, admin, "DELETE").allowed).toBe(false);
-    expect(evaluate(PrayerPolicy, admin, "ARCHIVE").allowed).toBe(false);
   });
 });
 
@@ -274,6 +281,30 @@ describe("Média — aucun partage par défaut, aucune hiérarchie entre les dro
     expect(evaluate(MediaPolicy, admin, "REPLACE").allowed).toBe(false);
     expect(evaluate(MediaPolicy, superAdmin, "REPLACE").allowed).toBe(false);
   });
+
+  /**
+   * Cellule 5.2 — le registre n'est pas public, et un responsable n'y voit que
+   * les médias pour lesquels un droit existe.
+   *
+   * `docs/029` §4.3 exige un refus sur une ressource « sans département ». Un
+   * média n'en a **jamais** (X27) : c'est donc le droit explicite qui tient lieu
+   * de rattachement, et son absence vaut invisibilité.
+   */
+  it("cellule 5.2 — un responsable ne voit que les médias autorisés pour son département", () => {
+    expect(evaluate(MediaPolicy, managerA, "READ", {}).allowed).toBe(false);
+    expect(
+      evaluate(MediaPolicy, managerA, "READ", {
+        departmentAccess: { canUse: true, canManage: false, canDelete: false },
+      }).allowed,
+    ).toBe(true);
+    // ADMIN et SUPER_ADMIN voient la bibliothèque centrale entière (D-22).
+    expect(evaluate(MediaPolicy, admin, "READ", {}).allowed).toBe(true);
+  });
+
+  it("cellule 6.1 / Q-11 — un responsable ne lit pas la table des autorisations", () => {
+    expect(evaluate(MediaAccessPolicy, managerA, "READ").allowed).toBe(false);
+    expect(evaluate(MediaAccessPolicy, admin, "READ").allowed).toBe(true);
+  });
 });
 
 /* -------------------------------------------------------------------------- */
@@ -377,8 +408,34 @@ describe("Pages et paramètres — des refus qui ne dépendent d'aucun rôle", (
     }
   });
 
-  it("D-23 — l'édition du CONTENU reste ouverte : le refus porte sur la structure, pas sur l'éditorial", () => {
+  it("D-23 — l'édition du CONTENU reste ouverte à l'ADMIN : le refus porte sur la structure, pas sur l'éditorial", () => {
     expect(evaluate(PagePolicy, admin, "UPDATE", { pageKey: "accueil" }).allowed).toBe(true);
+    // Cellule 7.3 : le rôle qui édite la page [Département] n'est nommé nulle
+    // part (Q-05) → refus par défaut pour le responsable.
+    expect(evaluate(PagePolicy, managerA, "UPDATE", { pageKey: "departement" }).allowed).toBe(false);
+  });
+
+  it("cellule 4.6 — re-scoper un événement n'est autorisé à personne : Q-06 n'est pas tranchée", () => {
+    for (const who of [superAdmin, admin, managerA]) {
+      expect(
+        evaluate(EventPolicy, who, "SET_VISIBILITY_SCOPE", {
+          departmentId: DEPARTMENT_A,
+          visibilityScope: "GLOBAL",
+          actorDepartmentCapabilities: [DEPARTMENT_CAPABILITIES.EVENT_SCOPE_GLOBAL],
+        }).allowed,
+      ).toBe(false);
+    }
+  });
+
+  it("cellule 2.3 — modifier les informations d'un département n'est pas attribué à son responsable", () => {
+    expect(evaluate(DepartmentPolicy, managerA, "UPDATE", { id: DEPARTMENT_A }).allowed).toBe(false);
+    expect(evaluate(DepartmentPolicy, admin, "UPDATE", { id: DEPARTMENT_A }).allowed).toBe(true);
+  });
+
+  it("cellule 1.7 / Q-03 — un SUPER_ADMIN n'administre pas un autre SUPER_ADMIN depuis l'application", () => {
+    const other = { id: "autre", role: "SUPER_ADMIN" as AdminRole, scope: "GLOBAL" as AdminScope, departmentId: null };
+    expect(evaluate(UserPolicy, superAdmin, "UPDATE_ROLE_SCOPE", other).allowed).toBe(false);
+    expect(evaluate(UserPolicy, superAdmin, "DEACTIVATE", other).allowed).toBe(false);
   });
 
   it("X25 — les paramètres ne sont jamais exposés à un responsable de département", () => {
@@ -546,6 +603,60 @@ describe("Catalogue — exhaustivité et invariants statiques (docs/029 §5, §6
       expect(`${path}:${/\.(slug|code)\b/.test(code)}`).toBe(`${path}:false`);
     }
   });
+  /**
+   * **Lot 1c — plus aucune route ne décide d'une autorisation par un rôle.**
+   *
+   * `docs/029` §4.2 range « un `if (req.admin.role === …)` dans un controller »
+   * et « une décision d'autorisation prise dans le frontend » parmi les
+   * interdits, et exige à la place « une policy, appelée par **un** garde
+   * d'autorisation monté dans la chaîne de middlewares ». Ce contrôle est la
+   * traduction exécutable de cette exigence, sur les 14 fichiers de routes.
+   *
+   * Il vérifie trois choses, et la troisième est la plus importante :
+   *
+   * 1. aucun fichier de routes ne monte `requireRole` ni ne nomme l'ancienne
+   *    valeur `ROLE_ADMIN` — la décision de rôle a quitté la chaîne ;
+   * 2. aucun fichier de routes ne compare un rôle à la main ;
+   * 3. **chaque route d'écriture protégée porte un `authorize`**. C'est le point
+   *    de non-régression réel : un `requireRole` oublié se voit à la compilation,
+   *    mais **un `authorize` oublié, non** — la route resterait simplement
+   *    ouverte à tout administrateur actif, et rien ne le signalerait. C'est
+   *    pourquoi le test compte les deux.
+   */
+  it("aucune route ne décide par un rôle, et toute écriture protégée passe par une policy", () => {
+    const routes = collectRouteSources();
+    expect(routes.length).toBeGreaterThanOrEqual(14);
+
+    for (const { path, source } of routes) {
+      const code = stripComments(source);
+
+      expect(`${path}:requirerole=${/requireRole\s*\(/.test(code)}`).toBe(`${path}:requirerole=false`);
+      expect(`${path}:roleadmin=${/ROLE_ADMIN/.test(code)}`).toBe(`${path}:roleadmin=false`);
+      // Une comparaison de rôle écrite à la main dans une route : exactement ce
+      // que §4.2 interdit, quelle qu'en soit la formulation.
+      expect(`${path}:rolecompare=${/\.role\s*===?/.test(code)}`).toBe(`${path}:rolecompare=false`);
+
+      // Toute route d'écriture porte une décision. Une écriture **publique**
+      // n'en porte pas (le formulaire de prière) : le compte des décisions peut
+      // donc dépasser celui des écritures, jamais l'inverse — une écriture sans
+      // décision signifierait qu'un `authorize` a été oublié quelque part.
+      const writeRoutes = code.match(/router\.(post|patch|delete|put)\s*\(/g) ?? [];
+      const authorizeCalls = code.match(/authorize\s*\(/g) ?? [];
+      expect(`${path}:${authorizeCalls.length >= writeRoutes.length}`).toBe(`${path}:true`);
+    }
+
+    // Le contrôle agrégé : sur l'ensemble des fichiers de routes, il y a au
+    // moins autant de décisions d'autorisation que de routes d'écriture.
+    const totalWrites = routes.reduce(
+      (sum, { source }) => sum + (stripComments(source).match(/router\.(post|patch|delete|put)\s*\(/g) ?? []).length,
+      0,
+    );
+    const totalAuthorize = routes.reduce(
+      (sum, { source }) => sum + (stripComments(source).match(/authorize\s*\(/g) ?? []).length,
+      0,
+    );
+    expect(totalAuthorize).toBeGreaterThanOrEqual(totalWrites);
+  });
 });
 
 /* -------------------------------------------------------------------------- */
@@ -561,6 +672,16 @@ function collectSources(relativeDir: string): { path: string; source: string }[]
       path: `${relativeDir}/${name}`,
       source: readFileSync(join(absolute, name), "utf8"),
     }));
+}
+
+/** Les 14 fichiers de routes des modules, avec leur contenu. */
+function collectRouteSources(): { path: string; source: string }[] {
+  const modulesDir = join(process.cwd(), "src/modules");
+  return readdirSync(modulesDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .flatMap((entry) =>
+      collectSources(`src/modules/${entry.name}`).filter((file) => file.path.endsWith(".routes.ts")),
+    );
 }
 
 /**

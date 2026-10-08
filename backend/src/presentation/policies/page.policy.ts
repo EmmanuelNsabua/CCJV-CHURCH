@@ -38,8 +38,8 @@ export interface PagePolicyResource {
 
 export const PagePolicy = createPolicy<PagePolicyResource>("PagePolicy", {
   /**
-   * `canRead` — `SUPER_ADMIN` · `ADMIN` · `MANAGER` : Q-05 ouverte sur le
-   * périmètre exact du responsable (D-04).
+   * `canRead` — `SUPER_ADMIN` · `ADMIN` ; **`MANAGER` : `?` Q-05** → refus
+   * (cellule 7.2).
    *
    * Une page du site est **globale** : elle n'appartient à aucun département, et
    * il n'y a donc aucune clause départementale à appliquer. Une page
@@ -48,12 +48,18 @@ export const PagePolicy = createPolicy<PagePolicyResource>("PagePolicy", {
    * ajouter un ici serait trancher une question que personne n'a posée.
    */
   READ: {
-    roles: ["SUPER_ADMIN", "ADMIN", "DEPARTMENT_MANAGER"],
-    pending: "docs/029 Q-05 (Q-05 : périmètre de lecture du responsable)",
+    roles: ["SUPER_ADMIN", "ADMIN"],
+    pending: "docs/029 Q-05 (lecture du back-office par un responsable)",
   },
 
   /**
-   * `canUpdateContent` — `SUPER_ADMIN` · `ADMIN` · `MANAGER` : Q-05 ouverte.
+   * `canUpdateContent` — `SUPER_ADMIN` · `ADMIN` ; **`MANAGER` : `?` Q-05**
+   * (cellule 7.3) → refus.
+   *
+   * La cellule 7.3 dit pourquoi le `?` ne se comble pas tout seul : la ligne
+   * `[Département]` du schéma de contenu est déclarée « Éditable » **sans nommer
+   * le rôle**. Éditable par le responsable de ce département ? par l'`ADMIN` ?
+   * `docs/031` ne le dit pas, et `docs/029` §4.3 en tire le refus par défaut.
    *
    * **L'édition porte sur les champs, jamais sur les clés.** Le contenu est un
    * `Record<string, unknown>` validé contre le template au Lot 3 ; ajouter une
@@ -63,8 +69,8 @@ export const PagePolicy = createPolicy<PagePolicyResource>("PagePolicy", {
    * le frontend, le RBAC non.
    */
   UPDATE: {
-    roles: ["SUPER_ADMIN", "ADMIN", "DEPARTMENT_MANAGER"],
-    pending: "docs/029 Q-05 (Q-05 : périmètre d'édition du responsable)",
+    roles: ["SUPER_ADMIN", "ADMIN"],
+    pending: "docs/029 Q-05 · docs/031 (page [Département] éditable, rôle non nommé)",
   },
 
   /**

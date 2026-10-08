@@ -92,6 +92,36 @@ export const MediaPolicy = createPolicy<MediaPolicyResource>("MediaPolicy", {
   CREATE: { roles: ["SUPER_ADMIN", "ADMIN", "DEPARTMENT_MANAGER"] },
 
   /**
+   * `canRead` — lecture du **registre** (cellule 5.2) : `SUPER_ADMIN` ·
+   * `ADMIN` · `MANAGER` — « les médias pour lesquels un `MediaAccess` existe ».
+   *
+   * Le registre n'est **pas public** (`docs/018` §6.2) : cette ligne gouverne donc
+   * une lecture de back-office, et elle est la contrepartie indispensable de
+   * `USE`. Sans elle, un responsable devrait *deviner* l'identifiant d'un média
+   * autorisé pour le référencer dans une publication — c'est-à-dire essayer à
+   * l'aveugle, et apprendre par les refus ce que la policy savait déjà.
+   *
+   * La borne est **structurelle**, pas déclarative : la collection est filtrée en
+   * requête par `listScope` (département de l'acteur), et une instance est jugée
+   * par `hasAnyRight` — un média sans droit pour ce département reste invisible.
+   * `docs/029` §4.3 refuse en effet une ressource « sans département » ; ici la
+   * ressource n'en a **jamais** (X27 : pas de `media.department_id`), et c'est le
+   * droit explicite qui joue le rôle de rattachement.
+   */
+  READ: {
+    roles: ["SUPER_ADMIN", "ADMIN", "DEPARTMENT_MANAGER"],
+    resource: (admin, resource) => {
+      if (admin.role === "SUPER_ADMIN" || admin.role === "ADMIN") return allow();
+      if (resource === undefined) return allow();
+      return hasAnyRight(resource)
+        ? allow()
+        : deny(
+            "Média invisible : aucun MediaAccess n'existe pour ce département ni pour ce profil (docs/028 D-22, XD-09 — « aucun partage par défaut »)",
+          );
+    },
+  },
+
+  /**
    * `canUse` — référencer le média dans un contenu.
    *
    * `SUPER_ADMIN` et `ADMIN` : accordé (D-22, ils détiennent les trois droits).
@@ -198,6 +228,29 @@ export const MediaPolicy = createPolicy<MediaPolicyResource>("MediaPolicy", {
     pending: "docs/029 §2.6 — symétrie avec GRANT_ACCESS, non nommée par 028",
   },
 });
+
+/**
+ * Le média porte-t-il **un** droit, quel qu'il soit, pour cet acteur ?
+ *
+ * Sert à la seule visibilité du registre (cellule 5.2: « les médias pour
+ * lesquels un `MediaAccess` existe »). La question posée est « existe-t-il une
+ * autorisation ? », et non « laquelle ? » : c'est le seul endroit du fichier où
+ * les trois droits sont agrégés, et ce n'est pas une entorse à D-21 — D-21
+ * interdit de **déduire** un droit d'un autre, pas de constater qu'un média est
+ * visible dès lors qu'un droit existe. La permission effectivement demandée
+ * (`USE`, `MANAGE`, `DELETE`, `REPLACE`) reste testée séparément par
+ * `requireRight`.
+ */
+function hasAnyRight(resource: MediaPolicyResource): boolean {
+  return (
+    resource.departmentAccess?.canUse === true ||
+    resource.departmentAccess?.canManage === true ||
+    resource.departmentAccess?.canDelete === true ||
+    resource.profileAccess?.canUse === true ||
+    resource.profileAccess?.canManage === true ||
+    resource.profileAccess?.canDelete === true
+  );
+}
 
 /**
  * Exige un droit **explicite** pour le département de l'acteur (D-21, D-22).

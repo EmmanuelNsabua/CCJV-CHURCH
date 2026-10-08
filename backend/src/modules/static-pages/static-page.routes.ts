@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { AuthDependencies } from "@/presentation/middlewares/auth";
-import { requireAnyAdmin } from "@/presentation/middlewares/auth";
+import { requireAuthenticatedAdmin } from "@/presentation/middlewares/auth";
+import { authorize, PagePolicy } from "@/presentation/policies";
 import { validate } from "@/presentation/middlewares/validate";
 import { emptyQuerySchema } from "@/shared/http/pagination";
 import type { StaticPageService } from "./static-page.service";
@@ -18,6 +19,10 @@ import { pageContentUpdateSchema, pageParamsSchema } from "./static-page.schema"
  * La lecture ne reconnaît **aucun** paramètre de requête : sa *query* est
  * validée par `emptyQuerySchema`, objet strict. Un `?nimportequoi=1` est donc
  * refusé en `400 VALIDATION_ERROR`, comme sur toutes les autres routes.
+ *
+ * Le `PATCH` monte la chaîne complète, dans l'ordre `authenticate` →
+ * `requireAdmin` → `authorize(PagePolicy, "UPDATE")` → `validate` : le contenu
+ * d'une page n'est jamais analysé avant que la policy ait statué.
  */
 export interface StaticPageRouterDeps {
   service: StaticPageService;
@@ -27,7 +32,7 @@ export interface StaticPageRouterDeps {
 export function createStaticPageRouter(deps: StaticPageRouterDeps): Router {
   const router = Router();
   const controller = createStaticPageController(deps.service);
-  const admin = requireAnyAdmin(deps.authDeps, "ROLE_ADMIN");
+  const admin = requireAuthenticatedAdmin(deps.authDeps);
 
   router.get(
     "/:pageKey",
@@ -38,6 +43,7 @@ export function createStaticPageRouter(deps: StaticPageRouterDeps): Router {
   router.patch(
     "/:pageKey",
     ...admin,
+    authorize(PagePolicy, "UPDATE"),
     validate({ params: pageParamsSchema, body: pageContentUpdateSchema }),
     controller.update,
   );

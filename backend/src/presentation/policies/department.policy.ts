@@ -71,17 +71,23 @@ export const DepartmentPolicy = createPolicy<DepartmentPolicyResource>("Departme
   },
 
   /**
-   * `canUpdateBusinessInfo` — `SUPER_ADMIN` · `ADMIN` · `MANAGER` : Q-05 ouverte
-   * sur l'étendue exacte des champs éditables par un responsable.
+   * `canUpdateBusinessInfo` — `SUPER_ADMIN` · `ADMIN` ; **`MANAGER` : `?` Q-05**
+   * → refus (`docs/029` §4.3, défaut `✘`).
    *
-   * La policy accorde l'action ; la **liste des champs** est une décision de
-   * schéma de saisie (Lot 2), et elle n'est pas inventée ici. Ce partage est
-   * volontaire : une policy qui énumérerait des champs deviendrait un formulaire
-   * déguisé, et changer un libellé exigerait de rouvrir le RBAC.
+   * La cellule 2.3 est explicite sur le fondement du refus : « 028 **n'attribue
+   * pas** la modification des informations d'un département à son responsable ».
+   * Ce n'est donc pas une lacune à combler par commodité — c'est un pouvoir qui
+   * n'a jamais été donné, et la policy ne le donne pas.
+   *
+   * La policy accorde l'action aux rôles globaux ; la **liste des champs**
+   * éditables est une décision de schéma de saisie (Lot 2) et n'est pas inventée
+   * ici. Ce partage est volontaire : une policy qui énumérerait des champs
+   * deviendrait un formulaire déguisé, et changer un libellé exigerait de
+   * rouvrir le RBAC.
    */
   UPDATE: {
-    roles: ["SUPER_ADMIN", "ADMIN", "DEPARTMENT_MANAGER"],
-    pending: "docs/029 Q-05 (champs métier éditables par un responsable)",
+    roles: ["SUPER_ADMIN", "ADMIN"],
+    pending: "docs/029 Q-05 (informations métier d'un département par son responsable)",
     resource: (admin, resource) =>
       isOwnDepartment(admin.departmentId, resource?.id)
         ? { allowed: true }

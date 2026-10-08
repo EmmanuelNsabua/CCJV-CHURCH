@@ -647,8 +647,8 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       "`presentation/middlewares/auth.ts` (`verifyAccessToken`). Le jeton identifie " +
       "l'utilisateur auprès du fournisseur d'identité ; il ne confère aucun droit à lui " +
       "seul : `requireAdmin` charge ensuite le profil `admin_profiles` et exige qu'il " +
-      "existe, qu'il soit actif, et `requireRole` qu'il porte `ROLE_ADMIN` pour les " +
-      "routes d'administration.",
+      "existe et qu'il soit actif, puis la **policy de la ressource** décide de l'action " +
+      "(rôle, périmètre, égalité départementale, état de la ressource).",
   });
 
   /* ---------------------------------------------------------------------- */
@@ -1212,7 +1212,8 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     description:
       "Vue **administrative** d'une demande de prière (`prayer-request.serializer.ts`). " +
       "Seule forme à porter le texte de l'intention et les coordonnées ; elle n'est " +
-      "produite que par des routes montées derrière `requireAnyAdmin`.",
+      "produite que par des routes montées derrière l'authentification administrative " +
+      "**et** admises par `PrayerPolicy`, qui refuse ce domaine au `SUPER_ADMIN` (D-10).",
     required: [
       "id",
       "requestText",
@@ -1276,7 +1277,22 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       id: { type: "string", format: "uuid" },
       username: { type: "string" },
       displayName: { type: ["string", "null"] },
-      role: { type: "string", enum: ["ROLE_ADMIN"] },
+      /*
+       * Les trois rôles techniques de D-01 — et non plus `ROLE_ADMIN`.
+       *
+       * Le contrat annonçait une valeur que la base refuse désormais d'écrire :
+       * l'énumération PostgreSQL `admin_role` ne connaît que ces trois rôles
+       * (Lot 1a, `docs/032` §3.2). Un client qui se fiait à l'ancienne valeur
+       * comparaît un rôle qu'aucun profil ne porte.
+       *
+       * Il n'existe **aucun rôle de département** : un responsable d'un
+       * département et un responsable d'un autre sont deux instances de
+       * `DEPARTMENT_MANAGER`, différenciées par leur `departmentId` (D-02). Le
+       * périmètre et le rattachement ne figurent pas encore dans ce schéma : ils
+       * relèvent du Lot 10, qui alignera le contrat sur le DTO réellement
+       * sérialisé.
+       */
+      role: { type: "string", enum: ["SUPER_ADMIN", "ADMIN", "DEPARTMENT_MANAGER"] },
     },
   });
 
@@ -1297,7 +1313,7 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       id: { type: "string", format: "uuid" },
       username: { type: "string" },
       displayName: { type: ["string", "null"] },
-      role: { type: "string", enum: ["ROLE_ADMIN"] },
+      role: { type: "string", enum: ["SUPER_ADMIN", "ADMIN", "DEPARTMENT_MANAGER"] },
       isActive: { type: "boolean" },
       createdAt: { type: "string", format: "date-time" },
     },
@@ -1590,7 +1606,8 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       "Accepte un UUID ou un slug. Un identifiant inconnu produit `DEPARTMENT_NOT_FOUND`.",
     createSummary: "Créer un département",
     createDescription:
-      "Administration (`ROLE_ADMIN`). Le slug est dérivé du nom et suffixé jusqu'à être " +
+      "Administration (`ADMIN` ou `SUPER_ADMIN`, jamais un responsable — D-03, D-04). " +
+      "Le slug est dérivé du nom et suffixé jusqu'à être " +
       "libre ; un slug explicite déjà pris est refusé en `DUPLICATE_SLUG`.",
     updateSummary: "Mettre à jour un département",
     updateDescription:
@@ -2596,9 +2613,10 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     tags: ["admin"],
     summary: "Lister les profils administratifs",
     description:
-      "Administration au sens plein (`ROLE_ADMIN`) : expose l'annuaire administratif, " +
-      "avec l'état d'activation et la date de création de chaque profil. Collection " +
-      "paginée, sans filtre serveur.",
+      "Annuaire administratif, avec l'état d'activation et la date de création de " +
+      "chaque profil. Collection paginée, sans filtre serveur. Réservé au " +
+      "`SUPER_ADMIN` : le périmètre de lecture de l'`ADMIN` n'est pas arbitré " +
+      "(docs/029 Q-02), et le refus par défaut s'applique (docs/029 §4.3).",
     security: BEARER_SECURITY,
     parameters: PAGINATION_PARAMETERS,
     responses: {
@@ -2633,9 +2651,10 @@ export function buildOpenApiDocument(): Record<string, unknown> {
         "Jeton porteur Supabase (`Authorization: Bearer <jeton>`), vérifié par",
         "`presentation/middlewares/auth.ts`. L'authentification auprès du fournisseur",
         "d'identité **ne confère aucun droit** : l'utilisateur doit en plus posséder un",
-        "profil dans `admin_profiles`, actif, et le rôle `ROLE_ADMIN` pour les routes",
-        "d'administration. Chaque opération déclare son exigence : `security: []` pour",
-        "une route publique, `bearerAuth` pour une route d'administration.",
+        "profil dans `admin_profiles`, actif, puis le **rôle requis par la policy de la",
+        "ressource** pour l'action demandée. Chaque opération déclare son exigence :",
+        "`security: []` pour une route publique, `bearerAuth` pour une route",
+        "d'administration.",
         "",
         "### Enveloppes de réponse",
         "- collection : `{ data: [...], meta: { page, limit, total, totalPages } }` ;",

@@ -47,17 +47,19 @@ export const MediaAccessPolicy = createPolicy<MediaAccessPolicyResource>(
   "MediaAccessPolicy",
   {
     /**
-     * `canRead` — `SUPER_ADMIN` · `ADMIN` · `MANAGER` : « qui a accès à quoi ».
+     * `canRead` — lecture des autorisations existantes : `SUPER_ADMIN` ·
+     * `ADMIN` seulement (cellule 6.1) ; **`MANAGER` : `?` Q-11** → refus.
      *
-     * Un responsable doit pouvoir savoir **ce que son département** peut
-     * utiliser : sans cette lecture, il ne peut pas construire une publication
-     * sans essayer chaque média à l'aveugle. La ligne ne lui ouvre pas pour
-     * autant les droits des autres — c'est la lecture de collection qui borne,
-     * via `listScope`, et une lecture ciblée d'un droit étranger que
-     * `docs/032` §3.4 rend de toute façon inopérante puisqu'aucune policy ne
-     * l'accorde.
+     * Le refus n'isole pas le responsable : la cellule 5.2 lui ouvre le
+     * **registre des médias** pour les médias où un droit existe. Il sait donc ce
+     * qu'il peut utiliser, sans lire la table des autorisations elle-même — qui
+     * décrit aussi, en creux, ce que **d'autres** départements peuvent utiliser.
+     * C'est cette seconde information que Q-11 laisse ouverte.
      */
-    READ: { roles: ["SUPER_ADMIN", "ADMIN", "DEPARTMENT_MANAGER"] },
+    READ: {
+      roles: ["SUPER_ADMIN", "ADMIN"],
+      pending: "docs/029 Q-11 (lecture des autorisations par un responsable)",
+    },
 
     /**
      * `canUpdate` — modification des trois droits d'une ligne existante :

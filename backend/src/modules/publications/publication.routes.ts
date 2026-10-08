@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { AuthDependencies } from "@/presentation/middlewares/auth";
-import { requireAnyAdmin } from "@/presentation/middlewares/auth";
+import { requireAuthenticatedAdmin } from "@/presentation/middlewares/auth";
+import { authorize, PublicationPolicy } from "@/presentation/policies";
 import { validate } from "@/presentation/middlewares/validate";
 import { createPublicationController } from "./publication.controller";
 import {
@@ -20,8 +21,9 @@ import type { PublicationService } from "./publication.service";
  *
  * La séparation public / administration est explicite : les deux `GET` sont
  * ouverts et sans authentification ; `POST`, `PATCH` et `DELETE` sont toujours
- * précédés de `...admin` (authenticate → requireAdmin → requireRole) et
- * seulement ensuite de `validate`.
+ * précédés de `...admin` puis de `authorize(PublicationPolicy, ACTION)`, dans
+ * l'ordre `authenticate` → `requireAdmin` → `authorize` → `validate` : une
+ * demande refusée par la policy n'atteint jamais la validation de son corps.
  */
 export interface PublicationRouterDeps {
   service: PublicationService;
@@ -31,7 +33,7 @@ export interface PublicationRouterDeps {
 export function createPublicationRouter(deps: PublicationRouterDeps): Router {
   const router = Router();
   const controller = createPublicationController(deps.service);
-  const admin = requireAnyAdmin(deps.authDeps, "ROLE_ADMIN");
+  const admin = requireAuthenticatedAdmin(deps.authDeps);
 
   // --- Lecture publique (jamais de brouillon) --------------------------------
   router.get("/", validate({ query: listPublicationQuerySchema }), controller.list);
@@ -45,18 +47,21 @@ export function createPublicationRouter(deps: PublicationRouterDeps): Router {
   router.post(
     "/",
     ...admin,
+    authorize(PublicationPolicy, "CREATE"),
     validate({ body: createPublicationSchema }),
     controller.create,
   );
   router.patch(
     "/:idOrSlug",
     ...admin,
+    authorize(PublicationPolicy, "UPDATE"),
     validate({ params: publicationIdOrSlugSchema, body: updatePublicationSchema }),
     controller.update,
   );
   router.delete(
     "/:idOrSlug",
     ...admin,
+    authorize(PublicationPolicy, "DELETE"),
     validate({ params: publicationIdOrSlugSchema }),
     controller.remove,
   );

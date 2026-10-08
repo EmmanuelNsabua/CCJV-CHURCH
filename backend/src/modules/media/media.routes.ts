@@ -3,7 +3,8 @@ import multer from "multer";
 import { env } from "@/config/env";
 import { PayloadTooLargeError, ValidationError } from "@/shared/errors/app-error";
 import type { AuthDependencies } from "@/presentation/middlewares/auth";
-import { requireAnyAdmin } from "@/presentation/middlewares/auth";
+import { requireAuthenticatedAdmin } from "@/presentation/middlewares/auth";
+import { authorize, MediaPolicy } from "@/presentation/policies";
 import { validate } from "@/presentation/middlewares/validate";
 import { createMediaController } from "./media.controller";
 import {
@@ -66,26 +67,49 @@ function singleFileUpload(): RequestHandler {
 /**
  * Routes `/api/v1/media` — **entièrement administratives** : le registre des
  * fichiers téléversés n'est jamais public (`docs/018` §6.2).
+ *
+ * Aucune route n'étant publique, chacune monte la chaîne complète, dans l'ordre
+ * `authenticate` → `requireAdmin` → `authorize(MediaPolicy, ACTION)` →
+ * `validate`. La bibliothèque étant **centrale** (X27 : pas de
+ * `media.department_id`), la clause départementale de `docs/029` §4.3 est sans
+ * objet ici : la policy décide sur le rôle, le scope et les droits d'accès
+ * explicites.
  */
 export function createMediaRouter(deps: MediaRouterDeps): Router {
   const router = Router();
   const controller = createMediaController(deps.service);
-  const admin = requireAnyAdmin(deps.authDeps, "ROLE_ADMIN");
+  const admin = requireAuthenticatedAdmin(deps.authDeps);
 
-  router.get("/", ...admin, validate({ query: listQuerySchema }), controller.list);
+  router.get(
+    "/",
+    ...admin,
+    authorize(MediaPolicy, "READ"),
+    validate({ query: listQuerySchema }),
+    controller.list,
+  );
   router.get(
     "/:id/usage",
     ...admin,
+    authorize(MediaPolicy, "READ"),
     validate({ params: mediaIdParamSchema }),
     controller.usage,
   );
-  router.get("/:id", ...admin, validate({ params: mediaIdParamSchema }), controller.get);
+  router.get(
+    "/:id",
+    ...admin,
+    authorize(MediaPolicy, "READ"),
+    validate({ params: mediaIdParamSchema }),
+    controller.get,
+  );
 
-  // Ordre : administration → multer (mémoire) → validation des champs texte →
-  // service. Le dossier de destination est validé avant tout appel au Storage.
+  // Ordre : administration → autorisation de téléversement → multer (mémoire) →
+  // validation des champs texte → service. Le dossier de destination est validé
+  // avant tout appel au Storage, et aucun octet n'est mis en mémoire tampon
+  // avant que la policy ait admis l'action.
   router.post(
     "/",
     ...admin,
+    authorize(MediaPolicy, "CREATE"),
     singleFileUpload(),
     validate({ body: uploadMediaBodySchema }),
     controller.upload,
@@ -93,6 +117,7 @@ export function createMediaRouter(deps: MediaRouterDeps): Router {
   router.delete(
     "/:id",
     ...admin,
+    authorize(MediaPolicy, "DELETE"),
     validate({ params: mediaIdParamSchema, query: deleteMediaQuerySchema }),
     controller.remove,
   );

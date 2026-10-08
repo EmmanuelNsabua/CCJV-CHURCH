@@ -60,26 +60,46 @@ export interface DepartmentScopedResource {
 /**
  * Comment la clause départementale de `docs/029` §4.3 s'applique à une action.
  *
- * `"equality"` — l'action porte sur une **instance** : la ressource doit porter
- * le département de l'acteur. Une ressource **sans département vaut refus**
- * (« `department_id` de la ressource nul/absent → refus », §4.3). C'est le mode
- * des actions `UPDATE`, `DELETE`, `PUBLISH`, `ARCHIVE` : il n'y a pas de « je ne
- * sais pas encore » qui tienne, la ressource est chargée.
+ * Le mode décrit **ce que la ressource est censée porter**, et il n'existe que
+ * deux natures de décision — c'est la distinction que `docs/029` §4.2 impose :
  *
- * `"declared"` — l'action porte sur une **cible déclarée ou une collection** :
- * une cible absente est **admise**, parce que le département n'est pas alors une
- * entrée mais une **sortie** — il est *forcé* depuis le profil à la création
- * (`docs/029` P-01 : « MANAGER `DEPARTMENT` (département forcé) ») et il est
- * *filtré en requête* à la lecture de collection (`listScope` ci-dessous). Une
- * cible **présente** est en revanche jugée strictement : c'est l'exigence N-10
- * de `docs/029` §6.2 — « `POST` publication avec `department_id` d'un autre
- * département dans le corps → refus ; le département vient du **profil**, jamais
- * du corps ».
+ * > « Les 5 contrôles de `020` §20 imposent que la policy soit consultable deux
+ * > fois : **avant** la validation (sur le type de ressource et l'action — ne
+ * > dépend d'aucune donnée d'entrée) et **après** le chargement de la ressource
+ * > (sur l'instance). Les deux temps appellent **la même policy**. »
  *
- * Le mode `"declared"` n'est donc pas un assouplissement : il déplace la
- * contrainte du contrôle *a posteriori* vers une contrainte *structurelle* —
- * on ne peut pas créer ailleurs que chez soi, et on ne peut pas lire ailleurs
- * que chez soi, parce que la requête elle-même est bornée.
+ * `"equality"` — l'action porte sur une **instance** (`UPDATE`, `DELETE`,
+ * `PUBLISH`, `ARCHIVE`).
+ * - Ressource **absente** : c'est le **premier temps** — le garde de route ne
+ *   charge rien (`authorize` s'interdit toute lecture, pour ne pas rouvrir
+ *   l'écart 403/404). La clause est donc vraie ici, et l'égalité départementale
+ *   est jugée au **second temps**, dans le cas d'usage, sur l'instance chargée.
+ *   Refuser dès le premier temps fermerait toute action d'instance à un
+ *   responsable, puisque le garde ne peut pas connaître le département.
+ * - Ressource **présente sans département** : **refus**. `docs/029` §0.2 :
+ *   « un `department_id` absent ou nul vaut refus ». Si l'instance a été
+ *   chargée, son département est un fait connu, et son absence est un défaut —
+ *   pas une ignorance.
+ * - Ressource d'un **autre** département : refus (X11, X16 — sans nommer aucun
+ *   département).
+ *
+ * `"declared"` — l'action porte sur une **cible à créer** ou une **collection**
+ * (`CREATE`, `READ` de liste).
+ * - Ressource absente : admise — le département n'est pas une entrée mais une
+ *   **sortie** : il est *forcé* depuis le profil à la création (`docs/029` P-01,
+ *   « département forcé ») et *filtré en requête* à la lecture de collection
+ *   (`listScope` ci-dessous).
+ * - Ressource présente **sans département** : admise pour la même raison — la
+ *   cible déclarée n'a pas encore de département.
+ * - Ressource présente **avec** un département : jugée strictement. C'est
+ *   l'exigence N-10 de `docs/029` §6.2 — « `POST` publication avec
+ *   `department_id` d'un autre département dans le corps → refus ; le
+ *   département vient du **profil**, jamais du corps ».
+ *
+ * Aucun des deux modes n'est un assouplissement : le mode `"declared"` remplace
+ * un contrôle *a posteriori* par une contrainte *structurelle* — on ne peut pas
+ * créer ailleurs que chez soi, et on ne peut pas énumérer ailleurs que chez soi,
+ * parce que la requête elle-même est bornée.
  */
 export type DepartmentClauseMode = "equality" | "declared";
 
@@ -175,9 +195,9 @@ export interface ResourcePolicy<TResource> {
  *
  * `docs/028` D-02 rend le rattachement **unique** : l'interdiction « accéder au
  * département d'un autre responsable » (règle X11) devient donc une simple
- * **égalité**. C'est ce qui produit « Presse ↛ Ecodume » et « Ecodume ↛ Presse »
- * **sans qu'aucun des deux noms n'apparaisse** (XD-05, XD-06, D-09) : le
- * département est une **donnée**, jamais une valeur du code.
+ * **égalité**. C'est ce qui produit les refus croisés entre départements
+ * **sans qu'aucun nom n'apparaisse** (XD-05, XD-06, D-09) : le département est
+ * une **donnée**, jamais une valeur du code.
  *
  * Trois refus, jamais un seul :
  *
@@ -204,6 +224,13 @@ export function departmentClause(
 
   const target = resource?.departmentId;
   if (target === null || target === undefined) {
+    // Premier temps (docs/029 §4.2) : aucune ressource chargée, l'égalité
+    // départementale sera jugée sur l'instance. Refuser ici fermerait aux
+    // responsables toute action d'instance, le garde de route ne pouvant pas
+    // connaître le département sans charger la ressource — ce qu'il s'interdit.
+    if (resource === undefined) return allow();
+    // Cible déclarée sans département (création) : admise, le département sera
+    // forcé depuis le profil par la couche applicative.
     if (mode === "declared") return allow();
     return deny(
       "Ressource sans département : refus par défaut (docs/029 §4.3, « department_id nul ou absent vaut refus »)",
