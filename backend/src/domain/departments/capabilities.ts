@@ -42,6 +42,40 @@ export const DEPARTMENT_CAPABILITIES = {
    * doit pas suffire à publier à l'échelle de l'église.
    */
   EVENT_SCOPE_GLOBAL: "EVENT_SCOPE_GLOBAL",
+
+  /**
+   * Le département **entre dans le périmètre des publications** (`docs/035` §3.2).
+   *
+   * ### Pourquoi cette capacité existe
+   *
+   * `docs/035` §1 précise que « les Affaires Sociales n'entrent pas dans le
+   * périmètre des publications ». Cette exclusion n'était exprimée **nulle part**
+   * — ni en base, ni dans le code — et `docs/035` §3.2 laisse trois façons de
+   * l'exprimer avant de recommander explicitement la seconde :
+   *
+   * > « **Recommandation :** la **capacité de département** (option 2) — elle
+   * > applique au périmètre des publications le même mécanisme que celui retenu
+   * > pour la portée événementielle, et évite de figer dans une contrainte une
+   * > règle qu'un département pourrait devoir intégrer plus tard. »
+   *
+   * L'exclusion est donc portée par la **présence** de cette capacité, et non par
+   * un booléen : `docs/032` §3.5 fait déjà de la présence d'une ligne
+   * l'expression d'un droit, et un second mécanisme pour dire la même chose
+   * créerait deux vérités. Un département sans cette capacité **ne publie pas** —
+   * c'est un refus par défaut, cohérent avec tout le reste du modèle.
+   *
+   * ⚠️ **Point d'interprétation, signalé comme tel.** `docs/035` §3.2 écrit le nom
+   * `publication_scope = false` à titre d'exemple, sans figer de code de
+   * capacité ; `docs/032` §3.5 n'en connaît qu'un (`EVENT_SCOPE_GLOBAL`) et
+   * précise que la liste « est élargie par **décision explicite**, jamais par
+   * commodité ». Le code retenu ici — `PUBLICATION_SCOPE` — suit la convention du
+   * premier (`<DOMAINE>_SCOPE_<PORTÉE>`), et l'ajout au `CHECK` s'appuie sur la
+   * recommandation de `docs/035`, pas sur une commodité d'implémentation. Si
+   * l'organisation préfère un autre nom, ou veut que l'exclusion soit portée
+   * autrement, c'est le point à corriger — et il ne coûte qu'une valeur de
+   * vocabulaire.
+   */
+  PUBLICATION_SCOPE: "PUBLICATION_SCOPE",
 } as const;
 
 /** Capacité de département, valeurs de la liste fermée (`docs/032` §3.5). */
@@ -86,3 +120,20 @@ export function isDepartmentCapability(
 
 /** Portée publique d'un événement (`docs/032` §3.2, `event_visibility_scope`). */
 export type EventVisibilityScope = "DEPARTMENT" | "GLOBAL";
+
+/**
+ * Le département entre-t-il dans le périmètre des publications ?
+ *
+ * `docs/035` §1 exclut les Affaires Sociales du périmètre des publications, et
+ * §3.2 confie l'expression de cette exclusion à une capacité de département. La
+ * question posée ici est donc « ce département peut-il publier ? », jamais « quel
+ * est son nom ? » — c'est l'invariant D-09 : le nom d'un département n'entre
+ * jamais dans une condition d'autorisation.
+ *
+ * L'absence de capacité vaut refus : aucun département ne publie par défaut.
+ */
+export function isInPublicationScope(
+  capabilities: readonly DepartmentCapability[],
+): boolean {
+  return capabilities.includes(DEPARTMENT_CAPABILITIES.PUBLICATION_SCOPE);
+}

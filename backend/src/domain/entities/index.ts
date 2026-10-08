@@ -46,6 +46,24 @@ export type PublicationCategory =
 export type PublicationStatus = "DRAFT" | "PUBLISHED";
 
 /**
+ * Cycle de vie **cible** d'une publication (`docs/032` §3.2, D-18, D-20).
+ *
+ * Trois états, et non les deux que porte aujourd'hui l'énumération PostgreSQL. La
+ * distinction entre ce type et `PublicationStatus` est **temporaire et
+ * volontaire** : le schéma fait foi sur ce qui est *écrivable maintenant*, et
+ * `docs/033` §2.3.2 fait de l'ajout de `'ARCHIVED'` une étape de migration
+ * (`ALTER TYPE … ADD VALUE`, sans reconstruction — la valeur ne se retire
+ * jamais).
+ *
+ * Les règles métier jugent, elles, une **cible** : la règle des 3 (`docs/035`)
+ * archive, la policy refuse d'écrire sur une archive. Les laisser ignorer
+ * `ARCHIVED` reviendrait à accorder des actions sur un état qui existe déjà par
+ * décision — et à découvrir le défaut seulement après la migration, en
+ * production, sur les données mêmes qu'elle produit.
+ */
+export type PublicationLifecycleState = PublicationStatus | "ARCHIVED";
+
+/**
  * Rôle technique d'un profil (`docs/028` D-01).
  *
  * Trois rôles arrêtés, et **aucun rôle de département** : « Responsable »

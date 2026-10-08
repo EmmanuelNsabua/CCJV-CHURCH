@@ -349,7 +349,7 @@
       "checkConstraints": {
         "department_capabilities_known_capability": {
           "name": "department_capabilities_known_capability",
-          "value": "\"department_capabilities\".\"capability\" IN ('EVENT_SCOPE_GLOBAL')"
+          "value": "\"department_capabilities\".\"capability\" IN ('EVENT_SCOPE_GLOBAL', 'PUBLICATION_SCOPE')"
         }
       },
       "isRLSEnabled": false

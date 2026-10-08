@@ -10,9 +10,16 @@
 -- Conformité à docs/032 §3.5, point par point :
 --   · clé primaire composée (department_id, capability) — une capacité est un
 --     attribut du département, pas une entité autonome ;
---   · CHECK sur `capability` : vocabulaire FERMÉ, une seule valeur
---     ('EVENT_SCOPE_GLOBAL'). Aucune capacité n'est inventée ; le CHECK s'élargit
---     par décision explicite, jamais par commodité ;
+--   · CHECK sur `capability` : vocabulaire FERMÉ. Le CHECK s'élargit par décision
+--     explicite, jamais par commodité (docs/032 §3.5, Q-S8). Deux valeurs, et
+--     chacune a sa décision :
+--       - 'EVENT_SCOPE_GLOBAL'   → D-25 (portée événementielle globale) ;
+--       - 'PUBLICATION_SCOPE'    → docs/035 §3.2, recommandation explicite :
+--         « la capacité de département (option 2) — elle applique au périmètre
+--         des publications le même mécanisme que celui retenu pour la portée
+--         événementielle ». C'est cette capacité qui exprime l'exclusion des
+--         Affaires Sociales du périmètre des publications (docs/035 §1), laquelle
+--         n'était « exprimée nulle part » avant elle ;
 --   · FK department_id ON DELETE CASCADE — une capacité sans département n'a
 --     aucun sens ;
 --   · FK granted_by ON DELETE RESTRICT — l'auteur d'un grant est conservé, sinon
@@ -34,7 +41,7 @@ CREATE TABLE "department_capabilities" (
 	"granted_by" uuid,
 	"granted_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "department_capabilities_department_id_capability_pk" PRIMARY KEY("department_id","capability"),
-	CONSTRAINT "department_capabilities_known_capability" CHECK ("department_capabilities"."capability" IN ('EVENT_SCOPE_GLOBAL'))
+	CONSTRAINT "department_capabilities_known_capability" CHECK ("department_capabilities"."capability" IN ('EVENT_SCOPE_GLOBAL', 'PUBLICATION_SCOPE'))
 );
 --> statement-breakpoint
 ALTER TABLE "department_capabilities" ADD CONSTRAINT "department_capabilities_department_id_departments_id_fk" FOREIGN KEY ("department_id") REFERENCES "public"."departments"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

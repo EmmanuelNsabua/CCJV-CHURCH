@@ -1,4 +1,4 @@
-import type { AdminProfile } from "@/domain/entities";
+import type { AdminProfile, PublicationLifecycleState } from "@/domain/entities";
 import { allow, deny, type AuthorizationDecision } from "./authorize";
 import { createPolicy, type DepartmentScopedResource } from "./policy-kit";
 
@@ -29,19 +29,12 @@ import { createPolicy, type DepartmentScopedResource } from "./policy-kit";
 /**
  * Cycle de vie d'une publication **tel que la policy doit le juger**.
  *
- * Trois états, conformément à `docs/032` §3.2 (D-18, D-20) — et non les deux que
- * porte aujourd'hui l'énumération PostgreSQL. La distinction est délibérée : une
- * policy juge une **intention sur une cible**, pas l'état d'une colonne. La
- * valeur `'ARCHIVED'` s'ajoute par `ALTER TYPE … ADD VALUE` au Lot 4 (elle ne se
- * retire jamais) ; en attendant, aucune ligne de code n'écrit `ARCHIVED` — le
- * type le permet, la base ne l'a pas encore, et aucun chemin ne l'emprunte.
- *
- * Écrire ici la forme **cible** plutôt que la forme actuelle évite le piège
- * inverse : une policy qui ignorerait `ARCHIVED` accorderait silencieusement des
- * actions sur des publications archivées le jour où la migration passe — un
- * défaut qui n'apparaîtrait qu'en production, sur les données de la règle des 3.
+ * Le type est déclaré dans le domaine (`PublicationLifecycleState`) et non ici :
+ * la règle des 3 (`domain/rules/publication-quota.ts`) juge le **même** cycle, et
+ * deux déclarations jumelles divergeraient — la policy autoriserait ce que la
+ * règle archiverait, ou l'inverse. Un seul type, deux lecteurs.
  */
-export type PublicationLifecycleState = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+export type { PublicationLifecycleState } from "@/domain/entities";
 
 /** Vue d'une publication telle que la policy a besoin de la connaître. */
 export interface PublicationPolicyResource extends DepartmentScopedResource {

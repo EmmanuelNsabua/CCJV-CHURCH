@@ -129,7 +129,7 @@ export const departmentCapabilities = pgTable(
     index("department_capabilities_capability_idx").on(table.capability),
     check(
       "department_capabilities_known_capability",
-      sql`${table.capability} IN ('EVENT_SCOPE_GLOBAL')`,
+      sql`${table.capability} IN ('EVENT_SCOPE_GLOBAL', 'PUBLICATION_SCOPE')`,
     ),
   ],
 );
