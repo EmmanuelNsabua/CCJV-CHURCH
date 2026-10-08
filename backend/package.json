@@ -18,6 +18,7 @@
     "test:vitest": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/infrastructure/database/migrate.ts",
+    "db:verify": "tsx scripts/verify-migrations.ts",
     "db:studio": "drizzle-kit studio",
     "seed": "tsx src/infrastructure/database/seed.ts",
     "openapi": "tsx src/presentation/openapi/generate.ts",
