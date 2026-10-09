@@ -29,39 +29,32 @@ export type PublicationCategory =
   | "MEDIA"
   | "RESSOURCE";
 /**
- * Cycle de vie d'une publication **tel que la base le porte aujourd'hui**.
+ * Cycle de vie d'une publication (D-18, D-20, `docs/032` §3.2).
  *
- * ⚠️ Les deux valeurs ci-dessous décrivent l'**état présent** de l'énumération
- * PostgreSQL `publication_status`. `docs/032` §3.2 en fixe **trois** : la valeur
- * `'ARCHIVED'` s'ajoute par `ALTER TYPE … ADD VALUE` (D-18), et cette migration
- * appartient au Lot 4 — la même opération que `docs/033` §2.3.2 décrit pour
- * `admin_role`, à ceci près qu'aucune valeur n'est retirée.
+ * **Trois états, et non deux.** `ARCHIVED` est un état **métier persistant**, pas
+ * un filtre d'affichage ni une suppression : c'est ce que la règle globale des 3
+ * (`docs/035`) produit lorsqu'une quatrième publication paraît — la plus ancienne
+ * est archivée **définitivement**. La transition `ARCHIVED → PUBLISHED` **n'existe
+ * pas** (D-18, XD-14), et aucune valeur ne doit jamais être retirée de
+ * l'énumération PostgreSQL.
  *
- * Tant que la migration n'est pas appliquée, la valeur n'existe pas en base :
- * l'écrire ici élargirait le type au-delà de ce que PostgreSQL accepte, et
- * l'erreur ne se produirait qu'à l'exécution. La policy juge en revanche une
- * cible **future** — elle doit donc déjà connaître `ARCHIVED`
- * (`publication.policy.ts`, `PublicationLifecycleState`).
+ * Le type décrit désormais exactement ce que porte la base : l'énumération a été
+ * étendue par la migration 0007 (`ADD VALUE 'ARCHIVED'`), ce qui lève la
+ * distinction transitoire qui existait entre ce que le schéma acceptait et ce que
+ * le domaine jugeait.
  */
-export type PublicationStatus = "DRAFT" | "PUBLISHED";
+export type PublicationStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 
 /**
- * Cycle de vie **cible** d'une publication (`docs/032` §3.2, D-18, D-20).
+ * Alias historique, conservé pour les lecteurs qui l'importent.
  *
- * Trois états, et non les deux que porte aujourd'hui l'énumération PostgreSQL. La
- * distinction entre ce type et `PublicationStatus` est **temporaire et
- * volontaire** : le schéma fait foi sur ce qui est *écrivable maintenant*, et
- * `docs/033` §2.3.2 fait de l'ajout de `'ARCHIVED'` une étape de migration
- * (`ALTER TYPE … ADD VALUE`, sans reconstruction — la valeur ne se retire
- * jamais).
- *
- * Les règles métier jugent, elles, une **cible** : la règle des 3 (`docs/035`)
- * archive, la policy refuse d'écrire sur une archive. Les laisser ignorer
- * `ARCHIVED` reviendrait à accorder des actions sur un état qui existe déjà par
- * décision — et à découvrir le défaut seulement après la migration, en
- * production, sur les données mêmes qu'elle produit.
+ * Les deux types ont **convergé** : l'énumération PostgreSQL porte les trois états,
+ * il n'y a donc plus lieu de distinguer « ce qui est écrivable maintenant » de « ce
+ * que la règle juge ». Garder l'alias évite de toucher une dizaine d'imports pour un
+ * renommage sans contenu ; le supprimer serait un nettoyage cosmétique à faire lors
+ * d'une prochaine revue, pas une correction.
  */
-export type PublicationLifecycleState = PublicationStatus | "ARCHIVED";
+export type PublicationLifecycleState = PublicationStatus;
 
 /**
  * Rôle technique d'un profil (`docs/028` D-01).

@@ -60,12 +60,33 @@ export const publicationCategoryEnum = pgEnum("publication_category", [
 
 /**
  * `DRAFT` permet la dépublication demandée par le cahier §8.
- * La valeur par défaut est `PUBLISHED` : une publication créée est visible,
- * sauf choix explicite de brouillon (docs/018 §1, arbitrage n°6).
+ * `ARCHIVED` est un état **métier persistant** (D-18, D-20) : c'est ce que produit
+ * la règle globale des 3 (`docs/035`) lorsqu'une quatrième publication paraît. La
+ * transition `ARCHIVED → PUBLISHED` **n'existe pas**, et aucune valeur ne doit
+ * jamais être retirée de cette énumération.
+ *
+ * La valeur est ajoutée par `ALTER TYPE … ADD VALUE` (migration 0007), et **dans
+ * une migration séparée** de celle qui l'utilise : PostgreSQL refuse d'employer
+ * une valeur d'énumération ajoutée dans la transaction qui l'a créée.
  */
 export const publicationStatusEnum = pgEnum("publication_status", [
   "DRAFT",
   "PUBLISHED",
+  "ARCHIVED",
+]);
+
+/**
+ * Portée publique d'un événement (`docs/028` D-26, `docs/032` §3.2).
+ *
+ * Notion **distincte** du département responsable : `department_id` dit **qui est
+ * responsable** de l'événement, `visibility_scope` dit **qui est concerné**. Un
+ * événement porté par un département peut concerner toute l'église — et c'est la
+ * **capacité** `EVENT_SCOPE_GLOBAL` du département, jamais son nom, qui l'autorise
+ * (D-25). Le trigger de `docs/032` §3.6 le vérifie en base.
+ */
+export const eventVisibilityScopeEnum = pgEnum("event_visibility_scope", [
+  "DEPARTMENT",
+  "GLOBAL",
 ]);
 
 /** Niveau de confidentialité choisi par la personne qui dépose une intention. */
