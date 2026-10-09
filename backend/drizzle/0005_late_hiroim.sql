@@ -1,0 +1,22 @@
+-- Lot 9 (volet paramètres) — aucune clé de configuration ne peut porter un secret
+-- de prière (docs/032 §3.10, docs/030 §5.5).
+--
+-- Migration **additive** : une contrainte ajoutée, aucune colonne modifiée, aucune
+-- donnée touchée. Comme les précédentes, elle est préparée et **prouvée** par
+-- `npm run db:verify` (exécution réelle dans une transaction annulée) — elle n'est
+-- pas appliquée.
+--
+-- Pourquoi cette contrainte relie deux décisions distinctes : le `SUPER_ADMIN`
+-- LIT les paramètres (docs/028 D-03) et ne doit RIEN voir du domaine des prières
+-- (D-10). Une clé de secours rangée dans `site_settings` rouvrirait donc la fuite
+-- que D-10 ferme, par un chemin que personne ne surveille — un enregistrement de
+-- configuration. docs/030 §5.5 l'interdit en toutes lettres : « toute forme de clé
+-- de secours en ligne recréerait exactement O3 et est interdite ».
+--
+-- Avant d'appliquer, vérifier qu'aucune ligne existante ne viole le motif :
+--   SELECT key FROM public.site_settings
+--    WHERE key ~* '^(prayer|crypto|dek|recovery|kek|master)';
+-- La requête doit rendre **zéro ligne**. Le `ALTER TABLE` échouerait de toute
+-- façon — mais en refusant l'ajout, pas en signalant la ligne fautive.
+
+ALTER TABLE "site_settings" ADD CONSTRAINT "site_settings_no_prayer_secret" CHECK ("site_settings"."key" !~* '^(prayer|crypto|dek|recovery|kek|master)');

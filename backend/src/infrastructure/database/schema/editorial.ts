@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -135,14 +137,53 @@ export const socialLinks = pgTable(
  * fondation). Toute liste ordonnée ou entité a sa propre table — c'est ce qui
  * évite la dérive vers un CMS générique.
  */
-export const siteSettings = pgTable("site_settings", {
-  key: varchar("key", { length: 80 }).primaryKey(),
-  value: text("value").notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-});
+export const siteSettings = pgTable(
+  "site_settings",
+  {
+    key: varchar("key", { length: 80 }).primaryKey(),
+    value: text("value").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    /**
+     * **Aucune clé de configuration ne peut porter un secret de prière.**
+     *
+     * `docs/032` §3.10 relie deux décisions qui, prises séparément, laisseraient
+     * une porte ouverte : le `SUPER_ADMIN` **lit** les paramètres (`docs/028` D-03
+     * lui attribue « les paramètres ») et ne doit **rien** voir du domaine
+     * `PrayerRequest` (D-10 — « fonctionnellement inexistant pour lui »). Une clé
+     * de secours rangée dans `site_settings` rouvrirait donc exactement la fuite
+     * que D-10 ferme, par un chemin que personne ne surveille : un simple
+     * enregistrement de configuration.
+     *
+     * `docs/030` §5.5 en fait une interdiction explicite — « toute forme de clé de
+     * secours en ligne recréerait exactement O3 et est interdite » — et c'est cette
+     * phrase que ce `CHECK` traduit en garantie.
+     *
+     * Le motif couvre les préfixes qui trahissent un secret : `prayer`, `crypto`,
+     * `dek` (clé de données), `recovery`, `kek` (clé d'enveloppe), `master`.
+     * Insensible à la casse (`!~*`) : `Prayer_Recovery` doit être refusé comme
+     * `prayer_recovery`.
+     *
+     * C'est une barrière **structurelle**, au même titre que l'absence de colonne :
+     * elle s'applique à toute écriture, y compris à un script d'administration ou
+     * à un correctif manuel — les chemins par lesquels un secret entrerait
+     * justement sans passer par une policy.
+     *
+     * Note d'implémentation : ajouter une **contrainte** ne change aucune colonne,
+     * donc aucune lecture. C'est la raison pour laquelle cette règle peut être
+     * livrée sans toucher aux routes publiques des paramètres, contrairement aux
+     * évolutions de schéma qui ajoutent des colonnes.
+     */
+    check(
+      "site_settings_no_prayer_secret",
+      sql`${table.key} !~* '^(prayer|crypto|dek|recovery|kek|master)'`,
+    ),
+  ],
+);
 
 export type StaticPageRow = typeof staticPages.$inferSelect;
 export type ScriptureRow = typeof scriptures.$inferSelect;

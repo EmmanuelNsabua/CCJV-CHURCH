@@ -290,6 +290,29 @@ async function main(): Promise<void> {
           },
         },
         {
+          requires: "0005_late_hiroim.sql",
+          label: "paramètres : clé ordinaire acceptée",
+          attendu: "accepté",
+          run: (t) =>
+            t`insert into site_settings (key, value) values ('church_name', 'Centre Chrétien Jésus ma Vie')`,
+        },
+        {
+          requires: "0005_late_hiroim.sql",
+          label: "paramètres : clé de secours REFUSÉE (docs/030 §5.5, D-10)",
+          attendu: "refusé",
+          motif: /no_prayer_secret/,
+          run: (t) =>
+            t`insert into site_settings (key, value) values ('recovery_key_share_1', 'fragment')`,
+        },
+        {
+          requires: "0005_late_hiroim.sql",
+          label: "paramètres : secret de prière refusé, même en casse mixte",
+          attendu: "refusé",
+          motif: /no_prayer_secret/,
+          run: (t) =>
+            t`insert into site_settings (key, value) values ('Prayer_Crypto_Backup', 'x')`,
+        },
+        {
           requires: "0004_complete_guardian.sql",
           label: "notification : destinataire inexistant (trigger)",
           attendu: "refusé",
