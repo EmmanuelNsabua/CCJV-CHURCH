@@ -1,6 +1,7 @@
-import { and, asc, count, desc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { Publication } from "@/domain/entities";
+import { planPublication } from "@/domain/rules/publication-quota";
 import type {
   ListOptions,
   ListResult,
@@ -152,6 +153,12 @@ export class DrizzlePublicationRepository implements PublicationRepository {
         body: data.body ?? null,
         author: data.author ?? null,
         publishedAt: data.publishedAt,
+        // Département **responsable** : obligatoire (D-02, D-06). Il est transmis
+        // tel quel — jamais converti en `NULL` à l'aveugle : une omission doit
+        // échouer explicitement plutôt que produire une publication sans
+        // responsable, état que la base refuse.
+        departmentId: data.departmentId,
+        archivedAt: data.archivedAt ?? null,
       })
       .returning();
 
@@ -193,6 +200,90 @@ export class DrizzlePublicationRepository implements PublicationRepository {
     }
 
     return this.findById(id);
+  }
+
+  /**
+   * Publie ou archive une publication — écriture **d'attente**, jamais une saisie.
+   *
+   * `archivedAt` est posé **en même temps** que le statut : une publication
+   * `ARCHIVED` sans date serait un état incohérent, et la date est ce qui permet
+   * de distinguer un archivage volontaire d'un archivage par quota.
+   * L'irréversibilité (D-18) n'est pas vérifiée ici : elle l'est par
+   * `PublicationPolicy`, qui refuse toute action sur une archive, et par le refus
+   * d'un `UNARCHIVE` pour tout le monde.
+   */
+  async applyLifecycle(
+    id: string,
+    change: { status: "PUBLISHED" | "ARCHIVED"; at: Date },
+  ): Promise<Publication | null> {
+    if (!isUuid(id)) return null;
+
+    const [row] = await this.db
+      .update(publications)
+      .set({
+        status: change.status,
+        archivedAt: change.status === "ARCHIVED" ? change.at : null,
+        updatedAt: change.at,
+      })
+      .where(eq(publications.id, id))
+      .returning();
+
+    return row === undefined ? null : this.findById(row.id);
+  }
+
+  /**
+   * Publie **en appliquant la règle globale des 3** (`docs/035` §1).
+   *
+   * Trois mécanismes, et aucun n'est décoratif :
+   *
+   * 1. **transaction** — la place libérée et la publication prennent effet
+   *    ensemble. Un échec au milieu laisserait sinon le site à deux publications
+   *    en ligne sans que la troisième soit arrivée ;
+   * 2. **verrou d'avis** (`pg_advisory_xact_lock`) — sérialise les publications
+   *    concurrentes. Sans lui, deux requêtes simultanées liraient le même compte
+   *    et concluraient chacune qu'il reste une place : quatre publications en
+   *    ligne, exactement ce que la règle interdit. Un verrou de ligne ne suffit
+   *    pas — la règle porte sur l'**ensemble** de la table, pas sur une ligne ;
+   * 3. **plan issu du domaine** — `planPublication` est pur et éprouvé cas par
+   *    cas (départage par `id`, brouillons non comptés, republication sans coût).
+   *    Le repository **exécute**, il ne décide pas.
+   *
+   * Le verrou est libéré avec la transaction, quelle qu'en soit l'issue : un échec
+   * ne laisse pas le quota verrouillé.
+   */
+  async publishWithQuota(id: string, publishedAt: string): Promise<Publication | null> {
+    if (!isUuid(id)) return null;
+
+    return this.db.transaction(async (tx) => {
+      // Verrou d'avis **de transaction** : libéré automatiquement, y compris en
+      // cas de rejet, là où un `pg_advisory_lock` manuel fuirait sur exception.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('publications.quota'))`);
+
+      const published = await tx
+        .select({
+          id: publications.id,
+          status: publications.status,
+          publishedAt: publications.publishedAt,
+        })
+        .from(publications)
+        .where(eq(publications.status, "PUBLISHED"));
+
+      const plan = planPublication(published, id);
+
+      if (plan.toArchive !== null) {
+        await tx
+          .update(publications)
+          .set({ status: "ARCHIVED", archivedAt: new Date(), updatedAt: new Date() })
+          .where(eq(publications.id, plan.toArchive.id));
+      }
+
+      await tx
+        .update(publications)
+        .set({ status: "PUBLISHED", publishedAt, updatedAt: new Date() })
+        .where(eq(publications.id, id));
+
+      return this.findById(id);
+    });
   }
 
   async remove(id: string): Promise<boolean> {
@@ -264,6 +355,8 @@ export class DrizzlePublicationRepository implements PublicationRepository {
       body: row.body,
       author: row.author,
       publishedAt: row.publishedAt,
+      departmentId: row.departmentId,
+      archivedAt: row.archivedAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     }));

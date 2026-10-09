@@ -57,6 +57,13 @@
       "when": 1791560634099,
       "tag": "0007_ambiguous_apocalypse",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791564529029,
+      "tag": "0008_bright_baron_strucker",
+      "breakpoints": true
     }
   ]
 }

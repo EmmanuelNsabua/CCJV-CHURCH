@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   date,
   index,
@@ -13,6 +14,7 @@ import {
   publicationStatusEnum,
   publicationTypeEnum,
 } from "./enums";
+import { departments } from "./departments";
 import { media } from "./media";
 
 /**
@@ -52,6 +54,26 @@ export const publications = pgTable(
     author: varchar("author", { length: 120 }),
     publishedAt: date("published_at").notNull(),
     status: publicationStatusEnum("status").notNull().default("PUBLISHED"),
+    /**
+     * Département **responsable** (D-02, D-06) — `NOT NULL`.
+     *
+     * Une publication sans département n'a pas de responsable identifiable : ni la
+     * portée éditoriale des responsables, ni le rattachement exigé par D-08 ne
+     * peuvent s'appuyer sur un champ facultatif. `RESTRICT` : supprimer un
+     * département qui porte des publications est **refusé**, plutôt que de les
+     * laisser orphelines.
+     */
+    departmentId: uuid("department_id")
+      .notNull()
+      .references(() => departments.id, { onDelete: "restrict" }),
+    /**
+     * Date d'archivage, renseignée par la règle des 3 — jamais par un client.
+     *
+     * D-18/D-20 : l'archivage est **irréversible** et `ARCHIVED` est un état
+     * persistant. La date en garde la trace et distingue un archivage volontaire
+     * d'un archivage par quota, ce qu'aucun autre champ ne permettrait.
+     */
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     coverMediaId: uuid("cover_media_id").references(() => media.id, {
       onDelete: "set null",
     }),
@@ -70,6 +92,19 @@ export const publications = pgTable(
     index("publications_category_idx").on(table.category),
     index("publications_type_idx").on(table.type),
     index("publications_status_idx").on(table.status),
+    index("publications_department_idx").on(table.departmentId),
+    /**
+     * Index **partiel** de la règle des 3 : les trois places du site.
+     *
+     * La règle est globale (`docs/035` §1 : « toutes catégories et tous
+     * départements confondus »), donc l'index ne porte **pas** sur
+     * `department_id` — contrairement à ce que D-18 prévoyait avant l'arbitrage.
+     * Il sert au tri d'archivage (`published_at ASC, id ASC`) et au comptage des
+     * publiées, les deux seules opérations du quota.
+     */
+    index("publications_quota_idx")
+      .on(table.publishedAt, table.id)
+      .where(sql`${table.status} = 'PUBLISHED'`),
   ],
 );
 

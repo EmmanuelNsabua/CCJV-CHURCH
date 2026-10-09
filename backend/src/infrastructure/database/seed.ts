@@ -435,13 +435,47 @@ async function loadDepartmentIds(
   return new Map(items.map((department) => [department.name, department.id]));
 }
 
-/** `null` = événement général de l'église, non rattaché à un département (docs/006 §4). */
+/**
+ * Département **responsable** d'une donnée de démonstration — **jamais `null`**.
+ *
+ * `docs/028` D-26 et XD-15 : « un événement global au sens d'un
+ * `department_id = NULL` n'existe pas », et une publication sans département n'a
+ * pas de responsable (D-02, D-06). Les deux colonnes sont `NOT NULL`.
+ *
+ * Trois cas, et le troisième est un **arbitrage assumé** :
+ *
+ * 1. le nom est connu en base → son identifiant ;
+ * 2. le nom est absent de `seed-data.ts` → le département de **rang 1** (le
+ *    premier de la liste de référence), avec un avertissement ;
+ * 3. le nom est présent mais inconnu en base → **erreur**, et le seed s'arrête.
+ *
+ * Le cas 2 est un choix, pas une facilité : les données de démonstration sont des
+ * **mocks** que le back-office remplacera, et bloquer l'amorçage sur un nom
+ * obsolète serait disproportionné. Le rattachement retenu est stable et
+ * documenté, jamais un `NULL` qui violerait une contrainte métier. Le cas 3, en
+ * revanche, signale une incohérence réelle entre les données et la base : la
+ * masquer produirait un jeu de démonstration faux en silence.
+ */
 function departmentIdFor(
   departmentIds: Map<string, string>,
   name: string | null,
-): string | null {
+): string {
+  const fallback = departmentIds.get(FALLBACK_DEPARTMENT_NAME);
+
+  if (fallback === undefined) {
+    throw new Error(
+      `Aucun département « ${FALLBACK_DEPARTMENT_NAME} » en base : ` +
+        "les départements de référence doivent être créés avant l'amorçage " +
+        "(migration 0006).",
+    );
+  }
+
   if (name === null) {
-    return null;
+    console.warn(
+      `[seed] Rattachement de démonstration : aucune département déclaré, ` +
+        `« ${FALLBACK_DEPARTMENT_NAME} » est retenu (donnée mock, modifiable au back-office).`,
+    );
+    return fallback;
   }
 
   const id = departmentIds.get(name);
@@ -449,12 +483,23 @@ function departmentIdFor(
   if (id === undefined) {
     throw new Error(
       `Département « ${name} » introuvable : seed-data.ts le référence, ` +
-        "mais aucun département de ce nom n'existe en base.",
+        "mais aucun département de ce nom n'existe en base. " +
+        "Les départements de référence sont ceux de la migration 0006.",
     );
   }
 
   return id;
 }
+
+/**
+ * Département retenu quand une donnée de démonstration n'en déclare aucun.
+ *
+ * « Les Serviteurs » est le premier de la liste de référence : le collège qui
+ * porte la vie institutionnelle de l'église. Ce choix est un **arbitrage de
+ * démonstration**, pas une information organisationnelle vérifiée, et il est
+ * modifiable depuis le back-office.
+ */
+const FALLBACK_DEPARTMENT_NAME = "Les Serviteurs";
 
 /* -------------------------------------------------------------------------- */
 /*  Remise à zéro                                                             */
@@ -739,6 +784,11 @@ async function run(): Promise<void> {
             body: publication.body,
             author: publication.author,
             publishedAt: isoDateFromNow(publication.dateOffsetDays),
+            // Département **responsable**, obligatoire (D-02, D-06). Le jeu de
+            // démonstration ne déclare pas encore de département par publication :
+            // le repli documenté s'applique (donnée mock, modifiable au
+            // back-office).
+            departmentId: departmentIdFor(departmentIds, null),
           },
           slug,
         );

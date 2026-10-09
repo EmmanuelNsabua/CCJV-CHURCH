@@ -74,10 +74,23 @@ const eventFields = {
   imageMediaId: z.uuid("L'identifiant de média doit être un UUID").nullish(),
   bannerMediaId: z.uuid("L'identifiant de média doit être un UUID").nullish(),
   /**
-   * `null` = événement général de l'église. Le service vérifie que le
-   * département référencé existe réellement.
+   * Département **responsable** : **obligatoire** (D-26, XD-15).
+   *
+   * « Un événement global au sens d'un `department_id = NULL` n'existe pas ». Le
+   * champ n'est donc ni `nullish()` ni `optional()` ici : une création sans
+   * département est refusée en `400`, avant toute écriture, plutôt que de laisser
+   * la base rappeler la contrainte.
    */
-  departmentId: z.uuid("L'identifiant de département doit être un UUID").nullish(),
+  departmentId: z.uuid("L'identifiant de département doit être un UUID"),
+  /**
+   * Portée publique (D-26) : `DEPARTMENT` par défaut — la plus **restreinte**.
+   *
+   * Distincte du département responsable : un événement est toujours porté par un
+   * département, et sa portée peut concerner toute l'église. `GLOBAL` exige la
+   * capacité `EVENT_SCOPE_GLOBAL` du département (D-25), décidée par
+   * `EventPolicy` puis garantie par un trigger en base.
+   */
+  visibilityScope: z.enum(["DEPARTMENT", "GLOBAL"]).optional(),
   practicalInfo: z
     .array(z.string().trim().min(1).max(300))
     .max(20, "20 informations pratiques au maximum")
@@ -95,8 +108,17 @@ export const createEventSchema = z.object({
     .optional(),
 });
 
-/** Mise à jour partielle : `slug` en est absent (l'URL publique ne change pas). */
-export const updateEventSchema = z.object(eventFields).partial();
+/**
+ * Mise à jour partielle : `slug` en est absent (l'URL publique ne change pas).
+ *
+ * `departmentId` y est **facultatif** — mais jamais `null` : la colonne est
+ * `NOT NULL`, et « détacher » un événement de son département n'est plus une
+ * opération du modèle (XD-15). Omettre le champ laisse le rattachement intact ;
+ * transmettre `null` est refusé en `400`.
+ */
+export const updateEventSchema = z.object(eventFields).partial().extend({
+  departmentId: eventFields.departmentId.optional(),
+});
 
 export type CreateEventBody = z.infer<typeof createEventSchema>;
 export type UpdateEventBody = z.infer<typeof updateEventSchema>;

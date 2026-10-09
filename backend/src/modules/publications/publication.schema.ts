@@ -71,7 +71,15 @@ const publicationFields = {
     .max(150, "Le titre ne peut pas dépasser 150 caractères"),
   type: z.enum(["VIDEO", "PHOTO", "TEXTE"]),
   category: z.enum(["ACTUALITE", "ENSEIGNEMENT", "MEDIA", "RESSOURCE"]),
-  /** `DRAFT` dépublie sans supprimer ; `PUBLISHED` est la valeur par défaut. */
+  /**
+   * `DRAFT` dépublie sans supprimer ; `PUBLISHED` est la valeur par défaut.
+   *
+   * ⚠️ `ARCHIVED` n'est **pas** acceptable ici, et son absence est délibérée :
+   * l'archivage est **irréversible** (D-18) et ne s'obtient pas en posant un
+   * statut dans un corps de requête. Il passe par l'action d'archivage, ou par la
+   * règle des 3 au moment d'une publication — jamais par un `PATCH` qui
+   * contournerait la mécanique transactionnelle (`docs/035`).
+   */
   status: z.enum(["DRAFT", "PUBLISHED"]).optional(),
   contentUrl: z.string().trim().max(1000, "L'URL est trop longue").nullish(),
   coverMediaId: z.uuid("L'identifiant de média doit être un UUID").nullish(),
@@ -82,6 +90,16 @@ const publicationFields = {
     .nullish(),
   author: z.string().trim().max(120, "Le nom de l'auteur est trop long").nullish(),
   publishedAt: z.iso.date("La date doit être au format AAAA-MM-JJ"),
+  /**
+   * Département **responsable** : **obligatoire** (D-02, D-06).
+   *
+   * Le département vient du **corps** pour une création par un rôle global, mais
+   * `PublicationPolicy` refuse à un responsable un département autre que le sien :
+   * un `POST` qui déclare le département d'un autre est refusé en `403` (exigence
+   * N-10 de `docs/029` §6.2). Le service force le rattachement depuis le profil
+   * lorsque l'acteur est départemental.
+   */
+  departmentId: z.uuid("L'identifiant de département doit être un UUID"),
 };
 
 export const createPublicationSchema = z.object({

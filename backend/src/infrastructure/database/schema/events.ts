@@ -12,6 +12,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { departments } from "./departments";
+import { eventVisibilityScopeEnum } from "./enums";
 import { media } from "./media";
 
 /**
@@ -44,13 +45,31 @@ export const events = pgTable(
       onDelete: "set null",
     }),
     /**
-     * `NULL` = événement général de l'église, non rattaché à un département
-     * (`docs/006` §4). `set null` plutôt que `cascade` : supprimer un
-     * département ne doit jamais supprimer les événements de l'église.
+     * Département **responsable** : `NOT NULL` (D-26, XD-15).
+     *
+     * « Un événement global au sens d'un `department_id = NULL` **n'existe pas** ».
+     * `RESTRICT` plutôt que `SET NULL` : sans département, l'événement perdrait son
+     * responsable — exactement l'état que XD-15 interdit.
      */
-    departmentId: uuid("department_id").references(() => departments.id, {
-      onDelete: "set null",
-    }),
+    departmentId: uuid("department_id")
+      .notNull()
+      .references(() => departments.id, { onDelete: "restrict" }),
+    /**
+     * **Qui est concerné** par l'événement (`docs/028` D-26).
+     *
+     * Distinct du département responsable : un événement est *toujours* porté par
+     * un département, et sa portée peut concerner toute l'église. `GLOBAL` n'est
+     * ouvert qu'aux départements portant la capacité `EVENT_SCOPE_GLOBAL` (D-25) —
+     * vérifié par `EventPolicy` **et** par un trigger (migration 0008) : une policy
+     * contournée par un script d'administration ne doit pas suffire à publier à
+     * l'échelle de l'église.
+     *
+     * Défaut `DEPARTMENT` : la portée la plus **restreinte**, pour qu'une omission
+     * ne publie jamais à l'échelle de l'église.
+     */
+    visibilityScope: eventVisibilityScopeEnum("visibility_scope")
+      .notNull()
+      .default("DEPARTMENT"),
     /** Informations pratiques affichées en liste sur la fiche. */
     practicalInfo: text("practical_info").array(),
     createdAt: timestamp("created_at", { withTimezone: true })

@@ -161,7 +161,14 @@ export class DrizzleEventRepository implements EventRepository {
         location: data.location ?? null,
         imageMediaId: data.imageMediaId ?? null,
         bannerMediaId: data.bannerMediaId ?? null,
-        departmentId: data.departmentId ?? null,
+        // Département **responsable** : obligatoire (D-26, XD-15). Le service le
+        // fournit toujours ; le `?? ""` n'existe pas, une omission doit échouer ici
+        // plutôt que d'être convertie en `NULL` — ce que la base refuserait de
+        // toute façon, mais avec un message de contrainte au lieu d'un défaut
+        // d'appel.
+        departmentId: data.departmentId,
+        // Portée publique : `DEPARTMENT` par défaut, la plus restreinte (D-26).
+        visibilityScope: data.visibilityScope ?? "DEPARTMENT",
         practicalInfo: data.practicalInfo ?? null,
       })
       .returning();
@@ -196,6 +203,11 @@ export class DrizzleEventRepository implements EventRepository {
     }
     if (data.departmentId !== undefined) {
       patch.departmentId = data.departmentId;
+    }
+    // Réaffecter la portée publique est une action distincte (`SET_VISIBILITY_SCOPE`,
+    // D-26) : le repository l'accepte, la policy en décide.
+    if (data.visibilityScope !== undefined) {
+      patch.visibilityScope = data.visibilityScope;
     }
     if (data.practicalInfo !== undefined) {
       patch.practicalInfo = data.practicalInfo;
@@ -331,6 +343,7 @@ export class DrizzleEventRepository implements EventRepository {
           : (urls.get(row.bannerMediaId) ?? null),
       galleryUrls: galleries.get(row.id) ?? [],
       departmentId: row.departmentId,
+      visibilityScope: row.visibilityScope,
       practicalInfo: row.practicalInfo,
       // Jamais lu en base : toujours recalculé.
       status: statusOf(row.eventDate, today),

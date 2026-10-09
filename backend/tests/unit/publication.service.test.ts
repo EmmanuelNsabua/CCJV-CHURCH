@@ -1,5 +1,6 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import type { Publication } from "@/domain/entities";
+import { planPublication } from "@/domain/rules/publication-quota";
 import type { PublicationRepository } from "@/domain/repositories";
 import { PublicationService } from "@/modules/publications/publication.service";
 import type {
@@ -24,6 +25,8 @@ import { AppError, isAppError } from "@/shared/errors/app-error";
 
 const PUBLICATION_ID = "3b4c5d6e-7f80-4a1b-9c2d-3e4f5a6b7c8d";
 const COVER_MEDIA_ID = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
+/** Département **responsable** : obligatoire depuis D-02 / D-06. */
+const DEPARTMENT_ID = "d0000000-0000-4000-8000-00000000000a";
 
 /* -------------------------------------------------------------------------- */
 /*  Fabriques                                                                 */
@@ -43,6 +46,8 @@ function publicationFixture(overrides: Partial<Publication> = {}): Publication {
     body: ["Premier paragraphe."],
     author: null,
     publishedAt: "2026-05-01",
+    departmentId: DEPARTMENT_ID,
+    archivedAt: null,
     createdAt: new Date("2026-05-01T00:00:00.000Z"),
     updatedAt: new Date("2026-05-01T00:00:00.000Z"),
     ...overrides,
@@ -147,6 +152,52 @@ function fakePublicationRepository(seed: readonly Publication[] = []) {
     async remove(id) {
       return store.delete(id);
     },
+
+    /**
+     * Écriture d'attente : le double applique le **même** effet que le vrai
+     * repository — statut, et date d'archivage posée avec l'archive, jamais après.
+     */
+    async applyLifecycle(id, change) {
+      const existing = store.get(id);
+      if (existing === undefined) return null;
+
+      const updated: Publication = {
+        ...existing,
+        status: change.status,
+        archivedAt: change.status === "ARCHIVED" ? change.at : null,
+        updatedAt: change.at,
+      };
+      store.set(id, updated);
+      return updated;
+    },
+
+    /**
+     * Double du quota : il rejoue la règle du domaine (`planPublication`) sur son
+     * propre magasin, **sans transaction ni verrou** — ce que ces tests ne peuvent
+     * pas simuler. La sûreté en concurrence est vérifiée là où elle existe : dans
+     * le repository, avec PostgreSQL.
+     */
+    async publishWithQuota(id, publishedAt) {
+      const target = store.get(id);
+      if (target === undefined) return null;
+
+      const plan = planPublication([...store.values()], id);
+
+      if (plan.toArchive !== null) {
+        const archived = store.get(plan.toArchive.id);
+        if (archived !== undefined) {
+          store.set(archived.id, {
+            ...archived,
+            status: "ARCHIVED",
+            archivedAt: new Date("2026-06-01T00:00:00.000Z"),
+          });
+        }
+      }
+
+      const updated: Publication = { ...target, status: "PUBLISHED", publishedAt };
+      store.set(id, updated);
+      return updated;
+    },
   };
 
   return { repository, store };
@@ -159,6 +210,8 @@ function body(overrides: Partial<CreatePublicationBody> = {}): CreatePublication
     category: "ENSEIGNEMENT",
     body: ["Premier paragraphe."],
     publishedAt: "2026-05-01",
+    // Département **responsable** : obligatoire depuis D-02 / D-06.
+    departmentId: DEPARTMENT_ID,
     ...overrides,
   };
 }

@@ -455,9 +455,15 @@ async function installerBrouillonDeTest(): Promise<void> {
   // unique de `slug`.
   await purgerBrouillonsDeTest();
 
+  // `department_id` est `NOT NULL` depuis le Lot 4 (D-02, D-06) : le brouillon de
+  // test porte donc un département, comme toute publication réelle. Il est pris
+  // par **slug** et non par nom : le test ne dépend pas du référentiel.
   await sql`
-    insert into publications (title, slug, type, category, published_at, status)
-    values (${TITRE_BROUILLON}, ${SLUG_BROUILLON}, 'TEXTE', 'ACTUALITE', current_date, 'DRAFT')
+    insert into publications (title, slug, type, category, published_at, status, department_id)
+    values (
+      ${TITRE_BROUILLON}, ${SLUG_BROUILLON}, 'TEXTE', 'ACTUALITE', current_date, 'DRAFT',
+      (select id from departments where slug = 'presse')
+    )
   `;
 
   brouillonInstalle = true;

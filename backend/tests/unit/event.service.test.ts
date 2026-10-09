@@ -28,6 +28,7 @@ import { AppError, isAppError } from "@/shared/errors/app-error";
  */
 
 const DEPARTMENT_ID = "8f2c1d34-5b6e-4f70-9a11-2c3d4e5f6a7b";
+const OTHER_DEPARTMENT_ID = "d0000000-0000-4000-8000-00000000000a";
 const EVENT_ID = "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
 
 /* -------------------------------------------------------------------------- */
@@ -49,7 +50,8 @@ function eventFixture(overrides: Partial<Event> = {}): Event {
     imageUrl: null,
     bannerImageUrl: null,
     galleryUrls: [],
-    departmentId: null,
+    departmentId: DEPARTMENT_ID,
+    visibilityScope: "DEPARTMENT",
     practicalInfo: null,
     status: "UPCOMING",
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -184,6 +186,8 @@ function body(overrides: Partial<CreateEventBody> = {}): CreateEventBody {
   return {
     title: "Culte du dimanche",
     eventDate: "2026-05-17",
+    // Département **responsable** : obligatoire depuis D-26 / XD-15.
+    departmentId: DEPARTMENT_ID,
     ...overrides,
   };
 }
@@ -309,16 +313,28 @@ describe("EventService — département référencé", () => {
     expect(created.departmentId).toBe(DEPARTMENT_ID);
   });
 
-  it("accepte un événement général (departmentId null) sans interroger les départements", async () => {
+  /**
+   * **Le modèle a changé, et ces deux tests le fixent.**
+   *
+   * Ils vérifiaient qu'un événement pouvait être « général », c'est-à-dire sans
+   * département. `docs/028` D-26 et XD-15 ont tranché l'inverse : « un événement
+   * global au sens d'un `department_id = NULL` **n'existe pas** ». La colonne est
+   * désormais `NOT NULL`, et la notion d'événement transversal est portée par
+   * `visibility_scope` — un événement garde toujours son département responsable.
+   */
+  it("exige un département responsable : XD-15 a supprimé l'événement sans département", async () => {
     const departments = fakeDepartmentRepository(true);
     const exists = jest.spyOn(departments, "exists");
     const { repository } = fakeEventRepository();
     const service = new EventService(repository, departments);
 
-    const created = await service.create(body({ departmentId: null }));
+    const created = await service.create(body({ departmentId: DEPARTMENT_ID }));
 
-    expect(created.departmentId).toBeNull();
-    expect(exists).not.toHaveBeenCalled();
+    expect(created.departmentId).toBe(DEPARTMENT_ID);
+    // Le service vérifie l'existence du département référencé, mais il ne peut
+    // plus être omis : la séquence de création n'a pas de branche « sans
+    // département ».
+    expect(exists).toHaveBeenCalledWith(DEPARTMENT_ID);
   });
 
   it("vérifie le département lors d'une mise à jour", async () => {
@@ -332,17 +348,23 @@ describe("EventService — département référencé", () => {
     expectAppError(failure, "DEPARTMENT_NOT_FOUND", 404);
   });
 
-  it("détache un événement de son département avec departmentId null", async () => {
+  it("un événement ne se détache plus de son département : le rattachement est une donnée tenue", async () => {
     const { repository } = fakeEventRepository([
-      eventFixture({ departmentId: DEPARTMENT_ID }),
+      eventFixture({ departmentId: OTHER_DEPARTMENT_ID }),
     ]);
     const service = new EventService(repository, fakeDepartmentRepository(true));
 
     const updated = await service.update("culte-du-dimanche", {
-      departmentId: null,
+      departmentId: DEPARTMENT_ID,
     });
 
-    expect(updated.departmentId).toBeNull();
+    // Réaffecter le responsable reste possible (c'est une décision éditoriale),
+    // et le service vérifie que le département visé existe…
+    expect(updated.departmentId).toBe(DEPARTMENT_ID);
+    // …mais le supprimer ne l'est plus : `department_id` est `NOT NULL` et XD-15
+    // fait du département responsable un invariant du modèle. Le corps de mise à
+    // jour ne peut d'ailleurs plus porter `null` : le schéma le refuse.
+    expect(updated.departmentId).not.toBeNull();
   });
 });
 

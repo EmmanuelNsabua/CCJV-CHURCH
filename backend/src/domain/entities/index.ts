@@ -104,6 +104,16 @@ export type AdminScope = "GLOBAL" | "DEPARTMENT";
 export type PrayerConfidentiality = "private" | "community";
 export type PrayerStatus = "NEW" | "PRAYED";
 
+/**
+ * Portée **publique** d'un événement (`docs/028` D-26, `docs/032` §3.2).
+ *
+ * Déclarée ici, avec l'entité qu'elle qualifie — et non dans le vocabulaire des
+ * capacités de département : `capabilities.ts` importe déjà `Department`, donc
+ * l'importer en retour fermerait un cycle de modules. La valeur et la règle qui la
+ * décide sont deux choses distinctes, et elles vivent là où chacune sert.
+ */
+export type EventVisibilityScope = "DEPARTMENT" | "GLOBAL";
+
 /* -------------------------------------------------------------------------- */
 /*  Médias                                                                    */
 /* -------------------------------------------------------------------------- */
@@ -212,7 +222,10 @@ export interface Event {
   imageUrl: string | null;
   bannerImageUrl: string | null;
   galleryUrls: string[];
-  departmentId: string | null;
+  /** Département **responsable** : non nul (D-26, XD-15). */
+  departmentId: string;
+  /** **Qui est concerné** — distinct du département responsable (D-26). */
+  visibilityScope: EventVisibilityScope;
   practicalInfo: string[] | null;
   /** Calculé, jamais stocké. */
   status: EventStatus;
@@ -238,6 +251,10 @@ export interface Publication {
   body: string[] | null;
   author: string | null;
   publishedAt: string;
+  /** Département **responsable** (D-02, D-06) — non nul. */
+  departmentId: string;
+  /** Date d'archivage : renseignée par la règle des 3, sinon `null` (D-18). */
+  archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

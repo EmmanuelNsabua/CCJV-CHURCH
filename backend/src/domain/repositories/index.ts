@@ -25,7 +25,7 @@ import type {
   StaticPage,
   Testimony,
 } from "@/domain/entities";
-import type { DepartmentCapability } from "@/domain/departments/capabilities";
+import type { DepartmentCapability, EventVisibilityScope } from "@/domain/departments/capabilities";
 
 /**
  * Contrats de persistance.
@@ -74,7 +74,14 @@ export interface EventInput {
   location?: string | null;
   imageMediaId?: string | null;
   bannerMediaId?: string | null;
-  departmentId?: string | null;
+  /** Département **responsable**, obligatoire (D-26, XD-15). */
+  departmentId: string;
+  /**
+   * Portée publique (D-26), **distincte** du département responsable. Omise, elle
+   * vaut `DEPARTMENT` — la plus restreinte, pour qu'une omission ne publie jamais à
+   * l'échelle de l'église.
+   */
+  visibilityScope?: EventVisibilityScope;
   practicalInfo?: string[] | null;
   galleryMediaIds?: string[];
 }
@@ -99,6 +106,23 @@ export interface PublicationInput {
   body?: string[] | null;
   author?: string | null;
   publishedAt: string;
+  /**
+   * Département **responsable**, obligatoire (D-02, D-06).
+   *
+   * La règle des 3 étant globale (`docs/035` §1), ce champ n'entre pas dans le
+   * quota — mais il détermine **qui peut modifier** la publication (égalité
+   * départementale de `PublicationPolicy`) et ce que voit un responsable.
+   */
+  departmentId: string;
+  /**
+   * Date d'archivage : **jamais fournie par un client**.
+   *
+   * Elle est écrite par la règle des 3, dans la transaction qui archive
+   * (`docs/035` §1). Elle figure dans l'entrée parce que le service l'écrit après
+   * avoir lu l'état courant sous verrou — pas parce qu'une requête HTTP pourrait
+   * la proposer.
+   */
+  archivedAt?: Date | null;
 }
 
 export interface PublicationFilters {
@@ -271,6 +295,35 @@ export interface PublicationRepository {
   create(data: PublicationInput, slug: string): Promise<Publication>;
   update(id: string, data: Partial<PublicationInput>): Promise<Publication | null>;
   remove(id: string): Promise<boolean>;
+  /** Publie ou archive : une écriture **en attente**, jamais saisie par un client. */
+  applyLifecycle(
+    id: string,
+    change: { status: "PUBLISHED" | "ARCHIVED"; at: Date },
+  ): Promise<Publication | null>;
+
+  /**
+   * Publie une publication **en appliquant la règle globale des 3** (`docs/035`).
+   *
+   * C'est la seule opération du domaine qui doive être **transactionnelle et sûre
+   * en concurrence**, et c'est pourquoi elle vit dans le repository plutôt que dans
+   * le service :
+   *
+   * 1. la transaction garantit qu'aucun état intermédiaire n'est visible — une
+   *    publication n'est jamais publiée sans que la place ait été libérée ;
+   * 2. le **verrou d'avis** (`pg_advisory_xact_lock`) sérialise les publications
+   *    concurrentes. Sans lui, deux publications simultanées liraient le même
+   *    compte de `PUBLISHED`, concluraient chacune qu'il reste une place, et le
+   *    site se retrouverait avec quatre publications en ligne — exactement ce que
+   *    la règle interdit. Un verrou de ligne ne suffirait pas : il protege une
+   *    ligne, or la règle porte sur l'**ensemble** de la table ;
+   * 3. le **plan** (qui archiver, combien de places restent) vient du domaine
+   *    (`planPublication`), qui est pur et éprouvé cas par cas. Le repository
+   *    exécute, il ne décide pas.
+   *
+   * Le verrou est libéré à la fin de la transaction, quel qu'en soit l'issue : un
+   * échec ne laisse pas le quota verrouillé.
+   */
+  publishWithQuota(id: string, publishedAt: string): Promise<Publication | null>;
 }
 
 export interface LeaderRepository {

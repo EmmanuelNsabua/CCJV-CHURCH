@@ -118,8 +118,8 @@ export function isDepartmentCapability(
   return (KNOWN_DEPARTMENT_CAPABILITIES as readonly string[]).includes(value);
 }
 
-/** Portée publique d'un événement (`docs/032` §3.2, `event_visibility_scope`). */
-export type EventVisibilityScope = "DEPARTMENT" | "GLOBAL";
+/** Portée publique d'un événement — déclarée avec l'entité qu'elle qualifie. */
+export type { EventVisibilityScope } from "@/domain/entities";
 
 /**
  * Le département entre-t-il dans le périmètre des publications ?
