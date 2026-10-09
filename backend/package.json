@@ -12,7 +12,7 @@
     "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src tests",
+    "lint": "oxlint src tests scripts",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:vitest": "vitest run",
@@ -23,6 +23,7 @@
     "seed": "tsx src/infrastructure/database/seed.ts",
     "openapi": "tsx src/presentation/openapi/generate.ts",
     "admin:create": "tsx scripts/create-admin.ts",
+    "admin:super": "tsx scripts/create-super-admin.ts",
     "dept:capability": "tsx scripts/grant-department-capability.ts"
   },
   "dependencies": {
@@ -54,6 +55,7 @@
     "@types/supertest": "^7.2.1",
     "drizzle-kit": "^0.31.11",
     "jest": "^30.5.2",
+    "oxlint": "^1.87.0",
     "pino-pretty": "^13.2.0",
     "supertest": "^7.3.1",
     "tsc-alias": "^1.9.7",

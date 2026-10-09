@@ -13,6 +13,7 @@ import { logger } from "@/infrastructure/logger";
 import { DrizzleAdminProfileRepository } from "@/infrastructure/repositories/admin-profile.repository";
 import { DrizzleCommunityFaceRepository } from "@/infrastructure/repositories/community-face.repository";
 import { DrizzleDepartmentRepository } from "@/infrastructure/repositories/department.repository";
+import { DrizzleDepartmentCapabilityRepository } from "@/infrastructure/repositories/department-capability.repository";
 import { DrizzleEventRepository } from "@/infrastructure/repositories/event.repository";
 import { DrizzleLeaderRepository } from "@/infrastructure/repositories/leader.repository";
 import { DrizzleMediaRepository } from "@/infrastructure/repositories/media.repository";
@@ -92,6 +93,12 @@ export interface AppDependencies {
   repositories: {
     adminProfiles: DrizzleAdminProfileRepository;
     departments: DrizzleDepartmentRepository;
+    /**
+     * Capacités de département (D-25). Câblé au Lot 6 : c'est ce repository que
+     * `EventService` interroge pour savoir si un département peut publier une
+     * portée `GLOBAL`, et que l'outil d'exploitation utilise pour les accorder.
+     */
+    departmentCapabilities: DrizzleDepartmentCapabilityRepository;
     events: DrizzleEventRepository;
     publications: DrizzlePublicationRepository;
     leaders: DrizzleLeaderRepository;
@@ -152,6 +159,7 @@ export function createContainer(
     ({
       adminProfiles: new DrizzleAdminProfileRepository(database),
       departments: new DrizzleDepartmentRepository(database),
+      departmentCapabilities: new DrizzleDepartmentCapabilityRepository(database),
       events: new DrizzleEventRepository(database),
       publications: new DrizzlePublicationRepository(database),
       leaders: new DrizzleLeaderRepository(database),
@@ -170,7 +178,11 @@ export function createContainer(
 
   const services = {
     departments: new DepartmentService(repositories.departments),
-    events: new EventService(repositories.events, repositories.departments),
+    events: new EventService(
+      repositories.events,
+      repositories.departments,
+      repositories.departmentCapabilities,
+    ),
     publications: new PublicationService(repositories.publications),
     leaders: new LeaderService(repositories.leaders),
     testimonies: new TestimonyService(repositories.testimonies),

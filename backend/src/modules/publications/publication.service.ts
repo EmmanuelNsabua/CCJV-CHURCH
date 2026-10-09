@@ -57,7 +57,17 @@ export class PublicationService {
     });
 
     const slug = await this.resolveSlug(input.title, requestedSlug);
-    return this.publications.create(input, slug);
+    const created = await this.publications.create(input, slug);
+
+    // **Règle globale des 3** (`docs/035` §1) : une publication créée
+    // directement en ligne passe par le quota, jamais par une écriture de statut.
+    // Sans ce détour, créer une quatrième publication `PUBLISHED` laisserait le
+    // site à quatre publications — la règle serait décrite, pas appliquée.
+    if (created.status === "PUBLISHED") {
+      return (await this.publications.publishWithQuota(created.id, created.publishedAt)) ?? created;
+    }
+
+    return created;
   }
 
   /**
@@ -90,6 +100,26 @@ export class PublicationService {
     const updated = await this.publications.update(existing.id, data);
     if (updated === null) {
       throw notFound(idOrSlug);
+    }
+
+    /**
+     * **Passage à `PUBLISHED` d'une publication existante** : le quota décide.
+     *
+     * La transition est détectée sur l'état **résultant** (`existing` → `updated`),
+     * et non sur la seule présence de `status` dans le corps : un `PATCH` qui
+     * n'envoie que le titre d'une publication déjà en ligne ne consomme aucune
+     * place, et ne doit donc pas archiver la plus ancienne pour rien. C'est la
+     * même précaution que `planPublication` prend côté domaine.
+     *
+     * L'archivage qui en résulte est **irréversible** (D-18) : c'est la
+     * conséquence assumée de la règle globale, et elle est tracée par
+     * `archived_at`.
+     */
+    const devientPubliee = updated.status === "PUBLISHED" && existing.status !== "PUBLISHED";
+    if (devientPubliee) {
+      return (
+        (await this.publications.publishWithQuota(updated.id, updated.publishedAt)) ?? updated
+      );
     }
 
     return updated;
