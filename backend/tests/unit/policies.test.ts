@@ -490,16 +490,23 @@ describe("Pages et paramètres — des refus qui ne dépendent d'aucun rôle", (
   });
 
   it("X25 — les paramètres ne sont jamais exposés à un responsable de département", () => {
+    // X25 est **définitif** : « cette catégorie ne doit pas être exposée aux
+    // responsables de département ». Aucun arbitrage ne l'a rouvert.
     expect(evaluate(SiteSettingsPolicy, managerA, "READ").allowed).toBe(false);
     expect(evaluate(SiteSettingsPolicy, managerA, "UPDATE").allowed).toBe(false);
-    // Et l'ADMIN n'y accède pas davantage : Q-13 n'est pas arbitrée.
-    expect(evaluate(SiteSettingsPolicy, admin, "UPDATE").allowed).toBe(false);
+
+    // L'`ADMIN` configure les paramètres — arbitrage du commanditaire :
+    // « C'est l'admin qui fait ces configurations » (Q-13, Q-28).
+    expect(evaluate(SiteSettingsPolicy, admin, "UPDATE").allowed).toBe(true);
   });
 
-  it("Q-06 — modifier les capacités d'un département est refusé : c'est le vecteur d'escalade le plus direct", () => {
-    for (const who of [superAdmin, admin, managerA]) {
-      expect(evaluate(DepartmentPolicy, who, "EDIT_CAPABILITIES", { id: DEPARTMENT_A }).allowed).toBe(false);
-    }
+  it("Q-06 — modifier les capacités d'un département est réservé aux rôles globaux", () => {
+    // Le vecteur d'escalade signalé par `docs/029` §5.3 était un **responsable**
+    // modifiant les capacités de son propre département. L'arbitrage désigne les
+    // rôles globaux : le responsable reste dehors, définitivement.
+    expect(evaluate(DepartmentPolicy, managerA, "EDIT_CAPABILITIES", { id: DEPARTMENT_A }).allowed).toBe(false);
+    expect(evaluate(DepartmentPolicy, admin, "EDIT_CAPABILITIES", { id: DEPARTMENT_A }).allowed).toBe(true);
+    expect(evaluate(DepartmentPolicy, superAdmin, "EDIT_CAPABILITIES", { id: DEPARTMENT_A }).allowed).toBe(true);
   });
 
   it("020 §11 — un responsable n'édite pas les propriétés structurelles de son département", () => {
@@ -630,21 +637,59 @@ describe("Catalogue — exhaustivité et invariants statiques (docs/029 §5, §6
    * produiraient le même `403` muet, et personne ne saurait qu'un arbitrage
    * manque.
    */
-  it("P-10 à P-14 refusent en nommant la question ouverte", () => {
-    const pending = [
-      evaluate(AuditPolicy, superAdmin, "READ"),
+  /**
+   * **Arbitrage du commanditaire : « C'est l'admin qui fait ces configurations. »**
+   *
+   * Ces cinq policies refusaient tout le monde tant que la question était
+   * ouverte — c'était le défaut `✘` de `docs/029` §4.3, et il a produit son
+   * effet : les modules concernés répondaient `403`, ce qui a **manifesté**
+   * l'arbitrage manquant au lieu de le laisser dormir. L'arbitrage est
+   * intervenu ; ce test fixe ce qu'il a changé, et ce qu'il n'a pas changé.
+   */
+  it("les configurations institutionnelles reviennent à l'ADMIN et au SUPER_ADMIN", () => {
+    const configurations = [
       evaluate(EditorialEntityPolicy, admin, "UPDATE"),
       evaluate(ScripturePolicy, admin, "UPDATE"),
       evaluate(SchedulePolicy, admin, "UPDATE"),
       evaluate(SiteSettingsPolicy, admin, "UPDATE"),
+      evaluate(DepartmentPolicy, admin, "EDIT_CAPABILITIES", { id: DEPARTMENT_A }),
     ];
-    for (const decision of pending) {
-      expect(decision.allowed).toBe(false);
-      // La référence de la question est **portée par la décision**, pas
-      // seulement par un commentaire : c'est ce qui permet de lister les
-      // arbitrages manquants sans relire le code.
-      expect(decision.pending).toMatch(/Q-\d/);
+
+    for (const decision of configurations) {
+      expect(decision.allowed).toBe(true);
+      // Plus aucune question ouverte : ces lignes n'ont plus à porter de `pending`.
+      expect(decision.pending).toBeUndefined();
     }
+
+    // Et le SUPER_ADMIN, à qui D-03 attribue « tous les pouvoirs du système ».
+    for (const who of [superAdmin]) {
+      expect(evaluate(ScripturePolicy, who, "UPDATE").allowed).toBe(true);
+      expect(evaluate(SchedulePolicy, who, "UPDATE").allowed).toBe(true);
+      expect(evaluate(EditorialEntityPolicy, who, "UPDATE").allowed).toBe(true);
+    }
+  });
+
+  it("le responsable départemental ne configure rien de tout cela", () => {
+    // Ni les entités éditoriales ni le rythme ne sont départementaux, et X25
+    // ferme les paramètres de façon définitive.
+    for (const decision of [
+      evaluate(EditorialEntityPolicy, managerA, "UPDATE"),
+      evaluate(ScripturePolicy, managerA, "UPDATE"),
+      evaluate(SchedulePolicy, managerA, "UPDATE"),
+      evaluate(SiteSettingsPolicy, managerA, "UPDATE"),
+    ]) {
+      expect(decision.allowed).toBe(false);
+    }
+  });
+
+  it("la lecture du journal d'audit reste refusée : ce n'est pas une configuration", () => {
+    // L'arbitrage portait sur les **configurations**. La lecture d'`audit_log`
+    // (Q-16, Q-17, Q-18) n'en est pas une, et le refus par défaut continue de
+    // s'appliquer — avec sa référence de question, pour qu'elle reste visible.
+    const decision = evaluate(AuditPolicy, superAdmin, "READ");
+
+    expect(decision.allowed).toBe(false);
+    expect(decision.pending).toMatch(/Q-\d/);
   });
 
   it("une ligne accordée sous réserve porte aussi sa question ouverte", () => {

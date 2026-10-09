@@ -119,16 +119,25 @@ export const DepartmentPolicy = createPolicy<DepartmentPolicyResource>("Departme
   DELETE: { roles: [], pending: "docs/028 Q-B3 · D-08" },
 
   /**
-   * `canEditCapabilities` — **refus pour tous** : Q-06 non tranchée (D-25).
+   * `canEditCapabilities` — **`SUPER_ADMIN` · `ADMIN`** (réponse du commanditaire).
    *
-   * C'est le refus le plus important de ce fichier. `docs/029` §5.3 le dit sans
-   * détour : « un responsable qui pourrait modifier les capacités de son propre
-   * département s'attribuerait la portée globale : c'est le vecteur d'escalade
-   * le plus direct du modèle ». Tant que Q-06 n'est pas arbitrée, personne
-   * n'écrit dans `department_capabilities` — et `docs/032` §3.5 conserve
-   * `granted_by` précisément pour que la première écriture soit attribuable.
+   * `docs/029` §5.3 signalait ce droit comme « le vecteur d'escalade le plus
+   * direct du modèle » : un **responsable** qui pourrait modifier les capacités de
+   * son propre département s'attribuerait la portée globale des événements. Le
+   * risque n'est pas dans la capacité elle-même, il est dans **qui** l'édite — et
+   * la réponse reçue (« c'est l'admin qui fait ces configurations ») désigne les
+   * rôles globaux, jamais un responsable.
+   *
+   * La ligne est donc écrite pour ce qu'elle refuse autant que pour ce qu'elle
+   * accorde : le `DEPARTMENT_MANAGER` en est **absent**, et il le restera même si
+   * la table des capacités s'élargit — c'est la propriété qui compte, et
+   * `docs/032` §3.5 conserve `granted_by` pour que chaque écriture reste
+   * attribuable à son auteur.
    */
-  EDIT_CAPABILITIES: { roles: [], pending: "docs/029 Q-06 · docs/032 Q-S6" },
+  EDIT_CAPABILITIES: {
+    roles: ["SUPER_ADMIN", "ADMIN"],
+    scopes: ["GLOBAL"],
+  },
 });
 
 /** Égalité de rattachement, tolérante à l'absence. */

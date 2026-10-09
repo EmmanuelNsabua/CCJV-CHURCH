@@ -177,6 +177,16 @@ async function main(): Promise<void> {
   const migrations = loadMigrations(includeDestructive);
   const jouees = new Set(migrations.map((migration) => migration.file));
 
+  // État **réel** de la base : le rôle `ADMIN` existe-t-il ? C'est ce fait, et non
+  // la liste des migrations que ce script a jouées, qui décide si les sondes de
+  // notifications peuvent s'exécuter.
+  const [role] = await sql`
+    select count(*)::int as n from pg_enum e
+      join pg_type t on t.oid = e.enumtypid
+     where t.typname = 'admin_role' and e.enumlabel = 'ADMIN'
+  `;
+  const roleAdminDisponible = ((role as { n: number } | undefined)?.n ?? 0) > 0;
+
   console.log("Vérification des migrations — AUCUNE n'est appliquée.\n");
   console.log(
     includeDestructive
@@ -188,11 +198,43 @@ async function main(): Promise<void> {
 
   try {
     await sql.begin(async (tx) => {
+      let numeroMigration = 0;
+
       for (const migration of migrations) {
+        // Une migration **déjà appliquée** n'est pas un échec : le script doit
+        // rester utilisable après coup, ne serait-ce que pour prouver les
+        // migrations suivantes. Elle est signalée comme telle — jamais passée
+        // sous silence, sinon un rapport « tout est vert » ne dirait plus si le
+        // SQL a été exécuté ou seulement rencontré.
+        const point = `migration_${++numeroMigration}`;
+        // Le SAVEPOINT est indispensable : une instruction refusée **avorte la
+        // transaction**, et toutes les migrations suivantes échoueraient alors
+        // pour une raison qui n'est pas la leur. Sans lui, une migration déjà
+        // appliquée rendait le script inutilisable — ce qu'il a réellement fait.
+        await tx.unsafe(`savepoint ${point}`);
+
+        let dejaAppliquee = false;
+
         for (const statement of migration.statements) {
-          await tx.unsafe(statement);
+          try {
+            await tx.unsafe(statement);
+          } catch (error) {
+            if (/already exists|déjà|duplicate key value/i.test((error as Error).message)) {
+              dejaAppliquee = true;
+              break;
+            }
+
+            throw error;
+          }
         }
-        console.log(`  OK  ${migration.file} — ${migration.statements.length} instruction(s)`);
+
+        if (dejaAppliquee) await tx.unsafe(`rollback to savepoint ${point}`);
+
+        console.log(
+          dejaAppliquee
+            ? `  --  ${migration.file} — DÉJÀ APPLIQUÉE (objets présents en base)`
+            : `  OK  ${migration.file} — ${migration.statements.length} instruction(s)`,
+        );
       }
 
       const [media] = await tx`select id from media limit 1`;
@@ -337,13 +379,19 @@ async function main(): Promise<void> {
           continue;
         }
 
-        // Les sondes de notifications dépendent en outre de la reconstruction des
-        // rôles : sans elle, le trigger ne peut pas résoudre le littéral `ADMIN`
-        // et échoue par erreur d'énumération, pas par refus logique.
-        if (sonde.requires === "0004_complete_guardian.sql" && !jouees.has(ROLE_RECONSTRUCTION)) {
+        // Les sondes de notifications dépendent de la reconstruction des rôles :
+        // sans elle, le trigger ne peut pas résoudre le littéral `ADMIN` et
+        // échoue par erreur d'énumération, pas par refus logique.
+        //
+        // La condition porte sur l'**état de la base** (`roleAdminDisponible`), pas
+        // sur ce que ce script a joué : depuis que 0001 est appliquée, le rôle
+        // existe réellement, et la sonde doit s'exécuter. La conditionner à la
+        // liste jouée l'aurait fait ignorer à jamais — une sonde « ignorée » qui
+        // ne dépend plus de rien est une vérification perdue.
+        if (sonde.requires === "0004_complete_guardian.sql" && !roleAdminDisponible) {
           ignorees += 1;
           console.log(
-            `  --  ${sonde.label}\n        ignorée : dépend de ${ROLE_RECONSTRUCTION} (relancer avec --all)`,
+            `  --  ${sonde.label}\n        ignorée : le rôle ADMIN n'existe pas en base (${ROLE_RECONSTRUCTION} non appliquée)`,
           );
           continue;
         }

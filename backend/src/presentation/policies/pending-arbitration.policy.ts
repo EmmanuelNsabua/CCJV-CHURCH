@@ -1,37 +1,44 @@
 import { createPolicy } from "./policy-kit";
 
 /**
- * Policies **P-10 à P-14** de `docs/029` §4.6 — les cinq ressources que la
- * matrice exige et qu'**aucune décision de `docs/028` n'arbitre**.
+ * Policies **P-10 à P-14** de `docs/029` §4.6 — les ressources que la matrice
+ * exige et qu'aucune décision de `docs/028` n'arbitrait.
  *
- * ### Pourquoi elles sont regroupées ici, et pourquoi elles refusent
+ * ### Elles ne refusent plus : l'arbitrage est intervenu
  *
- * `docs/029` §4.6 nomme ces policies parce que leurs ressources existent dans la
- * matrice, et signale pour chacune : « **non tranché** ». Aucune ne manque de
- * ressource — `Leader`, `Testimony`, `CommunityFace`, `Scripture`,
- * `ScheduleEntry`, `SiteSetting`, `SocialLink`, `AuditLog` sont toutes des
- * tables réelles du schéma `docs/032`. Ce qui manque, c'est **qui** les
- * administre.
+ * Ce fichier s'appelait d'abord « refus par défaut » : `docs/029` §4.3 pose le
+ * défaut `✘`, et accorder « en attendant » une permission non décidée aurait été
+ * pire que refuser — une permission provisoire devient permanente par oubli.
+ * C'était la bonne position tant que la question était ouverte, et elle a produit
+ * exactement l'effet attendu : les modules concernés répondaient `403`, et
+ * l'arbitrage manquant s'est **manifesté** au lieu de dormir.
  *
- * Refuser plutôt que deviner est la seule position tenable, et elle est
- * documentée : `docs/029` §4.3 pose le **défaut `✘`**. Accorder « en attendant »
- * serait pire que refuser — une permission provisoire devient permanente par
- * oubli, et personne ne saurait plus qu'elle n'a jamais été décidée. Refuser, à
- * l'inverse, produit une erreur `403` immédiatement visible au premier essai :
- * l'arbitrage manquant se **manifeste** au lieu de dormir.
+ * Le commanditaire a tranché :
  *
- * Le regroupement dans un seul fichier n'est pas un rangement : c'est un
- * **état**. Le jour où le commanditaire tranche, ces cinq policies se séparent
- * et leurs tables se remplissent — la structure, elle, ne bouge pas.
+ * > « C'est l'admin qui fait ces configurations. »
+ *
+ * Les quatre policies ci-dessous accordent donc à l'`ADMIN` — et au
+ * `SUPER_ADMIN`, à qui `docs/028` D-03 attribue « tous les pouvoirs du système »,
+ * la seule exception étant le domaine des prières (D-10).
+ *
+ * ### Ce qui reste refusé, et pourquoi
+ *
+ * - `AuditPolicy` — le commanditaire n'a pas tranché la **lecture du journal
+ *   d'audit** (Q-16/17/18), qui n'est pas une « configuration ». Le refus
+ *   demeure, et il est motivé.
+ * - Le `DEPARTMENT_MANAGER` n'obtient rien de ces policies : X25 est définitif
+ *   (« cette catégorie ne doit pas être exposée aux responsables »), et les
+ *   entités éditoriales ne sont pas départementales.
  *
  * ### Ce qui n'est PAS reporté
  *
- * Une distinction stricte sépare ces refus des refus **structurels** du
- * catalogue. `PagePolicy.canCreatePage` (`roles: []`) n'est pas une question
- * ouverte : c'est D-23, définitivement tranché. Ici, au contraire, chacun des
- * cinq refus porte une **référence de question**, et cette référence est
- * l'information utile : elle dit exactement ce qui doit être décidé.
+ * Une distinction stricte sépare ces lignes des refus **structurels** du
+ * catalogue : `PagePolicy.canCreatePage` (`roles: []`) n'est pas une question
+ * ouverte — c'est D-23, définitivement tranché, et cela ne change pas.
  */
+
+/** Rôles qui configurent les contenus institutionnels (réponse du commanditaire). */
+const CONFIGURATION_ROLES = ["SUPER_ADMIN", "ADMIN"] as const;
 
 /* -------------------------------------------------------------------------- */
 /*  P-10 — AuditPolicy                                                        */
@@ -101,10 +108,10 @@ export interface EditorialEntityPolicyResource {
  * jugé.
  */
 export const EditorialEntityPolicy = createPolicy<EditorialEntityPolicyResource>("EditorialEntityPolicy", {
-  READ: { roles: [], pending: "docs/029 Q-14 (administration des entités éditoriales)" },
-  CREATE: { roles: [], pending: "docs/029 Q-14" },
-  UPDATE: { roles: [], pending: "docs/029 Q-14" },
-  DELETE: { roles: [], pending: "docs/029 Q-14" },
+  READ: { roles: CONFIGURATION_ROLES },
+  CREATE: { roles: CONFIGURATION_ROLES },
+  UPDATE: { roles: CONFIGURATION_ROLES },
+  DELETE: { roles: CONFIGURATION_ROLES },
 });
 
 /* -------------------------------------------------------------------------- */
@@ -127,10 +134,10 @@ export const EditorialEntityPolicy = createPolicy<EditorialEntityPolicyResource>
  * un rôle d'un droit d'écriture non arbitré.
  */
 export const ScripturePolicy = createPolicy("ScripturePolicy", {
-  READ: { roles: [], pending: "docs/029 Q-12 · docs/028 Q-PG2 (versets éditables ?)" },
-  UPDATE: { roles: [], pending: "docs/029 Q-12 · docs/028 Q-PG2" },
-  CREATE: { roles: [], pending: "docs/029 Q-12 · docs/028 Q-PG2" },
-  DELETE: { roles: [], pending: "docs/029 Q-12 · docs/028 Q-PG2" },
+  READ: { roles: CONFIGURATION_ROLES },
+  UPDATE: { roles: CONFIGURATION_ROLES },
+  CREATE: { roles: CONFIGURATION_ROLES },
+  DELETE: { roles: CONFIGURATION_ROLES },
 });
 
 /* -------------------------------------------------------------------------- */
@@ -148,10 +155,10 @@ export const ScripturePolicy = createPolicy("ScripturePolicy", {
  * une permission, mais il faut un titulaire pour la corriger.
  */
 export const SchedulePolicy = createPolicy("SchedulePolicy", {
-  READ: { roles: [], pending: "docs/029 Q-15 (administration du rythme)" },
-  UPDATE: { roles: [], pending: "docs/029 Q-15" },
-  CREATE: { roles: [], pending: "docs/029 Q-15" },
-  DELETE: { roles: [], pending: "docs/029 Q-15" },
+  READ: { roles: CONFIGURATION_ROLES },
+  UPDATE: { roles: CONFIGURATION_ROLES },
+  CREATE: { roles: CONFIGURATION_ROLES },
+  DELETE: { roles: CONFIGURATION_ROLES },
 });
 
 /* -------------------------------------------------------------------------- */
@@ -178,8 +185,8 @@ export const SchedulePolicy = createPolicy("SchedulePolicy", {
 export const SiteSettingsPolicy = createPolicy(
   "SiteSettingsPolicy",
   {
-    READ: { roles: [], pending: "docs/029 Q-13 (périmètre de l'ADMIN sur les paramètres)" },
-    UPDATE: { roles: [], pending: "docs/029 Q-13 · Q-28" },
+    READ: { roles: CONFIGURATION_ROLES },
+    UPDATE: { roles: CONFIGURATION_ROLES },
   },
   (admin) =>
     admin.role === "DEPARTMENT_MANAGER"
