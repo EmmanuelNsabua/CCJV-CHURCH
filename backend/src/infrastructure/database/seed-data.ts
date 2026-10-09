@@ -291,75 +291,162 @@ export const seedDataset: SeedDataset = {
   /* ------------------------------------------------------------------ */
   departments: [
     {
-      name: "Adultes",
+      name: "Les Serviteurs",
       description:
-        "Le volet adultes rassemble les hommes et les femmes de l'église autour de la Parole, de la prière et du service. On y apprend à marcher ensemble, à porter les uns les autres et à prendre sa place dans la maison.",
+        "Le collège des serviteurs rassemble les ouvriers consacrés qui soutiennent la vision pastorale, animent les cellules de disciples et veillent sur la croissance spirituelle de chaque membre.",
       responsibleName: "Pasteur Manasse Mwamba",
-      tagline: "Grandir dans la Parole, servir ensemble.",
-      meetingSchedule: "Dimanche · 09:00 — Culte dominical",
+      tagline: "Veiller sur le troupeau et enseigner la saine doctrine.",
+      meetingSchedule: "Mardi & Vendredi · 16h30 | Dimanche · 08h30",
       keyPoints: [
-        "Enseignement biblique solide et accessible à tous.",
-        "Prière et intercession pour la famille et la ville.",
-        "Accueil et intégration des nouvelles personnes.",
-        "Service concret : entraide, visite des malades, soutien.",
+        "Soutien pastoral et écoute des familles.",
+        "Formation des disciples et affermissement spirituel.",
+        "Enseignement des Écritures et prière pour l'église.",
+        "Coordination collégiale des ministères.",
       ],
-      banner: "ccjv-27.jpeg",
-      gallery: [
-        "ccjv-09.jpeg",
-        "ccjv-11.jpeg",
-        "ccjv-12.jpeg",
-        "ccjv-25.jpeg",
-        "ccjv-28.jpeg",
-        "ccjv-40.jpeg",
-      ],
+      banner: "ccjv-09.jpeg",
+      gallery: ["ccjv-09.jpeg", "ccjv-11.jpeg", "ccjv-25.jpeg", "ccjv-27.jpeg"],
     },
     {
-      name: "Enfants / Ecodim",
+      name: "La Chorale Grand Groupe CCVJ",
       description:
-        "Ministère des enfants né le 2 juillet 2023. L'Ecodim accompagne les plus jeunes dans la découverte de Dieu, avec un enseignement adapté à chaque âge, des chants, des histoires bibliques et beaucoup de joie.",
-      responsibleName: "Responsable Ecodim — à confirmer",
-      tagline: "Une génération qui apprend à connaître Dieu.",
-      meetingSchedule: "Dimanche · 09:00 — Rencontre Ecodim",
+        "Chantres, choristes et musiciens préparent chaque semaine l'atmosphère d'adoration des cultes dominicaux et des rassemblements majeurs de l'église.",
+      responsibleName: "Coordination de la Louange",
+      tagline: "Conduire l'assemblée dans la louange et l'adoration.",
+      meetingSchedule: "Lundi 16h30–18h30 · Mercredi 21h30 · Samedi 16h30–18h30",
       keyPoints: [
-        "Un enseignement adapté à chaque tranche d'âge.",
-        "Chants, histoires bibliques et activités créatives.",
-        "Un encadrement attentif et bienveillant.",
-        "Des moments de fête avec toute l'église.",
-      ],
-      banner: "ccjv-13.jpeg",
-      gallery: [
-        "ccjv-13.jpeg",
-        "ccjv-15.jpeg",
-        "ccjv-23.jpeg",
-        "ccjv-31.jpeg",
-        "ccjv-33.jpeg",
-        "ccjv-37.jpeg",
-      ],
-    },
-    {
-      name: "Chorale",
-      description:
-        "La louange à CCJV n'est pas une simple animation : c'est un sacerdoce. Chantres et musiciens se préparent chaque semaine pour conduire le peuple dans l'adoration, en esprit et en vérité.",
-      responsibleName: "Responsable chorale — à confirmer",
-      tagline: "Conduire l'assemblée dans la présence de Dieu.",
-      // Horaires CONFIRMÉS par CCJV.
-      meetingSchedule:
-        "Lundi 16h30–18h30 · Mercredi dans la nuit · Samedi 16h30–18h30",
-      keyPoints: [
-        "Une adoration vivante et consacrée.",
-        "Travail vocal et instrumental chaque semaine.",
-        "Un service tourné vers toute l'assemblée.",
-        "Une place pour chaque voix et chaque instrument.",
+        "Louange vivante et adoration en esprit et en vérité.",
+        "Répétitions vocales et instrumentales régulières.",
+        "Veillée de sanctification chaque mercredi soir.",
+        "Accompagnement des nouveaux talents musicaux.",
       ],
       banner: "ccjv-15.jpeg",
-      gallery: [
-        "ccjv-15.jpeg",
-        "ccjv-08.jpeg",
-        "ccjv-12.jpeg",
-        "ccjv-16.jpeg",
-        "ccjv-17.jpeg",
-        "ccjv-36.jpeg",
+      gallery: ["ccjv-15.jpeg", "ccjv-08.jpeg", "ccjv-16.jpeg", "ccjv-17.jpeg"],
+    },
+    {
+      name: "La Chorale de Cano Vocal",
+      description:
+        "Groupe vocal dédié au travail des voix, aux compositions polyphoniques et aux cantiques inspirés lors des temps forts et des cultes de célébration.",
+      responsibleName: "Direction Cano Vocal",
+      tagline: "Harmonies et célébration vocale pour la gloire de Dieu.",
+      meetingSchedule: "Samedi · 16h30 à 18h30",
+      keyPoints: [
+        "Recherche de l'harmonie vocale et expression spirituelle.",
+        "Chants sacrés, hymnes et compositions originales.",
+        "Formation technique et discipline des chantres.",
       ],
+      banner: "ccjv-16.jpeg",
+      gallery: ["ccjv-16.jpeg", "ccjv-15.jpeg", "ccjv-08.jpeg", "ccjv-36.jpeg"],
+    },
+    {
+      name: "L'Ecodume",
+      description:
+        "Né le 2 juillet 2023, l'Ecodim accueille les enfants pendant les cultes pour leur transmettre la Parole à travers des enseignements adaptés, des chants et des activités créatives.",
+      responsibleName: "Équipe pastorale Ecodim",
+      tagline: "Former une génération qui connaît et aime Dieu dès l'enfance.",
+      meetingSchedule: "Dimanche · 08h30 à 11h30 (pendant le culte)",
+      keyPoints: [
+        "Enseignement biblique adapté à chaque tranche d'âge.",
+        "Encadrement sécurisé, attentionné et joyeux.",
+        "Chants d'adoration pour enfants et ateliers bibliques.",
+        "Moments festifs et représentations avec toute l'église.",
+      ],
+      banner: "ccjv-13.jpeg",
+      gallery: ["ccjv-13.jpeg", "ccjv-18.jpeg", "ccjv-23.jpeg", "ccjv-31.jpeg"],
+    },
+    {
+      name: "Affaires Sociales",
+      description:
+        "Ce pôle porte l'entraide fraternelle au sein de la communauté : visite des malades, soutien matériel aux personnes vulnérables, accompagnement des deuils et réjouissances familiales.",
+      responsibleName: "Coordination Diaconale & Sociale",
+      tagline: "Manifester l'amour du Christ par des actes de compassion concrets.",
+      meetingSchedule: "Permanence après les cultes & Visites en semaine",
+      keyPoints: [
+        "Assistance matérielle et alimentaire d'urgence.",
+        "Visites fraternelles aux malades et personnes isolées.",
+        "Accompagnement des familles dans les événements de vie.",
+        "Collecte et redistribution solidaire au sein de l'assemblée.",
+      ],
+      banner: "ccjv-28.jpeg",
+      gallery: ["ccjv-28.jpeg", "ccjv-30.jpeg", "ccjv-35.jpeg", "ccjv-27.jpeg"],
+    },
+    {
+      name: "Hygiène et Ancienneté",
+      description:
+        "Veille à la propreté, à la salubrité et à l'intendance de tous les espaces de rassemblement avant, pendant et après chaque culte et événement.",
+      responsibleName: "Responsable Intendance & Salubrité",
+      tagline: "Préparer un cadre digne, propre et accueillant pour la maison de Dieu.",
+      meetingSchedule: "Avant et après chaque rassemblement",
+      keyPoints: [
+        "Nettoyage et désinfection rigoureuse du temple.",
+        "Entretien des installations et du mobilier de culte.",
+        "Maintien d'un environnement sain et agréable pour tous.",
+      ],
+      banner: "ccjv-21.jpeg",
+      gallery: ["ccjv-21.jpeg", "ccjv-28.jpeg", "ccjv-09.jpeg"],
+    },
+    {
+      name: "Protocole",
+      description:
+        "Le premier contact des fidèles et des nouveaux arrivants : orientation, gestion des places assises, ordre dans l'assemblée et assistance aux besoins du culte.",
+      responsibleName: "Coordination du Protocole",
+      tagline: "Accueillir chaque visiteur avec le sourire et la chaleur du Christ.",
+      meetingSchedule: "Dimanche dès 07h45 · Mardi & Vendredi dès 15h45",
+      keyPoints: [
+        "Accueil chaleureux et personnalisé à l'entrée.",
+        "Placement et fluidité dans le temple.",
+        "Orientation des nouveaux venus vers le parcours d'intégration.",
+        "Gestion de l'ordre et des nécessités pratiques du service.",
+      ],
+      banner: "ccjv-38.jpeg",
+      gallery: ["ccjv-38.jpeg", "ccjv-01.jpeg", "ccjv-35.jpeg", "ccjv-30.jpeg"],
+    },
+    {
+      name: "Évangélisation",
+      description:
+        "Équipe missionnaire qui va à la rencontre des habitants dans les quartiers, anime des campagnes de rue, témoigne de l'amour de Dieu et invite aux cultes.",
+      responsibleName: "Responsable Évangélisation",
+      tagline: "Annoncer la Bonne Nouvelle de Jésus-Christ à Lubumbashi.",
+      meetingSchedule: "Samedi matin · Sorties missionnaires de quartier",
+      keyPoints: [
+        "Sorties d'évangélisation de proximité dans les avenues.",
+        "Distribution de traités et entretiens spirituels.",
+        "Suivi des nouvelles âmes jusqu'à leur intégration à l'église.",
+        "Organisation de temps forts d'évangélisation en plein air.",
+      ],
+      banner: "ccjv-27.jpeg",
+      gallery: ["ccjv-27.jpeg", "ccjv-35.jpeg", "ccjv-28.jpeg", "ccjv-11.jpeg"],
+    },
+    {
+      name: "Intercession",
+      description:
+        "Sentinelles spirituelles de l'assemblée : prière continue pour les cultes, soutien des requêtes reçues, veillées de combat spirituel et délivrance.",
+      responsibleName: "Responsable Intercession",
+      tagline: "Porter l'église, les familles et la nation devant le trône de grâce.",
+      meetingSchedule: "Vendredi 16h30–18h30 · Vigiles matinales & veillées",
+      keyPoints: [
+        "Prière fervente avant chaque culte pour la prédication.",
+        "Prise en charge discrète de toutes les demandes de prière.",
+        "Jeûnes et prières programmés pour la vie de l'église.",
+        "Intercession pour le réveil spirituel de la ville.",
+      ],
+      banner: "ccjv-09.jpeg",
+      gallery: ["ccjv-09.jpeg", "ccjv-12.jpeg", "ccjv-25.jpeg"],
+    },
+    {
+      name: "Presse",
+      description:
+        "Captation vidéo, photographie, sonorisation, projection des cantiques et gestion de la présence en ligne pour toucher au-delà des murs.",
+      responsibleName: "Responsable Presse & Multimédia",
+      tagline: "Faire rayonner la Parole de Dieu à travers le numérique et l'audiovisuel.",
+      meetingSchedule: "À chaque culte et répétition générale",
+      keyPoints: [
+        "Captation et diffusion des prédications sur les plateformes.",
+        "Photographie et archives visuelles des événements.",
+        "Gestion technique du son et des écrans pendant le culte.",
+        "Création de contenus d'édification pour les réseaux sociaux.",
+      ],
+      banner: "ccjv-34.jpeg",
+      gallery: ["ccjv-34.jpeg", "ccjv-11.jpeg", "ccjv-08.jpeg", "ccjv-09.jpeg"],
     },
   ],
 
@@ -379,7 +466,7 @@ export const seedDataset: SeedDataset = {
       image: "ccjv-08.jpeg",
       banner: "ccjv-08.jpeg",
       gallery: ["ccjv-08.jpeg", "ccjv-11.jpeg", "ccjv-12.jpeg", "ccjv-25.jpeg"],
-      departmentName: "Adultes",
+      departmentName: "Les Serviteurs",
       practicalInfo: [
         "Ouvert à tous, sans inscription.",
         "Accueil dès 08h30.",
@@ -398,7 +485,7 @@ export const seedDataset: SeedDataset = {
       image: "ccjv-13.jpeg",
       banner: "ccjv-13.jpeg",
       gallery: ["ccjv-13.jpeg", "ccjv-15.jpeg", "ccjv-23.jpeg", "ccjv-31.jpeg"],
-      departmentName: "Enfants / Ecodim",
+      departmentName: "L'Ecodume",
       practicalInfo: [
         "Pour les enfants de 3 à 12 ans.",
         "Encadrement assuré par l'équipe Ecodim.",
@@ -417,7 +504,7 @@ export const seedDataset: SeedDataset = {
       image: "ccjv-15.jpeg",
       banner: "ccjv-15.jpeg",
       gallery: ["ccjv-15.jpeg", "ccjv-16.jpeg", "ccjv-17.jpeg"],
-      departmentName: "Chorale",
+      departmentName: "La Chorale Grand Groupe CCVJ",
       practicalInfo: [
         "Ouvert à ceux qui souhaitent servir par la musique.",
         "Aucun niveau requis pour commencer.",
@@ -452,7 +539,7 @@ export const seedDataset: SeedDataset = {
       image: "ccjv-11.jpeg",
       banner: "ccjv-11.jpeg",
       gallery: ["ccjv-11.jpeg", "ccjv-12.jpeg"],
-      departmentName: "Adultes",
+      departmentName: "Les Serviteurs",
       practicalInfo: [],
     },
     {
@@ -480,7 +567,7 @@ export const seedDataset: SeedDataset = {
       image: "ccjv-15.jpeg",
       banner: "ccjv-15.jpeg",
       gallery: [],
-      departmentName: "Chorale",
+      departmentName: "La Chorale Grand Groupe CCVJ",
       practicalInfo: [],
     },
   ],
@@ -624,45 +711,194 @@ export const seedDataset: SeedDataset = {
   /*  Seul le Pasteur Manasse Mwamba est confirmé.                      */
   /* ------------------------------------------------------------------ */
   leaders: [
+    // 00. Direction Générale / Visionnaire
     {
       name: "Pasteur Manasse Mwamba",
-      role: "Visionnaire / créateur",
+      role: "Visionnaire / Pasteur principal",
       scope: "Direction générale",
       bio: "Il a fondé le Centre Chrétien Jésus ma Vie le 17 mars 2023. Sa charge : affermir l'église dans la Parole, la prière et l'amour fraternel.",
       photo: "ccjv-05.jpeg",
       departmentName: null,
     },
+
+    // 01. Collège des Serviteurs
     {
-      name: "Responsable — Adultes",
-      role: "Coordination du volet adultes",
-      scope: "Adultes",
-      bio: "Accompagne les hommes et les femmes de l'assemblée : enseignement, entraide et intégration des nouveaux venus.",
+      name: "Responsable — Collège des Serviteurs",
+      role: "Coordination pastorale & serviteurs",
+      scope: "Les Serviteurs",
+      bio: "Soutien pastoral et accompagnement des disciples.",
       photo: "ccjv-04.jpeg",
-      departmentName: "Adultes",
+      departmentName: "Les Serviteurs",
     },
+    {
+      name: "Adjoint — Collège des Serviteurs",
+      role: "Affermissement & accompagnement",
+      scope: "Les Serviteurs",
+      bio: "Affermissement dans la doctrine et suivi spirituel.",
+      photo: "ccjv-25.jpeg",
+      departmentName: "Les Serviteurs",
+    },
+
+    // 02. Chorale Grand Groupe CCJV
+    {
+      name: "Direction — Grand Groupe CCJV",
+      role: "Direction musicale & louange",
+      scope: "Chorale Grand Groupe",
+      bio: "Conduit l'assemblée dans la présence de Dieu.",
+      photo: "ccjv-24.jpeg",
+      departmentName: "La Chorale Grand Groupe CCVJ",
+    },
+    {
+      name: "Coordination — Grand Groupe CCJV",
+      role: "Harmonie & pupitres",
+      scope: "Chorale Grand Groupe",
+      bio: "Travail vocal et sanctification des chantres.",
+      photo: "ccjv-06.jpeg",
+      departmentName: "La Chorale Grand Groupe CCVJ",
+    },
+
+    // 03. Chorale Cano Vocal
+    {
+      name: "Direction — Cano Vocal",
+      role: "Chantre principal & arrangements",
+      scope: "La Chorale de Cano Vocal",
+      bio: "Compositions et harmonies pour la gloire de Dieu.",
+      photo: "ccjv-17.jpeg",
+      departmentName: "La Chorale de Cano Vocal",
+    },
+    {
+      name: "Répétiteur — Cano Vocal",
+      role: "Formation vocale & technique",
+      scope: "La Chorale de Cano Vocal",
+      bio: "Discipline vocale et louange polyphonique.",
+      photo: "ccjv-36.jpeg",
+      departmentName: "La Chorale de Cano Vocal",
+    },
+
+    // 04. Ecodim (Enfants)
     {
       name: "Responsable — Ecodim",
-      role: "Ministère des enfants",
-      scope: "Enfants / Ecodim",
-      bio: "Veille sur l'encadrement des enfants depuis la naissance de l'Ecodim, le 2 juillet 2023.",
+      role: "Ministère et encadrement des enfants",
+      scope: "Ecodim (Enfants)",
+      bio: "Veille sur l'encadrement des plus jeunes.",
       photo: "ccjv-19.jpeg",
-      departmentName: "Enfants / Ecodim",
+      departmentName: "L'Ecodume",
     },
     {
-      name: "Responsable — Chorale",
-      role: "Direction musicale",
-      scope: "Chorale",
-      bio: "Conduit les chantres et les musiciens dans la préparation de la louange du dimanche.",
-      photo: "ccjv-24.jpeg",
-      departmentName: "Chorale",
+      name: "Coordination Pédagogique — Ecodim",
+      role: "Animation & récits bibliques",
+      scope: "Ecodim (Enfants)",
+      bio: "Enseignement biblique adapté et créatif.",
+      photo: "ccjv-18.jpeg",
+      departmentName: "L'Ecodume",
+    },
+
+    // 05. Affaires Sociales
+    {
+      name: "Responsable — Affaires Sociales",
+      role: "Diaconat & entraide fraternelle",
+      scope: "Affaires Sociales",
+      bio: "Compassion et assistance aux familles dans le besoin.",
+      photo: "ccjv-03.jpeg",
+      departmentName: "Affaires Sociales",
     },
     {
-      name: "Responsable — Accueil",
-      role: "Accueil et fraternité",
-      scope: "Communauté",
-      bio: "Premier visage que rencontrent les visiteurs : accueil, orientation et suivi des nouvelles personnes.",
+      name: "Adjoint — Affaires Sociales",
+      role: "Visite des malades & soutien",
+      scope: "Affaires Sociales",
+      bio: "Présence et réconfort auprès des personnes isolées.",
+      photo: "ccjv-30.jpeg",
+      departmentName: "Affaires Sociales",
+    },
+
+    // 06. Hygiène & Assainissement
+    {
+      name: "Responsable — Hygiène & Salubrité",
+      role: "Intendance et propreté du temple",
+      scope: "Hygiène et Ancienneté",
+      bio: "Maintien d'un cadre propre et digne.",
+      photo: "ccjv-22.jpeg",
+      departmentName: "Hygiène et Ancienneté",
+    },
+    {
+      name: "Adjoint — Hygiène & Salubrité",
+      role: "Maintenance & cadre de culte",
+      scope: "Hygiène et Ancienneté",
+      bio: "Salubrité et ordre avant et après les cultes.",
+      photo: "ccjv-21.jpeg",
+      departmentName: "Hygiène et Ancienneté",
+    },
+
+    // 07. Protocole & Accueil
+    {
+      name: "Responsable — Protocole",
+      role: "Accueil & placement de l'assemblée",
+      scope: "Protocole",
+      bio: "Premier sourire et accueil des visiteurs.",
       photo: "ccjv-38.jpeg",
-      departmentName: null,
+      departmentName: "Protocole",
+    },
+    {
+      name: "Adjoint — Protocole",
+      role: "Orientation des nouveaux visiteurs",
+      scope: "Protocole",
+      bio: "Accompagnement et fluidité dans le temple.",
+      photo: "ccjv-01.jpeg",
+      departmentName: "Protocole",
+    },
+
+    // 08. Évangélisation & Mission
+    {
+      name: "Responsable — Évangélisation",
+      role: "Stratégie missionnaire & plein air",
+      scope: "Évangélisation",
+      bio: "Proclamation de la Bonne Nouvelle à Lubumbashi.",
+      photo: "ccjv-27.jpeg",
+      departmentName: "Évangélisation",
+    },
+    {
+      name: "Coordination — Sorties de Quartier",
+      role: "Témoignage & suivi des âmes",
+      scope: "Évangélisation",
+      bio: "Évangélisation de rue et suivi des convertis.",
+      photo: "ccjv-35.jpeg",
+      departmentName: "Évangélisation",
+    },
+
+    // 09. Intercession & Prière
+    {
+      name: "Responsable — Intercession",
+      role: "Sentinelles & veillées de prière",
+      scope: "Intercession",
+      bio: "Intercession fervente et veilles spirituelles.",
+      photo: "ccjv-07.jpeg",
+      departmentName: "Intercession",
+    },
+    {
+      name: "Adjoint — Intercession",
+      role: "Soutien des intentions reçues",
+      scope: "Intercession",
+      bio: "Porte les requêtes de prière des fidèles.",
+      photo: "ccjv-12.jpeg",
+      departmentName: "Intercession",
+    },
+
+    // 10. Presse, Médias & Multimédia
+    {
+      name: "Responsable — Presse & Médias",
+      role: "Communication & diffusion en ligne",
+      scope: "Presse & Médias",
+      bio: "Diffusion numérique et captation des messages.",
+      photo: "ccjv-34.jpeg",
+      departmentName: "Presse",
+    },
+    {
+      name: "Coordination — Audiovisuel & Régie",
+      role: "Captation vidéo & sonorisation",
+      scope: "Presse & Médias",
+      bio: "Technique son, écrans et retransmission.",
+      photo: "ccjv-32.jpeg",
+      departmentName: "Presse",
     },
   ],
 
@@ -688,7 +924,7 @@ export const seedDataset: SeedDataset = {
       quote:
         "Servir dans la louange a changé ma manière de prier. On ne chante pas seulement : on apprend à se tenir devant Dieu.",
       personName: "Esther",
-      personRole: "Chorale",
+      personRole: "La Chorale Grand Groupe CCVJ",
       photo: "ccjv-18.jpeg",
     },
     {

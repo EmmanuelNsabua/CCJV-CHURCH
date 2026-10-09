@@ -792,6 +792,16 @@ async function run(): Promise<void> {
           },
           slug,
         );
+
+        // **Règle globale des 3** (`docs/035` §1) : le jeu de démonstration ne doit
+        // pas laisser le site à dix publications en ligne. Chaque publication créée
+        // passe donc par le quota, exactement comme le ferait une création par
+        // l'API — c'est ce qui rend les mocks **cohérents avec les décisions
+        // prises**, et non seulement avec le schéma.
+        const creee = await repositories.publications.findByIdOrSlug(slug, true);
+        if (creee !== null && creee.status === "PUBLISHED") {
+          await repositories.publications.publishWithQuota(creee.id, creee.publishedAt);
+        }
       }
       return seedDataset.publications.length;
     }),
