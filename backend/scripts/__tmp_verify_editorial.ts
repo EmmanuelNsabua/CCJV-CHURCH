@@ -3,6 +3,17 @@
  *
  * Contrôle les cinq ressources éditoriales contre la base Supabase réelle,
  * puis remet la base exactement dans l'état initial.
+ *
+ * ⚠️ **Ce script écrit dans la base réelle, sans transaction.** Il modifie
+ * `site_settings` (« NOM DE VÉRIFICATION »), le contenu de `static_pages.accueil`
+ * et crée des versets, puis restaure l'état précédent qu'il a lu au départ. Une
+ * interruption entre l'écriture et la restauration — ou une levée d'exception hors
+ * du chemin prévu — laisse donc ces valeurs de vérification **en ligne**.
+ *
+ * L'audit des dispositifs de vérification a donc rendu son exécution
+ * **explicite** : sans le drapeau `--confirm`, le script refuse de démarrer. Un
+ * script marqué « temporaire » et capable de modifier la production ne doit pas
+ * pouvoir être lancé par une commande tapée distraitement.
  */
 import { eq } from "drizzle-orm";
 import request from "supertest";
@@ -42,6 +53,20 @@ async function expectError(label: string, run: () => Promise<unknown>, code: str
 }
 
 async function main(): Promise<void> {
+  // Refus explicite, avant la moindre connexion : ce script modifie la base
+  // réelle et n'est pas transactionnel (voir l'en-tête du fichier).
+  if (!process.argv.includes("--confirm")) {
+    console.error(
+      "Ce vérificateur écrit dans la base RÉELLE (paramètres, contenu de page, versets) " +
+        "et restaure l'état ensuite, sans transaction : une interruption laisse ses " +
+        "valeurs de vérification en ligne.\n" +
+        "Relancer avec « --confirm » pour l'autoriser explicitement :\n" +
+        "  npx tsx scripts/__tmp_verify_editorial.ts --confirm",
+    );
+    process.exitCode = 1;
+    return;
+  }
+
   const scriptures = new DrizzleScriptureRepository(db);
   const schedule = new DrizzleScheduleRepository(db);
   const socialLinks = new DrizzleSocialLinkRepository(db);

@@ -63,7 +63,7 @@ export default async function EvenementsPage() {
       description:
         "Partager des repas, tisser des liens d'amitié sincères et prier les uns pour les autres au quotidien.",
       image: "/media/ccjv-30.jpeg",
-      link: "/communaute/groupes-de-maison",
+      link: "/communaute#groupes-de-maison",
       linkLabel: "Groupes de maison",
     },
     {

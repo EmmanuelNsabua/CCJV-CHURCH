@@ -2,24 +2,25 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-export type ButtonVariant = "primary" | "outline" | "ghost" | "inverse";
-export type ButtonSize = "md" | "lg";
+export type ButtonVariant = "primary" | "outline" | "ghost" | "inverse" | "danger";
+export type ButtonSize = "sm" | "md" | "lg";
 
 export interface ButtonProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   /** Si renseigné, le bouton devient un lien interne. */
   href?: string;
-  type?: "button" | "submit";
+  type?: "button" | "submit" | "reset";
   disabled?: boolean;
   loading?: boolean;
   /** Ouvre le lien dans un nouvel onglet (rel sécurisé). */
   external?: boolean;
   className?: string;
   children: ReactNode;
-  onClick?: () => void;
+  onClick?: (e?: React.MouseEvent<HTMLElement>) => void;
   "aria-label"?: string;
 }
+
 
 const base =
   "inline-flex select-none items-center justify-center gap-2 rounded-none border text-center font-sans text-[0.9375rem] font-medium tracking-[0.01em] transition-[background-color,border-color,color,transform] duration-[250ms] ease-ccjv";
@@ -33,9 +34,12 @@ const variants: Record<ButtonVariant, string> = {
     "border-transparent bg-transparent px-2 text-ccjv-green underline-offset-4 hover:text-ccjv-green-strong hover:underline",
   inverse:
     "border-white bg-transparent text-white hover:border-ccjv-cream hover:bg-white/5 hover:text-ccjv-cream",
+  danger:
+    "border-[#b91c1c] bg-[#b91c1c] text-white hover:border-[#991b1b] hover:bg-[#991b1b]",
 };
 
 const sizes: Record<ButtonSize, string> = {
+  sm: "min-h-[36px] px-3.5 text-xs font-medium",
   md: "min-h-[44px] px-6",
   lg: "min-h-[52px] px-8 text-base",
 };

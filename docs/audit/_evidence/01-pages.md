@@ -1,4 +1,4 @@
-# 01 — Inventaire de composition des pages
+ 01 — Inventaire de composition des pages
 
 **Périmètre** : `frontend/src/app/**` — Next.js App Router, TypeScript.
 **Méthode** : lecture intégrale de chaque fichier de route (offsets/limits), plus lecture des archétypes (`src/components/archetypes/*`), des compositions de héros (`src/components/composition/*`), des blocs éditoriaux (`src/components/editorial/*`), des composants partagés (`src/components/shared/*`), des features (`src/features/*`), des mocks (`src/data/mock/*`), de `src/lib/api/*`, `src/lib/nav.ts`, `src/lib/utils.ts`.

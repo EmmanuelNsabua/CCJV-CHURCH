@@ -68,32 +68,33 @@ export const mainNav: NavItem[] = [
     ],
   },
   {
+    href: "/communaute",
     label: "Notre communauté",
-    description: "Des personnes, pas des rubriques.",
+    description: "Une foi que nous vivons ensemble : fraternité, prière et partage.",
     ready: true,
     children: [
       {
-        href: "/communaute/groupes-de-maison",
+        href: "/communaute#groupes-de-maison",
         label: "Groupes de maison",
-        description: "La fraternité de proximité.",
+        description: "La proximité au cœur des quartiers.",
         ready: true,
       },
       {
-        href: "/communaute/parcours-nouveau",
-        label: "Parcours nouveau",
-        description: "Vos premiers pas parmi nous.",
-        ready: true,
-      },
-      {
-        href: "/communaute/priere-et-intercession",
+        href: "/communaute#priere",
         label: "Prière & intercession",
-        description: "Déposer une demande de prière.",
+        description: "Porter les fardeaux ensemble.",
         ready: true,
       },
       {
-        href: "/communaute/temoignages",
+        href: "/communaute#parcours-nouveau",
+        label: "Parcours nouveau",
+        description: "Une nouvelle étape parmi nous.",
+        ready: true,
+      },
+      {
+        href: "/communaute#temoignages",
         label: "Témoignages",
-        description: "Ce que Dieu a fait parmi nous.",
+        description: "Ce que nous vivons ici.",
         ready: true,
       },
     ],
@@ -172,6 +173,8 @@ export interface Crumb {
   href?: string;
 }
 
+import { departments } from "@/data/mock/departments";
+
 /**
  * Construit le fil d'Ariane d'une route à partir de `mainNav`.
  * Retourne [] si la route n'appartient à aucune section.
@@ -182,6 +185,16 @@ export function getBreadcrumbs(pathname: string): Crumb[] {
   // Route directe /organisation
   if (pathname === "/organisation") {
     return [{ href: "/organisation", label: "Organisation" }];
+  }
+
+  // Routes dynamiques de département /[slug]
+  const currentSlug = pathname.replace(/^\//, "");
+  const deptMatch = departments.find((d) => d.slug === currentSlug);
+  if (deptMatch) {
+    return [
+      { href: "/organisation", label: "Organisation" },
+      { label: deptMatch.name },
+    ];
   }
 
   for (const item of mainNav) {

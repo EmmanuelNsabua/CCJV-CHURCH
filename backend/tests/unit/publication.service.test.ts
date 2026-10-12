@@ -173,9 +173,26 @@ function fakePublicationRepository(seed: readonly Publication[] = []) {
 
     /**
      * Double du quota : il rejoue la règle du domaine (`planPublication`) sur son
-     * propre magasin, **sans transaction ni verrou** — ce que ces tests ne peuvent
-     * pas simuler. La sûreté en concurrence est vérifiée là où elle existe : dans
-     * le repository, avec PostgreSQL.
+     * propre magasin, **sans transaction ni verrou**.
+     *
+     * ⚠️ **Ce que ce double ne vérifie pas** — et ne peut pas vérifier : ni la
+     * transaction de `DrizzlePublicationRepository.publishWithQuota`, ni le verrou
+     * d'avis `pg_advisory_xact_lock(hashtext('publications.quota'))`, ni les
+     * contraintes de PostgreSQL. Un double n'a ni connexion, ni transaction, ni
+     * verrou. Les tests de **ce fichier** établissent une seule chose : que
+     * `PublicationService` appelle le quota, quand, et avec quels arguments.
+     *
+     * Cette distinction est écrite ici après l'audit `docs/039` §7 (I1). Une
+     * version antérieure de ce commentaire affirmait que « la sûreté en
+     * concurrence est vérifiée là où elle existe : dans le repository, avec
+     * PostgreSQL » — c'est-à-dire qu'elle renvoyait à une vérification qui
+     * **n'existait nulle part**. Elle existe désormais, et elle est ailleurs :
+     *
+     * - `tests/integration/publication-quota.test.ts` — le repository **réel** sur
+     *   PostgreSQL : quota, archivage de la plus ancienne, départage par `id ASC`,
+     *   et trois publications concurrentes sérialisées par le verrou ;
+     * - `tests/unit/publication-quota.test.ts` — le **plan** seul
+     *   (`planPublication`), sans base de données.
      */
     async publishWithQuota(id, publishedAt) {
       const target = store.get(id);

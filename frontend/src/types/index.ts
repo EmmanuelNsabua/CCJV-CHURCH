@@ -31,6 +31,11 @@ export interface Department {
   gallery?: string[];
   /** Accroche courte affichée dans les listes. */
   tagline?: string;
+  /** Verset d'ancrage biblique du département. */
+  verse?: {
+    text: string;
+    reference: string;
+  };
 }
 
 export interface Event {

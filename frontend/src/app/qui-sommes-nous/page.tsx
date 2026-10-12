@@ -604,7 +604,7 @@ export default function QuiSommesNousPage() {
 
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <Link
-                href="/communaute/parcours-nouveau"
+                href="/communaute#parcours-nouveau"
                 className="inline-flex items-center justify-center bg-white px-8 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-black uppercase transition-all duration-300 hover:bg-ccjv-cream"
               >
                 Planifier une visite

@@ -250,6 +250,10 @@ export class DrizzlePublicationRepository implements PublicationRepository {
    *
    * Le verrou est libéré avec la transaction, quelle qu'en soit l'issue : un échec
    * ne laisse pas le quota verrouillé.
+   *
+   * La publication rendue est **relue dans la transaction** (voir le commentaire
+   * en fin de méthode) : une relecture par `this.findById` passerait par une autre
+   * connexion du pool et rendrait l'état d'avant l'écriture.
    */
   async publishWithQuota(id: string, publishedAt: string): Promise<Publication | null> {
     if (!isUuid(id)) return null;
@@ -282,7 +286,29 @@ export class DrizzlePublicationRepository implements PublicationRepository {
         .set({ status: "PUBLISHED", publishedAt, updatedAt: new Date() })
         .where(eq(publications.id, id));
 
-      return this.findById(id);
+      /**
+       * La ligne est relue **dans la transaction**, et non par `this.findById(id)`.
+       *
+       * `this.findById` interroge `this.db`, c'est-à-dire le **pool** : la lecture
+       * part sur une autre connexion, qui ne voit pas les écritures non validées
+       * de cette transaction. Elle rendait donc la ligne dans son état d'**avant** —
+       * un `DRAFT` pour une publication qui vient d'être mise en ligne. Le service
+       * relayant cette valeur telle quelle (`PublicationService.create` et
+       * `.update`), l'API répondait `DRAFT` pour une publication publiée : c'est
+       * le défaut I8 de `docs/039`, mesuré et reproduit par
+       * `tests/integration/publication-quota.test.ts`.
+       *
+       * `hydrate` est réutilisé **tel quel** : c'est lui qui résout la couverture
+       * (`coverImageUrl`) et qui garantit que la forme rendue reste exactement
+       * celle du contrat du repository — identique à celle de `findById`.
+       */
+      const [row] = await tx
+        .select()
+        .from(publications)
+        .where(eq(publications.id, id))
+        .limit(1);
+
+      return row === undefined ? null : ((await this.hydrate([row]))[0] ?? null);
     });
   }
 

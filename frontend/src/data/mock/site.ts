@@ -5,8 +5,7 @@
  * fait non fourni n'est JAMAIS inventé — il reste marqué comme tel.
  *
  * CONFIRMÉ : fondation, naissance de l'Ecodim, pasteur visionnaire, ville,
- * adresse, horaires de répétition de la chorale.
- * DÉMONSTRATION : horaires du culte dominical et de l'Ecodim (à valider par CCJV).
+ * adresse, horaires des cultes et de répétition de la chorale.
  */
 
 export interface SocialLink {
@@ -21,7 +20,7 @@ export const site = {
   foundedAt: "17 mars 2023",
   ecodimFoundedAt: "2 juillet 2023",
   visionary: "Pasteur Manasse Mwamba",
-  visionaryRole: "Visionnaire / créateur",
+  visionaryRole: "Visionnaire / Pasteur principal",
 
   /** Adresse communiquée par CCJV. */
   address: "Quartier Hewa Bora, Avenue Djoloko Lubumbashi",
@@ -31,10 +30,10 @@ export const site = {
     "Lubumbashi, République démocratique du Congo",
   ],
 
-  /** Culte dominical — horaire de démonstration, à valider par CCJV. */
-  scheduleAdults: "Dimanche · 09h00",
+  /** Culte dominical — horaire confirmé CCJV. */
+  scheduleAdults: "Dimanche · 08h30 à 11h30",
   /** Ministère des enfants — se tient pendant le culte dominical. */
-  scheduleChildren: "Dimanche · 09h00 (Ecodim, pendant le culte)",
+  scheduleChildren: "Dimanche · 08h30 (Ecodim, pendant le culte)",
 
   whatsappNumber: "+243 123 456 789",
   whatsappHref: "https://wa.me/243123456789",
@@ -55,54 +54,64 @@ export interface RhythmEntry {
 }
 
 /**
- * Rythme hebdomadaire de la communauté.
- *
- * Les répétitions de la chorale sont des horaires CONFIRMÉS par CCJV
- * (lundi 16h30–18h30, mercredi dans la nuit, samedi 16h30–18h30).
- * Les autres entrées restent des horaires de démonstration.
+ * Rythme hebdomadaire de la communauté — Horaires confirmés CCJV.
+ * - Mardi : 16h30 – 18h30
+ * - Vendredi : 16h30 – 18h30
+ * - Dimanche : 08h30 – 11h30
+ * - Répétitions chorale : Lundi 16h30–18h30, Mercredi à partir de 21h30 (veillée), Samedi 16h30–18h30
  */
 export const weeklyRhythm: RhythmEntry[] = [
   {
     day: "Dimanche",
     title: "Culte dominical",
-    time: "09h00",
+    time: "08h30 – 11h30",
     audience: "Toute l'assemblée",
+    confirmed: true,
   },
   {
     day: "Dimanche",
     title: "Ecodim",
-    time: "09h00",
+    time: "08h30 – 11h30",
     audience: "Enfants — pendant le culte",
+    confirmed: true,
   },
   {
     day: "Lundi",
-    title: "Répétition de la chorale",
+    title: "Répétition de la chorale Grand Groupe",
     time: "16h30 – 18h30",
     audience: "Chantres et musiciens",
     confirmed: true,
   },
   {
-    day: "Mercredi",
-    title: "Répétition de la chorale",
-    time: "Dans la nuit",
-    audience: "Veillée de préparation",
+    day: "Mardi",
+    title: "Culte de semaine",
+    time: "16h30 – 18h30",
+    audience: "Toute l'église",
     confirmed: true,
   },
   {
     day: "Mercredi",
-    title: "Prière et intercession",
-    time: "17h00",
+    title: "Répétition / Veillée de la chorale",
+    time: "À partir de 21h30",
+    audience: "Chantres et musiciens",
+    confirmed: true,
+  },
+  {
+    day: "Vendredi",
+    title: "Culte de prière et d'intercession",
+    time: "16h30 – 18h30",
     audience: "Toute l'église",
+    confirmed: true,
   },
   {
     day: "Samedi",
-    title: "Répétition de la chorale",
+    title: "Répétition de la chorale Grand Groupe",
     time: "16h30 – 18h30",
     audience: "Chantres et musiciens",
     confirmed: true,
   },
 ];
 
-/** Horaires confirmés de la chorale, isolés pour les fiches département. */
+/** Horaires confirmés de la chorale. */
 export const choraleSchedule =
-  "Lundi 16h30–18h30 · Mercredi dans la nuit · Samedi 16h30–18h30";
+  "Lundi 16h30–18h30 · Mercredi à partir de 21h30 · Samedi 16h30–18h30";

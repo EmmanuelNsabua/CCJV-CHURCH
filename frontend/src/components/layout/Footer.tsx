@@ -69,8 +69,8 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/communaute/groupes-de-maison" className="transition-colors duration-150 hover:text-white">
-                  Groupe de maison
+                <Link href="/communaute#groupes-de-maison" className="transition-colors duration-150 hover:text-white">
+                  Groupes de maison
                 </Link>
               </li>
               <li>
@@ -191,12 +191,12 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/communaute/priere-et-intercession" className="transition-colors duration-150 hover:text-white">
+                <Link href="/communaute#priere" className="transition-colors duration-150 hover:text-white">
                   Prière & Intercession
                 </Link>
               </li>
               <li>
-                <Link href="/communaute/temoignages" className="transition-colors duration-150 hover:text-white">
+                <Link href="/communaute#temoignages" className="transition-colors duration-150 hover:text-white">
                   Témoignages
                 </Link>
               </li>
@@ -215,7 +215,7 @@ export function Footer() {
             </h3>
             <ul className="mt-6 flex flex-col gap-3.5 font-sans text-[0.88rem] text-white/75">
               <li>
-                <Link href="/communaute/parcours-nouveau" className="transition-colors duration-150 hover:text-white">
+                <Link href="/communaute#parcours-nouveau" className="transition-colors duration-150 hover:text-white">
                   Planifier une visite
                 </Link>
               </li>
@@ -225,7 +225,7 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/communaute/priere-et-intercession" className="transition-colors duration-150 hover:text-white">
+                <Link href="/communaute#priere" className="transition-colors duration-150 hover:text-white">
                   Demander une prière
                 </Link>
               </li>

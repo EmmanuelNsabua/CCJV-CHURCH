@@ -79,6 +79,9 @@ export interface ApiErrorBody {
 export interface PublicationRecord extends Publication {
   status: PublicationStatus;
   coverImage?: string;
+  departmentId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /** Responsable / serviteur de l'église (`GET /leaders`). */
@@ -181,3 +184,39 @@ export interface EditablePage {
   createdAt: string;
   updatedAt: string;
 }
+
+export type AdminRole = "SUPER_ADMIN" | "ADMIN" | "DEPARTMENT_MANAGER";
+
+export interface AdminProfile {
+  id: string;
+  username: string;
+  displayName: string | null;
+  role: AdminRole;
+  isActive?: boolean;
+  createdAt?: string;
+}
+
+export interface AdminMediaItem {
+  id: string;
+  filename: string;
+  url: string;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedBy?: string;
+  createdAt: string;
+}
+
+export interface CreatePublicationPayload {
+  title: string;
+  slug?: string;
+  type: PublicationType;
+  category?: string;
+  departmentId?: string;
+  author?: string;
+  description?: string;
+  contentUrl?: string;
+  body?: string[];
+  status?: PublicationStatus;
+  publishedAt?: string;
+}
+

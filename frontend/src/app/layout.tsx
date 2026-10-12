@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Lora } from "next/font/google";
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
-import { IntroCurtain } from "@/components/layout/IntroCurtain";
+import { PublicSiteChrome } from "@/components/layout/PublicSiteChrome";
 import { defaultTitle, siteUrl } from "@/lib/seo";
 import { site } from "@/data/mock/site";
 import "./globals.css";
@@ -49,13 +47,7 @@ export default function RootLayout({
     <html lang="fr" className={`${inter.variable} ${lora.variable}`} suppressHydrationWarning>
       <body suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{ __html: introScript }} />
-        <IntroCurtain />
-        <a href="#contenu" className="skip-link">
-          Aller au contenu
-        </a>
-        <Header />
-        <main id="contenu">{children}</main>
-        <Footer />
+        <PublicSiteChrome>{children}</PublicSiteChrome>
       </body>
     </html>
   );

@@ -1,8 +1,18 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { TransactionSql } from "postgres";
 import { closeDatabase, sql } from "@/infrastructure/database/client";
 import { logger } from "@/infrastructure/logger";
+import { runProbe, type Sonde } from "./lib/probe-harness";
+import {
+  comparer,
+  empreinte,
+  type Empreinte,
+} from "./lib/database-fingerprint";
+import {
+  createProbeCatalogue,
+  MIGRATION_NOTIFICATIONS,
+  RECONSTRUCTION_DES_ROLES,
+} from "./lib/migration-probes";
 
 /**
  * Vérification des migrations **sans rien appliquer**.
@@ -10,6 +20,7 @@ import { logger } from "@/infrastructure/logger";
  * ```text
  * npm run db:verify            # migrations additives
  * npm run db:verify -- --all   # inclut 0001 (reconstruction d'énumérations)
+ * npm run db:selftest          # prouve que ce harnais sait échouer
  * ```
  *
  * ### Pourquoi ce script existe
@@ -21,22 +32,50 @@ import { logger } from "@/infrastructure/logger";
  * projet n'a qu'une base.
  *
  * La vérification repose donc sur la propriété qui rend la chose possible :
- * **PostgreSQL exécute le DDL en transaction**. Les migrations sont donc jouées
- * pour de vrai — types, tables, index, contraintes, triggers — puis la
- * transaction est **annulée**. La base est identique avant et après, et le script
- * le **prouve** au lieu de l'affirmer : il compare l'empreinte des objets et les
- * compteurs de lignes avant/après.
+ * **PostgreSQL exécute le DDL en transaction**. Les migrations sont jouées pour
+ * de vrai — types, tables, index, contraintes, triggers — puis la transaction est
+ * **annulée**. La base est identique avant et après, et le script le **prouve**
+ * au lieu de l'affirmer.
  *
- * Ce que cela établit, et que la lecture ne peut pas établir : que le SQL
- * s'exécute, dans cet ordre, sur *cette* base, et que les contraintes refusent
- * réellement ce qu'elles prétendent refuser. Un `CHECK` mal écrit se lit comme un
- * bon `CHECK` ; il ne s'exécute pas comme tel.
+ * ### Le rapport dit ce qui a été exécuté, et ce qui ne l'a pas été
  *
- * ### Chaque sonde est isolée par un `SAVEPOINT`
+ * Une migration **déjà appliquée** ne peut pas être rejouée : ses instructions
+ * sont refusées (« already exists »). Après l'application des huit migrations du
+ * projet, c'est le cas de la plupart d'entre elles, et **le SQL n'est alors plus
+ * exercé du tout**. Le script l'annonce désormais ligne par ligne — `EXÉCUTÉE`,
+ * `DÉJÀ APPLIQUÉE`, `MIXTE`, `NON REJOUABLE`, `ÉCHEC` — et affiche le décompte
+ * réel des migrations dont le SQL a été exercé. Une version antérieure affichait
+ * « AUCUNE n'est appliquée » puis « OK » pour des migrations qu'elle n'avait fait
+ * qu'effleurer : un rapport vert qui ne disait pas ce qu'il avait mesuré.
  *
- * Sans cela, la première violation de contrainte avorte la transaction, et toutes
- * les sondes suivantes échouent pour une raison qui n'est pas la leur — un faux
- * positif de plus. C'est un défaut que ce script a réellement connu.
+ * `NON REJOUABLE` est le cas d'une migration qui **échoue au rejeu sans être
+ * fausse**, parce que son état de départ n'existe plus : `0001` convertit
+ * `admin_profiles.role` en `text`, mais elle a créé elle-même une contrainte
+ * `CHECK` référençant l'énumération, que la conversion rend inévaluable. Le
+ * registre `drizzle.__drizzle_migrations` — celui qu'utilise `db:migrate` —
+ * atteste que la migration est appliquée, ce qui permet de la classer sans
+ * supposer. Toute erreur sur une migration **non** enregistrée reste un `ÉCHEC`.
+ *
+ * Les **sondes**, elles, s'exécutent contre les tables réelles dans tous les cas :
+ * c'est ce qui garde sa valeur à la vérification une fois les migrations
+ * appliquées.
+ *
+ * ### Isolation : deux niveaux, pas un
+ *
+ * 1. **Une instruction de migration est isolée par un `SAVEPOINT` propre.** Sans
+ *    cela, une instruction refusée (« already exists ») avorte la transaction et
+ *    toutes les instructions suivantes échouent pour cette raison-là — pas pour
+ *    la leur. C'est un défaut que ce script a réellement connu.
+ * 2. **Chaque sonde est isolée par un `SAVEPOINT`** (voir `lib/probe-harness.ts`,
+ *    qui porte l'histoire des quatre faux refus du Lot 5).
+ *
+ * ### Le script échoue quand une sonde n'est pas conforme, ou qu'une migration échoue
+ *
+ * Une version antérieure affichait `!!!` et **terminait avec le code 0** : un
+ * harnais dont l'échec ne se propage pas ne vérifie rien. Le code de sortie vaut
+ * désormais 1 dès qu'une sonde n'est pas conforme ou qu'une migration échoue — et
+ * ce n'est pas une intention : `npm run db:selftest` établit que la
+ * qualification des sondes sait produire un échec.
  */
 
 /* -------------------------------------------------------------------------- */
@@ -99,56 +138,101 @@ function loadMigrations(includeDestructive: boolean): Migration[] {
     }));
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Sondes                                                                    */
-/* -------------------------------------------------------------------------- */
+/** Ce qu'une instruction refusée doit dire pour signifier « l'objet est déjà là ». */
+const OBJET_DEJA_PRESENT = /already exists|existe déjà|duplicate key value/i;
 
-interface ProbeResult {
-  label: string;
-  conforme: boolean;
-  detail: string;
-}
-
-interface Probe {
-  /** Migration dont la sonde dépend : elle est ignorée si elle n'est pas jouée. */
-  requires: string;
-  label: string;
-  attendu: "accepté" | "refusé";
-  /** Motif attendu dans le message d'erreur, quand la sonde attend un refus. */
-  motif?: RegExp;
-  run: (tx: TransactionSql) => Promise<unknown>;
-}
-
-/** Migration nécessaire aux sondes de notifications (rôle `ADMIN`). */
-const ROLE_RECONSTRUCTION = "0001_lowly_frightful_four.sql";
-
-async function probe(
-  tx: TransactionSql,
-  index: number,
-  spec: Probe,
-): Promise<ProbeResult> {
-  const point = `sonde_${index}`;
-  await tx.unsafe(`savepoint ${point}`);
-
-  let observe: "accepté" | "refusé" = "accepté";
-  let message = "";
-
+/**
+ * Migrations **déjà appliquées**, d'après le registre de `drizzle-kit`.
+ *
+ * `drizzle.__drizzle_migrations` est le registre qu'utilise `npm run db:migrate`
+ * lui-même : chaque ligne porte le `created_at` de l'entrée correspondante de
+ * `drizzle/meta/_journal.json`, ce qui permet de retrouver le fichier.
+ *
+ * ### Pourquoi le registre est nécessaire
+ *
+ * Une migration **appliquée** peut devenir **non rejouable** sans être fausse.
+ * C'est le cas de `0001` : elle convertit `admin_profiles.role` en `text`, mais
+ * elle a elle-même créé une contrainte `CHECK` qui référence l'énumération —
+ * rejouée, la conversion rend cette contrainte inévaluable
+ * (`operator does not exist: text = admin_role`). Le SQL n'est pas cassé : son
+ * **état de départ** n'existe plus.
+ *
+ * Sans le registre, le script ne pouvait pas distinguer « non rejouable » de
+ * « cassée », et devait choisir entre deux maux : un rouge permanent (que
+ * l'opérateur apprend à ignorer) ou un vert silencieux. Le registre tranche, et
+ * la migration est annoncée `NON REJOUABLE — SQL NON exercé` : rien n'est masqué,
+ * et un échec réel reste un échec.
+ *
+ * `null` signifie « registre indisponible » (base neuve) : dans ce cas, toute
+ * erreur est un échec, puisque rien ne prouve que la migration était appliquée.
+ */
+async function registreDrizzle(): Promise<Set<string> | null> {
   try {
-    await spec.run(tx);
-  } catch (error) {
-    observe = "refusé";
-    message = (error as Error).message.split("\n")[0] ?? "";
+    const journal = JSON.parse(
+      readFileSync(join(process.cwd(), "drizzle/meta/_journal.json"), "utf8"),
+    ) as { entries: { when: number; tag: string }[] };
+
+    const parHorodatage = new Map(
+      journal.entries.map((entree) => [entree.when, `${entree.tag}.sql`]),
+    );
+
+    const lignes = await sql`select created_at from drizzle.__drizzle_migrations`;
+
+    const appliquees = new Set<string>();
+    for (const ligne of lignes) {
+      const fichier = parHorodatage.get(Number((ligne as { created_at: unknown }).created_at));
+      if (fichier !== undefined) appliquees.add(fichier);
+    }
+
+    return appliquees;
+  } catch {
+    return null;
+  }
+}
+
+interface BilanMigration {
+  file: string;
+  executees: number;
+  dejaPresentes: number;
+  erreur?: string;
+  /** Vrai quand l'échec vient d'un rejeu impossible, la migration étant appliquée. */
+  nonRejouable?: boolean;
+}
+
+/** Verdict lisible d'une migration : ce qui a été exécuté, et ce qui ne l'a pas été. */
+function verdict(bilan: BilanMigration): { marque: string; texte: string } {
+  if (bilan.erreur !== undefined) {
+    if (bilan.nonRejouable === true) {
+      return {
+        marque: "-- ",
+        texte: `NON REJOUABLE — déjà appliquée, rejeu impossible : ${bilan.erreur} | SQL NON exercé`,
+      };
+    }
+
+    return { marque: "!!!", texte: `ÉCHEC — ${bilan.erreur}` };
   }
 
-  await tx.unsafe(`rollback to savepoint ${point}`);
+  if (bilan.dejaPresentes === 0) {
+    return { marque: "OK ", texte: `EXÉCUTÉE — ${bilan.executees} instruction(s)` };
+  }
 
-  const motifOk = spec.attendu === "accepté" || spec.motif === undefined || spec.motif.test(message);
+  if (bilan.executees === 0) {
+    return {
+      marque: "-- ",
+      texte: `DÉJÀ APPLIQUÉE — ${bilan.dejaPresentes} instruction(s), SQL NON exercé`,
+    };
+  }
 
   return {
-    label: spec.label,
-    conforme: observe === spec.attendu && motifOk,
-    detail: `${observe}${message ? ` — ${message.slice(0, 120)}` : ""}`,
+    marque: "OK ",
+    texte: `MIXTE — ${bilan.executees} exécutée(s), ${bilan.dejaPresentes} déjà présente(s)`,
   };
+}
+
+/** Vrai si le SQL de cette migration n'a été exercé par aucune instruction. */
+function sqlNonExerce(bilan: BilanMigration): boolean {
+  if (bilan.erreur !== undefined) return bilan.nonRejouable === true;
+  return bilan.executees === 0;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -176,6 +260,7 @@ async function main(): Promise<void> {
 
   const migrations = loadMigrations(includeDestructive);
   const jouees = new Set(migrations.map((migration) => migration.file));
+  const appliquees = await registreDrizzle();
 
   // État **réel** de la base : le rôle `ADMIN` existe-t-il ? C'est ce fait, et non
   // la liste des migrations que ce script a jouées, qui décide si les sondes de
@@ -194,47 +279,76 @@ async function main(): Promise<void> {
       : `Mode par défaut : ${DESTRUCTIVE.join(", ")} exclue(s). Utiliser --all pour les inclure.\n`,
   );
 
-  const avant = await footprint();
+  console.log(
+    appliquees === null
+      ? "Registre drizzle : indisponible — toute erreur de migration sera un échec.\n"
+      : `Registre drizzle : ${String(appliquees.size)} migration(s) appliquée(s) sur cette base.\n`,
+  );
+
+  const avant = await empreinteHorsTransaction();
+
+  /** Sondes non conformes, tous motifs confondus : décide du code de sortie. */
+  let nonConformes = 0;
 
   try {
     await sql.begin(async (tx) => {
+      const bilans: BilanMigration[] = [];
       let numeroMigration = 0;
 
       for (const migration of migrations) {
-        // Une migration **déjà appliquée** n'est pas un échec : le script doit
-        // rester utilisable après coup, ne serait-ce que pour prouver les
-        // migrations suivantes. Elle est signalée comme telle — jamais passée
-        // sous silence, sinon un rapport « tout est vert » ne dirait plus si le
-        // SQL a été exécuté ou seulement rencontré.
         const point = `migration_${++numeroMigration}`;
+
         // Le SAVEPOINT est indispensable : une instruction refusée **avorte la
         // transaction**, et toutes les migrations suivantes échoueraient alors
         // pour une raison qui n'est pas la leur. Sans lui, une migration déjà
         // appliquée rendait le script inutilisable — ce qu'il a réellement fait.
         await tx.unsafe(`savepoint ${point}`);
 
-        let dejaAppliquee = false;
+        const bilan: BilanMigration = {
+          file: migration.file,
+          executees: 0,
+          dejaPresentes: 0,
+        };
 
-        for (const statement of migration.statements) {
+        for (const [rang, statement] of migration.statements.entries()) {
+          // Un point de retour **par instruction** : sans lui, la première
+          // instruction refusée figerait les suivantes, et « 13 instructions
+          // passées » pourrait ne vouloir dire que « 13 fois la même erreur ».
+          const pointInstruction = `${point}_${rang + 1}`;
+          await tx.unsafe(`savepoint ${pointInstruction}`);
+
           try {
             await tx.unsafe(statement);
+            bilan.executees += 1;
           } catch (error) {
-            if (/already exists|déjà|duplicate key value/i.test((error as Error).message)) {
-              dejaAppliquee = true;
+            await tx.unsafe(`rollback to savepoint ${pointInstruction}`);
+            const message = (error as Error).message.split("\n")[0] ?? "";
+
+            if (OBJET_DEJA_PRESENT.test(message)) {
+              bilan.dejaPresentes += 1;
+            } else {
+              // Un échec qui n'est **pas** « l'objet existe déjà » est un vrai
+              // échec : la version antérieure le classait « DÉJÀ APPLIQUÉE » dès
+              // que le message contenait « duplicate key value », ce qui pouvait
+              // taire une migration cassée.
+              bilan.erreur = `instruction ${rang + 1} — ${message.slice(0, 160)}`;
               break;
             }
-
-            throw error;
           }
         }
 
-        if (dejaAppliquee) await tx.unsafe(`rollback to savepoint ${point}`);
+        if (bilan.erreur !== undefined) {
+          // Les effets partiels d'une migration en échec sont annulés, pour que
+          // les migrations suivantes s'exécutent sur un état cohérent.
+          await tx.unsafe(`rollback to savepoint ${point}`);
+          // Un rejeu impossible n'est un échec que si rien ne prouve que la
+          // migration était déjà appliquée.
+          bilan.nonRejouable = appliquees?.has(migration.file) ?? false;
+        }
 
-        console.log(
-          dejaAppliquee
-            ? `  --  ${migration.file} — DÉJÀ APPLIQUÉE (objets présents en base)`
-            : `  OK  ${migration.file} — ${migration.statements.length} instruction(s)`,
-        );
+        bilans.push(bilan);
+        const rendu = verdict(bilan);
+        console.log(`  ${rendu.marque} ${bilan.file} — ${rendu.texte}`);
       }
 
       const [media] = await tx`select id from media limit 1`;
@@ -243,126 +357,14 @@ async function main(): Promise<void> {
       if (!media || !dept || !profil) {
         throw new Error("Contexte insuffisant : média, département et profil requis.");
       }
-      const mediaId = media.id;
-      const deptId = dept.id;
-      const profilId = profil.id;
+
+      const sondes: Sonde[] = createProbeCatalogue({
+        mediaId: media.id,
+        deptId: dept.id,
+        profileId: profil.id,
+      });
 
       console.log("\nSondes :\n");
-
-      const sondes: Probe[] = [
-        {
-          requires: "0003_medical_blue_blade.sql",
-          label: "accès média : grant valide (département, USE)",
-          attendu: "accepté",
-          run: (t) =>
-            t`insert into media_access (media_id, grantee_type, grantee_id, can_use, granted_by) values (${mediaId}, 'DEPARTMENT', ${deptId}, true, ${profilId})`,
-        },
-        {
-          requires: "0003_medical_blue_blade.sql",
-          label: "accès média : grant sans aucun droit (XD-09)",
-          attendu: "refusé",
-          motif: /at_least_one_right/,
-          run: (t) =>
-            t`insert into media_access (media_id, grantee_type, grantee_id, granted_by) values (${mediaId}, 'ADMIN_PROFILE', ${profilId}, ${profilId})`,
-        },
-        {
-          requires: "0003_medical_blue_blade.sql",
-          label: "accès média : département portant DELETE (XD-07)",
-          attendu: "refusé",
-          motif: /department_no_delete/,
-          run: (t) =>
-            t`insert into media_access (media_id, grantee_type, grantee_id, can_delete, granted_by) values (${mediaId}, 'DEPARTMENT', ${deptId}, true, ${profilId})`,
-        },
-        {
-          requires: "0003_medical_blue_blade.sql",
-          label: "accès média : destinataire inexistant (trigger)",
-          attendu: "refusé",
-          motif: /inexistant/,
-          run: (t) =>
-            t`insert into media_access (media_id, grantee_type, grantee_id, can_use, granted_by) values (${mediaId}, 'DEPARTMENT', '00000000-0000-4000-8000-000000000000', true, ${profilId})`,
-        },
-        {
-          requires: "0003_medical_blue_blade.sql",
-          label: "accès média : profil portant DELETE (autorisé, D-21)",
-          attendu: "accepté",
-          run: (t) =>
-            t`insert into media_access (media_id, grantee_type, grantee_id, can_delete, granted_by) values (${mediaId}, 'ADMIN_PROFILE', ${profilId}, true, ${profilId})`,
-        },
-        {
-          requires: "0003_medical_blue_blade.sql",
-          label: "accès média : seconde ligne, même département (unicité partielle)",
-          attendu: "refusé",
-          motif: /media_access_department_unique/,
-          run: async (t) => {
-            await t`insert into media_access (media_id, grantee_type, grantee_id, can_use, granted_by) values (${mediaId}, 'DEPARTMENT', ${deptId}, true, ${profilId})`;
-            await t`insert into media_access (media_id, grantee_type, grantee_id, can_manage, granted_by) values (${mediaId}, 'DEPARTMENT', ${deptId}, true, ${profilId})`;
-          },
-        },
-        {
-          requires: "0003_medical_blue_blade.sql",
-          label: "accès média : horodatage incohérent",
-          attendu: "refusé",
-          motif: /timestamps_order/,
-          run: (t) =>
-            t`insert into media_access (media_id, grantee_type, grantee_id, can_use, granted_by, granted_at, updated_at) values (${mediaId}, 'DEPARTMENT', ${deptId}, true, ${profilId}, now(), now() - interval '1 day')`,
-        },
-        {
-          requires: "0002_easy_magik.sql",
-          label: "capacité : vocabulaire fermé — PUBLICATION_SCOPE accepté",
-          attendu: "accepté",
-          run: (t) =>
-            t`insert into department_capabilities (department_id, capability) values (${deptId}, 'PUBLICATION_SCOPE')`,
-        },
-        {
-          requires: "0002_easy_magik.sql",
-          label: "capacité : code hors vocabulaire refusé (docs/032 §3.5)",
-          attendu: "refusé",
-          motif: /known_capability/,
-          run: (t) =>
-            t`insert into department_capabilities (department_id, capability) values (${deptId}, 'EVENT_SCOPE_EVERYTHING')`,
-        },
-        {
-          requires: "0002_easy_magik.sql",
-          label: "capacité : doublon pour le même département",
-          attendu: "refusé",
-          motif: /department_capabilities_department_id_capability_pk|duplicate key/,
-          run: async (t) => {
-            await t`insert into department_capabilities (department_id, capability) values (${deptId}, 'EVENT_SCOPE_GLOBAL')`;
-            await t`insert into department_capabilities (department_id, capability) values (${deptId}, 'EVENT_SCOPE_GLOBAL')`;
-          },
-        },
-        {
-          requires: "0005_late_hiroim.sql",
-          label: "paramètres : clé ordinaire acceptée",
-          attendu: "accepté",
-          run: (t) =>
-            t`insert into site_settings (key, value) values ('church_name', 'Centre Chrétien Jésus ma Vie')`,
-        },
-        {
-          requires: "0005_late_hiroim.sql",
-          label: "paramètres : clé de secours REFUSÉE (docs/030 §5.5, D-10)",
-          attendu: "refusé",
-          motif: /no_prayer_secret/,
-          run: (t) =>
-            t`insert into site_settings (key, value) values ('recovery_key_share_1', 'fragment')`,
-        },
-        {
-          requires: "0005_late_hiroim.sql",
-          label: "paramètres : secret de prière refusé, même en casse mixte",
-          attendu: "refusé",
-          motif: /no_prayer_secret/,
-          run: (t) =>
-            t`insert into site_settings (key, value) values ('Prayer_Crypto_Backup', 'x')`,
-        },
-        {
-          requires: "0004_complete_guardian.sql",
-          label: "notification : destinataire inexistant (trigger)",
-          attendu: "refusé",
-          motif: /inexistant|admin_role/,
-          run: (t) =>
-            t`insert into notifications (recipient_user_id, type) values ('00000000-0000-4000-8000-0000000000ff', 'KEY_REGISTERED')`,
-        },
-      ];
 
       let conformes = 0;
       let ignorees = 0;
@@ -388,21 +390,66 @@ async function main(): Promise<void> {
         // existe réellement, et la sonde doit s'exécuter. La conditionner à la
         // liste jouée l'aurait fait ignorer à jamais — une sonde « ignorée » qui
         // ne dépend plus de rien est une vérification perdue.
-        if (sonde.requires === "0004_complete_guardian.sql" && !roleAdminDisponible) {
+        if (sonde.requires === MIGRATION_NOTIFICATIONS && !roleAdminDisponible) {
           ignorees += 1;
           console.log(
-            `  --  ${sonde.label}\n        ignorée : le rôle ADMIN n'existe pas en base (${ROLE_RECONSTRUCTION} non appliquée)`,
+            `  --  ${sonde.label}\n        ignorée : le rôle ADMIN n'existe pas en base (${RECONSTRUCTION_DES_ROLES} non appliquée)`,
           );
           continue;
         }
 
-        const resultat = await probe(tx, index, sonde);
-        if (resultat.conforme) conformes += 1;
-        console.log(`  ${resultat.conforme ? "OK " : "!!!"} ${resultat.label}\n        ${resultat.detail}`);
+        const resultat = await runProbe(tx, index, sonde);
+
+        if (resultat.conforme) {
+          conformes += 1;
+        } else {
+          nonConformes += 1;
+        }
+
+        console.log(
+          `  ${resultat.conforme ? "OK " : "!!!"} ${resultat.label}\n        ` +
+            `${resultat.observation.issue} — ${resultat.raison}`,
+        );
       }
 
-      console.log(`\nSondes conformes : ${conformes} | ignorées : ${ignorees}`);
+      const executees = bilans.filter((bilan) => bilan.executees > 0 && bilan.erreur === undefined);
+      const nonExercees = bilans.filter(sqlNonExerce);
+      const echouees = bilans.filter(
+        (bilan) => bilan.erreur !== undefined && bilan.nonRejouable !== true,
+      );
 
+      console.log(
+        `\nMigrations : SQL exercé pour ${String(executees.length)}/${String(bilans.length)}` +
+          ` | SQL non exercé : ${String(nonExercees.length)}` +
+          ` | échecs : ${String(echouees.length)}\n` +
+          `Sondes : conformes ${String(conformes)} | ignorées ${String(ignorees)}` +
+          ` | non conformes ${String(nonConformes)}`,
+      );
+
+      if (nonExercees.length > 0) {
+        // Une migration non exercée n'est pas une migration vérifiée : le dire
+        // explicitement, plutôt que de laisser un « OK » ambiant le suggérer.
+        console.log(
+          `  SQL non exercé : ${nonExercees.map((bilan) => bilan.file).join(", ")}` +
+            " — déjà appliquée(s) sur cette base, le vérificateur ne les éprouve pas.",
+        );
+      }
+
+      if (echouees.length > 0) {
+        console.log(`  Migrations en échec : ${echouees.map((bilan) => bilan.file).join(", ")}`);
+      }
+
+      // Un échec de migration doit se propager : sans cette ligne, un rapport
+      // rouge pouvait se terminer avec le code 0 — le défaut que ce script
+      // appliquait à lui-même avant cet audit.
+      if (echouees.length > 0) {
+        process.exitCode = 1;
+      }
+
+      // Le script se termine **toujours** en levant : c'est ce qui annule la
+      // transaction. (`postgres.js` rejette `sql.begin` avec la première erreur
+      // rattrapée par une sonde si le bloc se termine normalement — vérifié à
+      // l'exécution, `scripts/verify-probe-harness.ts` contrôle n° 5.)
       throw new Error(ROLLBACK);
     });
   } catch (error) {
@@ -412,46 +459,55 @@ async function main(): Promise<void> {
     }
   }
 
-  const apres = await footprint();
+  const apres = await empreinteHorsTransaction();
 
-  const identique =
-    apres.tables === avant.tables &&
-    apres.fonctions === avant.fonctions &&
-    apres.declencheurs === avant.declencheurs &&
-    apres.profils === avant.profils &&
-    apres.medias === avant.medias &&
-    apres.publications === avant.publications;
+  const comparaison = comparer(avant, apres);
 
-  console.log("\nEmpreinte de la base :", identique ? "IDENTIQUE (transaction annulée)" : "MODIFIÉE");
-  if (!identique) {
-    console.log("  avant :", avant);
-    console.log("  après :", apres);
+  console.log(
+    "\nEmpreinte de la base :",
+    comparaison.identique
+      ? `IDENTIQUE (transaction annulée) — ${String(Object.keys(avant.donnees).length)} tables comparées ligne à ligne`
+      : "MODIFIÉE",
+  );
+
+  if (!comparaison.identique) {
+    console.log("  compteurs avant :", avant.compteurs);
+    console.log("  compteurs après :", apres.compteurs);
+    if (comparaison.compteursDifferents.length > 0) {
+      console.log("  compteurs différents :", comparaison.compteursDifferents.join(", "));
+    }
+    if (comparaison.tablesModifiees.length > 0) {
+      // Seuls les **noms** sont affichés : le contenu des lignes est comparé par
+      // empreinte, jamais recopié dans la sortie.
+      console.log("  tables dont le contenu a changé :", comparaison.tablesModifiees.join(", "));
+    }
+    process.exitCode = 1;
+  }
+
+  if (nonConformes > 0) {
+    console.log(`\n${String(nonConformes)} sonde(s) non conforme(s) : le code de sortie vaut 1.`);
     process.exitCode = 1;
   }
 
   await closeDatabase();
 }
 
-/**
- * Empreinte de la base : nombre d'objets créables par une migration, et compteurs
- * des tables qui portent des données éditoriales.
- *
- * C'est la **preuve** du rollback. Sans elle, le script affirmerait « rien n'a été
- * appliqué » sans le montrer — et une transaction qui aurait commité par accident
- * passerait inaperçue.
- */
-async function footprint(): Promise<Record<string, number>> {
-  const [objets] = await sql`
-    select
-      (select count(*)::int from information_schema.tables where table_schema = 'public') as tables,
-      (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public') as fonctions,
-      (select count(*)::int from pg_trigger where not tgisinternal) as declencheurs,
-      (select count(*)::int from admin_profiles) as profils,
-      (select count(*)::int from media) as medias,
-      (select count(*)::int from publications) as publications
-  `;
+/* -------------------------------------------------------------------------- */
+/*  Empreinte de la base                                                      */
+/* -------------------------------------------------------------------------- */
 
-  return objets as unknown as Record<string, number>;
+/**
+ * Empreinte de la base **hors transaction** — les objets créables par une
+ * migration (compteurs), et le contenu des tables éditoriales.
+ *
+ * C'est la **preuve** du rollback : sans elle, le script affirmerait « rien n'a
+ * été appliqué » sans le montrer, et une transaction qui aurait validé par
+ * accident passerait inaperçue. La fonction elle-même vit dans
+ * `lib/database-fingerprint.ts`, où `npm run db:selftest` la confronte à un état
+ * réellement modifié pour établir qu'elle **sait** voir une différence.
+ */
+function empreinteHorsTransaction(): Promise<Empreinte> {
+  return empreinte((requete) => sql.unsafe(requete));
 }
 
 main().catch(async (error: unknown) => {

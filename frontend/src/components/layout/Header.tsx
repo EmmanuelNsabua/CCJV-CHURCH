@@ -12,10 +12,7 @@ import { FullscreenMenu } from "./FullscreenMenu";
 const darkHeroRoutes = [
   "/",
   "/qui-sommes-nous",
-  "/communaute/groupes-de-maison",
-  "/communaute/parcours-nouveau",
-  "/communaute/priere-et-intercession",
-  "/communaute/temoignages",
+  "/communaute",
   "/vie-de-leglise/evenements",
   "/publications/mediatheque",
   "/organisation",

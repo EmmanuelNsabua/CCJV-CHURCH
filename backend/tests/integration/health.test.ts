@@ -63,11 +63,26 @@ describeApplication("application Express — contrats transverses", () => {
     const reponse = await request(app as Express).get("/api/v1/health");
 
     if (reponse.status === 503 && reponse.body?.database === "down") {
-      // La base n'est pas joignable depuis cet environnement : on documente le
-      // contrat d'indisponibilité observé, sans prétendre que le service est sain.
-      // (Vitest offrait `contexte.skip()` pour marquer le test « ignoré » en
-      // cours d'exécution ; Jest n'a pas d'équivalent, l'assertion porte donc
-      // sur la réponse réellement observée.)
+      // La base n'est pas joignable depuis cet environnement.
+      //
+      // ⚠️ Le contrat **nominatif** — « 200 { status: 'ok', database: 'up' } » —
+      // n'a alors PAS été exercé : ce test porte un titre qui annonce une
+      // vérification que la branche ci-dessous ne fait pas. L'audit des
+      // dispositifs de vérification a rendu ce fait visible, et a ajouté le mode
+      // strict : quand l'environnement affirme que la base doit être joignable,
+      // l'indisponibilité est un **échec**, pas une variante acceptable.
+      if (process.env.REQUIRE_DATABASE === "1") {
+        throw new Error(
+          "GET /api/v1/health répond 503 { database: 'down' } alors que REQUIRE_DATABASE=1 : " +
+            "le contrat de disponibilité (200 « database: up ») n'a pas été exercé.",
+        );
+      }
+
+      console.warn(
+        "[tests/integration/health.test.ts] Contrat NOMINATIF non exercé : " +
+          "la base est injoignable, l'assertion porte sur le contrat d'indisponibilité " +
+          "(503 « database: down »). Relancer avec REQUIRE_DATABASE=1 pour en faire un échec.",
+      );
       expect(reponse.body).toMatchObject({ status: "error", database: "down" });
       return;
     }

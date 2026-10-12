@@ -49,10 +49,22 @@ export interface ApiFetchOptions extends Omit<RequestInit, "body" | "signal"> {
   revalidate?: number | false;
   /** Délai maximal en millisecondes (5 000 par défaut). */
   timeoutMs?: number;
+  /** Jeton d'authentification Bearer explicite (optionnel si le provider global est configuré). */
+  token?: string | null;
 }
 
 /** Valeurs acceptées dans une chaîne de requête ; `null`/`undefined` sont omis. */
 export type QueryValue = string | number | boolean | undefined | null;
+
+/** Type du fournisseur global de jeton d'authentification. */
+export type AuthTokenProvider = () => string | null | Promise<string | null>;
+
+let globalAuthTokenProvider: AuthTokenProvider | null = null;
+
+/** Définit le fournisseur global de jeton d'accès pour les requêtes administratives. */
+export function setApiAuthTokenProvider(provider: AuthTokenProvider | null): void {
+  globalAuthTokenProvider = provider;
+}
 
 /** Erreur normalisée, levée par la seule variante `apiFetchOrThrow`. */
 export class ApiError extends Error {
@@ -60,12 +72,20 @@ export class ApiError extends Error {
   readonly status: number | null;
   /** `HTTP_ERROR`, `NETWORK_ERROR` ou `INVALID_JSON`. */
   readonly code: string;
+  /** Données détaillées renvoyées par le backend (erreurs de validation, champ, etc.). */
+  readonly details?: unknown;
 
-  constructor(message: string, status: number | null, code: string) {
+  constructor(
+    message: string,
+    status: number | null,
+    code: string,
+    details?: unknown,
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -103,13 +123,15 @@ export function buildApiUrl(path: string): string {
 /** Ajoute une chaîne de requête en omettant les valeurs absentes. */
 export function withQuery(
   path: string,
-  params: Record<string, QueryValue> = {},
+  params: object = {},
 ): string {
   const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
+  for (const [key, value] of Object.entries(params as Record<string, unknown>)) {
     if (value === undefined || value === null || value === "") continue;
     search.set(key, String(value));
   }
+
+
   const query = search.toString();
   return query === "" ? path : `${path}?${query}`;
 }
@@ -185,24 +207,38 @@ async function readTextSafely(response: Response): Promise<string | null> {
  * Extrait `error.message` d'une réponse d'erreur pour rendre les logs utiles,
  * sans jamais lever si le corps n'est pas du JSON.
  */
-async function readErrorDetail(response: Response): Promise<string | null> {
+interface ParsedErrorResult {
+  message: string;
+  details?: unknown;
+}
+
+async function readErrorDetail(response: Response): Promise<ParsedErrorResult> {
   const text = await readTextSafely(response);
-  if (!text) return null;
+  if (!text) return { message: `HTTP ${response.status}` };
 
   try {
     const parsed: unknown = JSON.parse(text);
     if (typeof parsed === "object" && parsed !== null) {
-      const error = (parsed as { error?: unknown }).error;
-      if (typeof error === "object" && error !== null) {
-        const message = (error as { message?: unknown }).message;
-        if (typeof message === "string" && message !== "") return message;
+      const record = parsed as Record<string, unknown>;
+      const errorObj = record.error;
+      if (typeof errorObj === "object" && errorObj !== null) {
+        const errorRecord = errorObj as Record<string, unknown>;
+        return {
+          message: typeof errorRecord.message === "string" ? errorRecord.message : `HTTP ${response.status}`,
+          details: errorRecord.details ?? errorObj,
+        };
       }
+      return {
+        message: typeof record.message === "string" ? record.message : `HTTP ${response.status}`,
+        details: parsed,
+      };
     }
+
   } catch {
-    // Corps non JSON : on retombe sur le texte brut tronqué.
+    // Corps non JSON
   }
 
-  return text.slice(0, 200);
+  return { message: text.slice(0, 200) };
 }
 
 /** Mutualise l'échec : propage en mode strict, journalise et renvoie `null` sinon. */
@@ -212,8 +248,9 @@ function handleFailure(
   code: string,
   message: string,
   error?: unknown,
+  details?: unknown,
 ): null {
-  if (propagate) throw new ApiError(message, status, code);
+  if (propagate) throw new ApiError(message, status, code, details);
   logApiIssue(message, error);
   return null;
 }
@@ -229,34 +266,43 @@ async function request<T>(
     signal,
     headers,
     body,
+    token,
     ...rest
   } = options;
+
+  let resolvedToken = token;
+  if (!resolvedToken && globalAuthTokenProvider) {
+    try {
+      resolvedToken = await globalAuthTokenProvider();
+    } catch {
+      // Échec silencieux de récupération de jeton
+    }
+  }
 
   const url = buildApiUrl(path);
   const method = (rest.method ?? "GET").toUpperCase();
   const isRead = method === "GET" || method === "HEAD";
   const cacheRevalidate = revalidate ?? (isRead ? PUBLIC_REVALIDATE_SECONDS : 0);
 
-  // `RequestInit` est étendu par Next avec `next` ; le type local évite de
-  // dépendre de `next-env.d.ts`, absent tant que Next n'a pas été exécuté.
+  const reqHeaders: Record<string, string> = {
+    Accept: "application/json",
+    ...(body !== undefined && body !== null && !(body instanceof FormData)
+      ? { "Content-Type": "application/json" }
+      : {}),
+    ...(resolvedToken ? { Authorization: `Bearer ${resolvedToken}` } : {}),
+    ...(headers as Record<string, string> | undefined),
+  };
+
   const init: RequestInit & { next?: NextCacheConfig } = {
     ...rest,
     method,
-    headers: {
-      Accept: "application/json",
-      ...(body !== undefined && body !== null
-        ? { "Content-Type": "application/json" }
-        : {}),
-      ...headers,
-    },
+    headers: reqHeaders,
     next: { revalidate: cacheRevalidate },
   };
 
-  // Un GET/HEAD ne peut pas porter de corps : `fetch` lèverait une exception.
-  // On l'ignore plutôt que de laisser une signature d'appel erronée casser
-  // un rendu.
+  // Un GET/HEAD ne peut pas porter de corps
   if (!isRead) {
-    const serialized = serializeBody(body);
+    const serialized = body instanceof FormData ? body : serializeBody(body);
     if (serialized !== undefined) init.body = serialized;
   }
 
@@ -266,8 +312,6 @@ async function request<T>(
   try {
     response = await fetch(url, init);
   } catch (error) {
-    // Les erreurs de contrôle de flux de Next (redirection, `notFound`, rendu
-    // dynamique) ne sont pas des pannes d'API : elles doivent remonter.
     unstable_rethrow(error);
     return handleFailure(
       propagate,
@@ -279,12 +323,14 @@ async function request<T>(
   }
 
   if (!response.ok) {
-    const detail = await readErrorDetail(response);
+    const errResult = await readErrorDetail(response);
     return handleFailure(
       propagate,
       response.status,
       "HTTP_ERROR",
-      `HTTP ${response.status} sur ${path}${detail === null ? "" : ` — ${detail}`}`,
+      errResult.message,
+      undefined,
+      errResult.details,
     );
   }
 

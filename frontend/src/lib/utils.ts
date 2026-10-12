@@ -91,3 +91,17 @@ export function getYouTubeThumbnail(
     ? `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`
     : `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 }
+
+/** Génère un slug propre à partir d'un texte. */
+export function slugify(text: string): string {
+  return text
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w-]+/g, "")
+    .replace(/--+/g, "-");
+}
+

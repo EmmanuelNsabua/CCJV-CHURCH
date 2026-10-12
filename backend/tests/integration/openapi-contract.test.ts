@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { afterAll, describe, expect, it } from "@jest/globals";
+import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import { closeDatabase } from "@/infrastructure/database/client";
 import { buildOpenApiDocument } from "@/presentation/openapi/document";
 
@@ -117,10 +117,42 @@ function routerOperations(router: unknown, prefix: string): string[] {
   return operations;
 }
 
+/**
+ * Opérations montées **directement sur l'application**, hors sous-routeurs.
+ *
+ * La santé (`app.get("/api/v1/health")`) est de celles-là. Une version antérieure
+ * de ce test la déclarait par un booléen `health: true` : une **affirmation** que
+ * rien ne vérifiait. Si la route avait disparu de l'application, le test aurait
+ * continué d'affirmer qu'elle est montée, et n'aurait donc pas vu le contrat
+ * promettre une route inexistante — exactement le cas qu'il existe pour attraper.
+ *
+ * Au niveau de l'application, Express expose bien `route.path` (vérifié à
+ * l'exécution : `app.router.stack` contient le calque `/api/v1/health`) : la
+ * route est donc **lue**, et non supposée.
+ */
+function applicationOperations(app: Express): string[] {
+  const pileApplication = (app as unknown as { router?: { stack?: ExpressLayer[] } }).router;
+  const operations: string[] = [];
+
+  for (const layer of pileApplication?.stack ?? []) {
+    if (!layer.route) continue;
+
+    const path = toOpenApiPath(layer.route.path);
+    for (const method of Object.keys(layer.route.methods)) {
+      if (method === "head" || method === "options") continue;
+      operations.push(`${method} ${path}`);
+    }
+  }
+
+  return operations;
+}
+
 /** Toutes les opérations réellement montées : `"get /api/v1/media/{id}"`. */
-function mountedOperations(routers: Record<string, unknown>, health: boolean): Set<string> {
-  const operations = new Set<string>();
-  if (health) operations.add("get /api/v1/health");
+function mountedOperations(
+  routers: Record<string, unknown>,
+  application: Express,
+): Set<string> {
+  const operations = new Set<string>(applicationOperations(application));
 
   for (const [name, router] of Object.entries(routers)) {
     const prefix = MOUNT_PREFIXES[name];
@@ -156,32 +188,61 @@ function documentedOperations(): Set<string> {
 /* -------------------------------------------------------------------------- */
 
 const { createContainer, createRouters } = await import("@/container");
+const { createApp } = await import("@/app");
 
+const app = createApp(createContainer());
 const routers = createRouters(createContainer()) as unknown as Record<string, unknown>;
 
-const montees = mountedOperations(routers, true);
-const documentees = documentedOperations();
+let montees = new Set<string>();
+let documentees = new Set<string>();
 
 afterAll(async () => {
   await closeDatabase();
 });
 
+/**
+ * Les deux listes sont construites **dans un `beforeAll`**, après le contrôle de
+ * complétude, et non au chargement du module.
+ *
+ * Pourquoi cette précaution : les assertions dépendent d'une table de préfixes
+ * (`MOUNT_PREFIXES`) qui doit être complète. Construites avant, elles reposeraient
+ * sur une liste potentiellement amputée, et une exécution filtrée
+ * (`jest -t "aucune route documentée"`) pourrait atteindre une assertion sans
+ * jamais passer par le contrôle qui la rend valide. Ici, la complétude est
+ * vérifiée **avant** que quoi que ce soit d'autre puisse s'exécuter.
+ */
+beforeAll(() => {
+  const sansPrefixe = Object.keys(routers).filter((name) => MOUNT_PREFIXES[name] === undefined);
+
+  expect(sansPrefixe).toEqual([]);
+
+  montees = mountedOperations(routers, app);
+  documentees = documentedOperations();
+
+  // Garde-fou du test lui-même : si le parcours de la pile échouait (API interne
+  // d'Express modifiée par une montée de version), les deux ensembles seraient
+  // vides et la comparaison serait vide de sens — les assertions suivantes
+  // passeraient sans rien prouver.
+  expect(montees.size).toBeGreaterThan(30);
+  expect(documentees.size).toBeGreaterThan(30);
+});
+
 describe("contrat OpenAPI — cohérence avec l'application montée", () => {
-  it("chaque router monté a un préfixe connu du test", () => {
-    // La complétude de `MOUNT_PREFIXES` est vérifiée **avant** tout le reste :
-    // sans elle, un router ajouté passerait inaperçu, et les assertions suivantes
-    // compareraient une liste amputée — elles réussiraient donc sans rien prouver.
+  it("chaque router monté a un préfixe connu du test, et les deux listes sont fournies", () => {
+    // Rejoué ici pour que le rapport nomme explicitement ce qui conditionne tout
+    // le reste, même si le `beforeAll` l'a déjà établi.
     const sansPrefixe = Object.keys(routers).filter((name) => MOUNT_PREFIXES[name] === undefined);
 
     expect(sansPrefixe).toEqual([]);
-  });
-  it("l'application expose des routes et le contrat en documente", () => {
-    // Garde-fou du test lui-même : si le parcours de la pile échouait (API
-    // interne d'Express modifiée par une montée de version), les deux ensembles
-    // seraient vides et la comparaison serait vide de sens — les assertions
-    // suivantes passeraient sans rien prouver.
     expect(montees.size).toBeGreaterThan(30);
     expect(documentees.size).toBeGreaterThan(30);
+  });
+
+  it("la route de santé est lue sur l'application, et non supposée", () => {
+    // Le contrôle qui remplace l'ancien booléen `health: true` : la santé doit
+    // être **montée** sur l'application pour que les assertions portent sur elle.
+    expect(montees.has("get /api/v1/health")).toBe(true);
+    expect(documentees.has("get /api/v1/health")).toBe(true);
   });
 
   it("aucune route documentée n'est imaginaire", () => {

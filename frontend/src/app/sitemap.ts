@@ -32,6 +32,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
   }
 
   const dynamicPaths = [
+    ...departments.map((department) => ({
+      path: `/${department.slug}`,
+      priority: 0.7,
+    })),
     ...events.map((event) => ({
       path: `/vie-de-leglise/evenements/${event.slug}`,
       priority: 0.6,
