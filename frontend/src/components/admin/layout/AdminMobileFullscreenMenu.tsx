@@ -38,7 +38,7 @@ interface GridMenuItem {
 const gridMenuItems: GridMenuItem[] = [
   { label: "Vue d'ensemble", href: "/admin", icon: LayoutDashboard, category: "Accueil" },
   { label: "Publications", href: "/admin/publications", icon: BookOpen, category: "Contenus" },
-  { label: "Enseignements", href: "/admin/publications?type=ENSEIGNEMENT", icon: GraduationCap, category: "Contenus" },
+  { label: "Enseignements", href: "/admin/enseignements", icon: GraduationCap, category: "Contenus" },
   { label: "Agenda & Cultes", href: "/admin/agenda", icon: Calendar, category: "Contenus" },
   { label: "Médiathèque", href: "/admin/media", icon: ImageIcon, category: "Contenus" },
   { label: "Guides d'études", href: "/admin/publications?type=GUIDE_ETUDE", icon: FileText, category: "Contenus" },

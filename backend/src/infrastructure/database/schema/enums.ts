@@ -150,3 +150,13 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "KEY_REVOKED",
   "RECOVERY_KEY_CHANGED",
 ]);
+
+/**
+ * Rôle d'un média associé à un enseignement (sermon).
+ */
+export const teachingMediaRoleEnum = pgEnum("teaching_media_role", [
+  "VIDEO",
+  "AUDIO",
+  "THUMBNAIL",
+]);
+

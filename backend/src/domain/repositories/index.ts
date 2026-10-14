@@ -24,6 +24,11 @@ import type {
   SocialLink,
   StaticPage,
   Testimony,
+  Teaching,
+  BiblicalReference,
+  TeachingMedia,
+  TeachingStatus,
+  TeachingMediaRole,
 } from "@/domain/entities";
 import type { DepartmentCapability, EventVisibilityScope } from "@/domain/departments/capabilities";
 
@@ -567,3 +572,70 @@ export interface AdminProfileRepository {
    */
   setActive(id: string, isActive: boolean): Promise<AdminProfile | null>;
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Enseignements (TeachingRepository)                                        */
+/* -------------------------------------------------------------------------- */
+
+export interface CreateTeachingInput {
+  title: string;
+  slug: string;
+  speakerName: string;
+  preachedAt: string;
+  summary?: string | null;
+  description?: string | null;
+  status?: TeachingStatus;
+}
+
+export interface UpdateTeachingInput {
+  title?: string;
+  slug?: string;
+  speakerName?: string;
+  preachedAt?: string;
+  summary?: string | null;
+  description?: string | null;
+  status?: TeachingStatus;
+}
+
+export interface BiblicalReferenceInput {
+  book: string;
+  startChapter: number;
+  startVerse: number;
+  endChapter?: number | null;
+  endVerse?: number | null;
+  position?: number;
+}
+
+export interface TeachingMediaInput {
+  mediaId: string;
+  role: TeachingMediaRole;
+  isPrimary?: boolean;
+  position?: number;
+}
+
+export interface TeachingFilter {
+  status?: TeachingStatus;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface TeachingRepository {
+  findById(id: string): Promise<Teaching | null>;
+  findBySlug(slug: string): Promise<Teaching | null>;
+  list(filter?: TeachingFilter): Promise<{ items: Teaching[]; total: number }>;
+  create(data: CreateTeachingInput): Promise<Teaching>;
+  update(id: string, data: UpdateTeachingInput): Promise<Teaching>;
+  updateBiblicalReferences(
+    teachingId: string,
+    references: BiblicalReferenceInput[],
+  ): Promise<BiblicalReference[]>;
+  updateMedias(
+    teachingId: string,
+    medias: TeachingMediaInput[],
+  ): Promise<TeachingMedia[]>;
+  publish(id: string, publishedAt: Date): Promise<Teaching>;
+  archive(id: string): Promise<Teaching>;
+  delete(id: string): Promise<boolean>;
+}
+

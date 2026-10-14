@@ -220,3 +220,91 @@ export interface CreatePublicationPayload {
   publishedAt?: string;
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Enseignements (Sermons / Prédications)                                    */
+/* -------------------------------------------------------------------------- */
+
+export type TeachingStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+export type TeachingMediaRole = "VIDEO" | "AUDIO" | "THUMBNAIL";
+
+export interface BiblicalReferenceRecord {
+  id: string;
+  teachingId: string;
+  book: string;
+  startChapter: number;
+  startVerse: number;
+  endChapter: number | null;
+  endVerse: number | null;
+  position: number;
+  createdAt: string;
+}
+
+export interface TeachingMediaRecord {
+  id: string;
+  teachingId: string;
+  mediaId: string;
+  role: TeachingMediaRole;
+  isPrimary: boolean;
+  position: number;
+  media?: {
+    id: string;
+    title: string;
+    publicUrl: string;
+    mimeType: string;
+    fileSizeBytes?: number;
+    alt?: string | null;
+  } | null;
+}
+
+export interface EnseignementRecord {
+  id: string;
+  title: string;
+  slug: string;
+  speakerName: string;
+  preachedAt: string;
+  summary: string | null;
+  description: string | null;
+  status: TeachingStatus;
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  references: BiblicalReferenceRecord[];
+  medias: TeachingMediaRecord[];
+}
+
+export interface CreateTeachingPayload {
+  title: string;
+  slug?: string;
+  speakerName: string;
+  preachedAt: string;
+  summary?: string | null;
+  description?: string | null;
+  status?: TeachingStatus;
+}
+
+export interface UpdateTeachingPayload {
+  title?: string;
+  slug?: string;
+  speakerName?: string;
+  preachedAt?: string;
+  summary?: string | null;
+  description?: string | null;
+  status?: TeachingStatus;
+}
+
+export interface BiblicalReferenceInputPayload {
+  book: string;
+  startChapter: number;
+  startVerse: number;
+  endChapter?: number | null;
+  endVerse?: number | null;
+  position?: number;
+}
+
+export interface TeachingMediaInputPayload {
+  mediaId: string;
+  role: TeachingMediaRole;
+  isPrimary?: boolean;
+  position?: number;
+}
+

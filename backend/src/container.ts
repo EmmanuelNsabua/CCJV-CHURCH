@@ -27,6 +27,7 @@ import { DrizzleSettingRepository } from "@/infrastructure/repositories/setting.
 import { DrizzleSocialLinkRepository } from "@/infrastructure/repositories/social-link.repository";
 import { DrizzleStaticPageRepository } from "@/infrastructure/repositories/static-page.repository";
 import { DrizzleTestimonyRepository } from "@/infrastructure/repositories/testimony.repository";
+import { DrizzleTeachingRepository } from "@/infrastructure/repositories/teaching.repository";
 
 /* -------------------------------------------------------------------------- */
 /*  Services applicatifs                                                      */
@@ -46,6 +47,7 @@ import { MediaService } from "@/modules/media/media.service";
 import { PrayerRequestService } from "@/modules/prayer-requests/prayer-request.service";
 import { AdminService } from "@/modules/admin/admin.service";
 import { NotificationService } from "@/modules/notifications/notification.service";
+import { TeachingService } from "@/modules/teachings/teaching.service";
 import { createNotificationRouter } from "@/modules/notifications/notification.routes";
 
 /* -------------------------------------------------------------------------- */
@@ -65,6 +67,7 @@ import { createStaticPageRouter } from "@/modules/static-pages/static-page.route
 import { createMediaRouter } from "@/modules/media/media.routes";
 import { createPrayerRequestRouter } from "@/modules/prayer-requests/prayer-request.routes";
 import { createAdminRouter } from "@/modules/admin/admin.routes";
+import { createTeachingRouter } from "@/modules/teachings/teaching.routes";
 
 /* -------------------------------------------------------------------------- */
 /*  Types du conteneur                                                        */
@@ -113,6 +116,7 @@ export interface AppDependencies {
     mediaAccess: DrizzleMediaAccessRepository;
     notifications: DrizzleNotificationRepository;
     prayerRequests: DrizzlePrayerRequestRepository;
+    teachings: DrizzleTeachingRepository;
   };
   services: {
     departments: DepartmentService;
@@ -130,6 +134,7 @@ export interface AppDependencies {
     prayerRequests: PrayerRequestService;
     admin: AdminService;
     notifications: NotificationService;
+    teachings: TeachingService;
   };
 }
 
@@ -174,6 +179,7 @@ export function createContainer(
       mediaAccess: new DrizzleMediaAccessRepository(database),
       notifications: new DrizzleNotificationRepository(database),
       prayerRequests: new DrizzlePrayerRequestRepository(database),
+      teachings: new DrizzleTeachingRepository(database),
     } satisfies AppDependencies["repositories"]);
 
   const services = {
@@ -200,6 +206,7 @@ export function createContainer(
       identities,
     ),
     notifications: new NotificationService(repositories.notifications),
+    teachings: new TeachingService(repositories.teachings, repositories.media),
   } satisfies AppDependencies["services"];
 
   return { db: database, storage, identities, logger, repositories, services };
@@ -244,6 +251,10 @@ export function createRouters(deps: AppDependencies) {
     admin: createAdminRouter({ service: deps.services.admin, authDeps }),
     notifications: createNotificationRouter({
       service: deps.services.notifications,
+      authDeps,
+    }),
+    teachings: createTeachingRouter({
+      service: deps.services.teachings,
       authDeps,
     }),
   };

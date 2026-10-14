@@ -64,6 +64,13 @@
       "when": 1791564529029,
       "tag": "0008_bright_baron_strucker",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791830000000,
+      "tag": "0009_teachings",
+      "breakpoints": true
     }
   ]
 }

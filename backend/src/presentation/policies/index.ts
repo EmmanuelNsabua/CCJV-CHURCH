@@ -103,6 +103,11 @@ export {
 } from "./notification.policy";
 
 export {
+  TeachingPolicy,
+  type TeachingPolicyResource,
+} from "./teaching.policy";
+
+export {
   AuditPolicy,
   type AuditPolicyResource,
   EditorialEntityPolicy,
@@ -123,6 +128,7 @@ import { PagePolicy } from "./page.policy";
 import { PrayerPolicy } from "./prayer.policy";
 import { PublicationPolicy } from "./publication.policy";
 import { UserPolicy } from "./user.policy";
+import { TeachingPolicy } from "./teaching.policy";
 
 /**
  * Le catalogue, dans l'ordre de `docs/029` §4.1 et §4.6.
@@ -150,4 +156,5 @@ export const POLICY_CATALOGUE = [
   ScripturePolicy,
   SchedulePolicy,
   SiteSettingsPolicy,
+  TeachingPolicy,
 ] as const;

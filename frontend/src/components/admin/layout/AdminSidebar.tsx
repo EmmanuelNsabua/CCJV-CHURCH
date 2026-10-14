@@ -56,9 +56,8 @@ export const adminNavSections: NavSection[] = [
       },
       {
         label: "Enseignements",
-        href: "/admin/publications?type=ENSEIGNEMENT",
+        href: "/admin/enseignements",
         icon: GraduationCap,
-        typeParam: "ENSEIGNEMENT",
       },
       {
         label: "Agenda",

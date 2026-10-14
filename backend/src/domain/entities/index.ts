@@ -432,6 +432,58 @@ export interface Notification {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Enseignements (Sermons / Prédications)                                    */
+/* -------------------------------------------------------------------------- */
+
+export type TeachingStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+export type TeachingMediaRole = "VIDEO" | "AUDIO" | "THUMBNAIL";
+
+export interface BiblicalReference {
+  id: string;
+  teachingId: string;
+  book: string;
+  startChapter: number;
+  startVerse: number;
+  endChapter: number | null;
+  endVerse: number | null;
+  position: number;
+  createdAt: Date;
+}
+
+export interface TeachingMedia {
+  id: string;
+  teachingId: string;
+  mediaId: string;
+  role: TeachingMediaRole;
+  isPrimary: boolean;
+  position: number;
+  createdAt: Date;
+  publicUrl?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  alt?: string | null;
+}
+
+export interface Teaching {
+  id: string;
+  title: string;
+  slug: string;
+  speakerName: string;
+  preachedAt: string;
+  summary: string | null;
+  description: string | null;
+  status: TeachingStatus;
+  publishedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  biblicalReferences: BiblicalReference[];
+  references?: BiblicalReference[];
+  medias: TeachingMedia[];
+}
+
+export type Enseignement = Teaching;
+
+/* -------------------------------------------------------------------------- */
 /*  Pagination                                                                */
 /* -------------------------------------------------------------------------- */
 

@@ -14,3 +14,4 @@ export * from "./people";
 export * from "./editorial";
 export * from "./prayer-requests";
 export * from "./notifications";
+export * from "./teachings";

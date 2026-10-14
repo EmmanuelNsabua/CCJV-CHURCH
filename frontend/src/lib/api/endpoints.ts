@@ -29,6 +29,14 @@ import type {
   SiteSettings,
   SocialLink,
   Testimony,
+  BiblicalReferenceInputPayload,
+  BiblicalReferenceRecord,
+  CreateTeachingPayload,
+  EnseignementRecord,
+  TeachingMediaInputPayload,
+  TeachingMediaRecord,
+  TeachingStatus,
+  UpdateTeachingPayload,
 } from "./types";
 
 /** Filtres de `GET /events`. */
@@ -849,5 +857,169 @@ export async function deleteAdminMedia(id: string): Promise<void> {
       throw apiErr;
     }
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Enseignements (Sermons / Prédications)                                    */
+/* -------------------------------------------------------------------------- */
+
+export interface ListEnseignementsQuery {
+  page?: number;
+  limit?: number;
+  status?: TeachingStatus;
+  search?: string;
+}
+
+/** Liste les enseignements (filtrée par défaut aux seuls publiés pour les appels publics). */
+export async function listEnseignements(
+  query: ListEnseignementsQuery = {},
+): Promise<{ items: EnseignementRecord[]; total: number; totalPages: number }> {
+  try {
+    const payload = await apiFetch<CollectionResponse<EnseignementRecord>>(
+      withQuery("/enseignements", {
+        page: query.page ?? 1,
+        limit: query.limit ?? 20,
+        status: query.status,
+        search: query.search,
+      }),
+    );
+
+    if (payload && "data" in payload && Array.isArray(payload.data)) {
+      return {
+        items: payload.data,
+        total: payload.meta?.total ?? payload.data.length,
+        totalPages: payload.meta?.totalPages ?? 1,
+      };
+    }
+    return { items: [], total: 0, totalPages: 1 };
+  } catch (error) {
+    logApiIssue("/enseignements", error);
+    return { items: [], total: 0, totalPages: 1 };
+  }
+}
+
+/** Récupère un enseignement par son identifiant ou son slug. */
+export async function getEnseignement(
+  idOrSlug: string,
+): Promise<EnseignementRecord | null> {
+  try {
+    const payload = await apiFetch<{ data: EnseignementRecord } | EnseignementRecord>(
+      `/enseignements/${encodeURIComponent(idOrSlug)}`,
+    );
+    if (!payload) return null;
+    if ("data" in payload && isRecord(payload.data)) {
+      return payload.data as unknown as EnseignementRecord;
+    }
+    return payload as EnseignementRecord;
+  } catch (error) {
+    logApiIssue(`/enseignements/${idOrSlug}`, error);
+    return null;
+  }
+}
+
+/** Crée un nouvel enseignement en brouillon (`POST /enseignements`). */
+export async function createEnseignement(
+  payload: CreateTeachingPayload,
+): Promise<EnseignementRecord> {
+  const res = await apiFetchOrThrow<{ data: EnseignementRecord } | EnseignementRecord>(
+    "/enseignements",
+    {
+      method: "POST",
+      body: payload as unknown as Record<string, unknown>,
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as EnseignementRecord;
+  }
+  return res as EnseignementRecord;
+}
+
+/** Modifie les métadonnées d'un enseignement (`PATCH /enseignements/:id`). */
+export async function updateEnseignement(
+  id: string,
+  payload: UpdateTeachingPayload,
+): Promise<EnseignementRecord> {
+  const res = await apiFetchOrThrow<{ data: EnseignementRecord } | EnseignementRecord>(
+    `/enseignements/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: payload as unknown as Record<string, unknown>,
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as EnseignementRecord;
+  }
+  return res as EnseignementRecord;
+}
+
+/** Met à jour atomiquement les références bibliques (`PUT /enseignements/:id/references-bibliques`). */
+export async function updateEnseignementReferences(
+  id: string,
+  references: BiblicalReferenceInputPayload[],
+): Promise<BiblicalReferenceRecord[]> {
+  const res = await apiFetchOrThrow<{ data: BiblicalReferenceRecord[] } | BiblicalReferenceRecord[]>(
+    `/enseignements/${encodeURIComponent(id)}/references-bibliques`,
+    {
+      method: "PUT",
+      body: { references },
+    },
+  );
+  if (isRecord(res) && "data" in res && Array.isArray(res.data)) {
+    return res.data;
+  }
+  return Array.isArray(res) ? res : [];
+}
+
+/** Met à jour les associations aux médias centraux (`PUT /enseignements/:id/medias`). */
+export async function updateEnseignementMedias(
+  id: string,
+  medias: TeachingMediaInputPayload[],
+): Promise<TeachingMediaRecord[]> {
+  const res = await apiFetchOrThrow<{ data: TeachingMediaRecord[] } | TeachingMediaRecord[]>(
+    `/enseignements/${encodeURIComponent(id)}/medias`,
+    {
+      method: "PUT",
+      body: { medias },
+    },
+  );
+  if (isRecord(res) && "data" in res && Array.isArray(res.data)) {
+    return res.data;
+  }
+  return Array.isArray(res) ? res : [];
+}
+
+/** Publie un enseignement (`POST /enseignements/:id/publish`). */
+export async function publishEnseignement(id: string): Promise<EnseignementRecord> {
+  const res = await apiFetchOrThrow<{ data: EnseignementRecord } | EnseignementRecord>(
+    `/enseignements/${encodeURIComponent(id)}/publish`,
+    {
+      method: "POST",
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as EnseignementRecord;
+  }
+  return res as EnseignementRecord;
+}
+
+/** Archive un enseignement (`POST /enseignements/:id/archive`). */
+export async function archiveEnseignement(id: string): Promise<EnseignementRecord> {
+  const res = await apiFetchOrThrow<{ data: EnseignementRecord } | EnseignementRecord>(
+    `/enseignements/${encodeURIComponent(id)}/archive`,
+    {
+      method: "POST",
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as EnseignementRecord;
+  }
+  return res as EnseignementRecord;
+}
+
+/** Supprime un enseignement (`DELETE /enseignements/:id`). */
+export async function deleteEnseignement(id: string): Promise<void> {
+  await apiFetchOrThrow(`/enseignements/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 }
 
