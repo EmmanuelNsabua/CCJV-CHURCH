@@ -54,6 +54,8 @@ export default function MediaLibraryPage() {
     const file = files[0];
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("folder", "pages");
+    formData.append("alt", file.name);
 
     setIsUploading(true);
     try {

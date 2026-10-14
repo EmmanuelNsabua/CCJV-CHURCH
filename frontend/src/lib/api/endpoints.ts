@@ -808,7 +808,18 @@ export async function listAdminMedia(query: {
 }
 
 /** Téléverse un média (`POST /media`). */
-export async function uploadAdminMedia(formData: FormData): Promise<AdminMediaItem> {
+export async function uploadAdminMedia(
+  formData: FormData,
+  folder: string = "pages",
+  alt?: string,
+): Promise<AdminMediaItem> {
+  if (!formData.has("folder")) {
+    formData.append("folder", folder);
+  }
+  if (alt && !formData.has("alt")) {
+    formData.append("alt", alt);
+  }
+
   const payload = await apiFetchOrThrow<{ data: AdminMediaItem } | AdminMediaItem>(
     "/media",
     { method: "POST", body: formData },

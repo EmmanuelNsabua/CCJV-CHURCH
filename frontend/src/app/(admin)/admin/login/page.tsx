@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -19,9 +19,14 @@ export default function AdminLoginPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showForgotModal, setShowForgotModal] = useState(false);
 
-  // Redirection immédiate si déjà connecté
+  // Redirection si déjà connecté
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace("/admin");
+    }
+  }, [isAuthenticated, router]);
+
   if (isAuthenticated) {
-    router.replace("/admin");
     return null;
   }
 
