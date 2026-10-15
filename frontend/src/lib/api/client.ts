@@ -97,12 +97,25 @@ export class ApiError extends Error {
  * donc sans être exposée au navigateur).
  */
 export function getApiBaseUrl(): string {
-  const raw =
-    process.env.API_URL ??
-    process.env.NEXT_PUBLIC_API_URL ??
-    "http://localhost:4000";
+  const envUrl = process.env.NEXT_PUBLIC_API_URL ?? process.env.API_URL;
+  if (envUrl && envUrl.trim()) {
+    return envUrl.trim().replace(/\/+$/, "");
+  }
 
-  return raw.trim().replace(/\/+$/, "");
+  // En production ou dans le navigateur sur un domaine non-local, cibler Railway
+  if (
+    typeof window !== "undefined" &&
+    window.location.hostname !== "localhost" &&
+    window.location.hostname !== "127.0.0.1"
+  ) {
+    return "https://ccjv-api-production.up.railway.app";
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return "https://ccjv-api-production.up.railway.app";
+  }
+
+  return "http://localhost:4000";
 }
 
 /**
