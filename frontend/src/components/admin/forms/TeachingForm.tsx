@@ -526,16 +526,31 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
       }
 
       // Mise à jour des références bibliques
-      const refsPayload: BiblicalReferenceInputPayload[] = references.map(
-        (r, idx) => ({
-          book: r.book.trim(),
-          startChapter: Number(r.startChapter),
-          startVerse: Number(r.startVerse),
-          endChapter: r.endChapter ? Number(r.endChapter) : null,
-          endVerse: r.endVerse ? Number(r.endVerse) : null,
-          position: idx,
-        }),
-      );
+      const refsPayload: BiblicalReferenceInputPayload[] = references
+        .filter((r) => r.book.trim().length > 0)
+        .map((r, idx) => {
+          const startChapter = Number(r.startChapter) > 0 ? Number(r.startChapter) : 1;
+          const startVerse = Number(r.startVerse) > 0 ? Number(r.startVerse) : 1;
+          let endChapter = r.endChapter && Number(r.endChapter) > 0 ? Number(r.endChapter) : null;
+          let endVerse = r.endVerse && Number(r.endVerse) > 0 ? Number(r.endVerse) : null;
+
+          if (endChapter !== null && endChapter < startChapter) {
+            endChapter = startChapter;
+          }
+          const effectiveEndChap = endChapter ?? startChapter;
+          if (effectiveEndChap === startChapter && endVerse !== null && endVerse < startVerse) {
+            endVerse = null;
+          }
+
+          return {
+            book: r.book.trim(),
+            startChapter,
+            startVerse,
+            endChapter,
+            endVerse,
+            position: idx,
+          };
+        });
       await updateEnseignementReferences(savedTeachingId, refsPayload);
 
       // Mise à jour des médias associés

@@ -32,8 +32,8 @@ function buildCorsOptions(): cors.CorsOptions {
 
   return {
     origin: allowAll ? true : corsOrigins,
-    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept"],
     // Aucun cookie n'est utilisé : l'authentification passe par un jeton porteur.
     credentials: false,
     maxAge: 86_400,
