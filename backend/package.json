@@ -5,7 +5,7 @@
   "description": "API REST du Centre Chrétien Jésus ma Vie (CCJV) — Express + TypeScript + Drizzle + Supabase",
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",
