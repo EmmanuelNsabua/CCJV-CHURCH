@@ -30,7 +30,7 @@ export interface TeachingMediaDto {
 export interface TeachingDto {
   id: string;
   title: string;
-  slug: string;
+  slug: string | null;
   speakerName: string;
   preachedAt: string;
   summary: string | null;

@@ -25,7 +25,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "@/shared/errors/app-error";
-import { slugify, uniqueSlug } from "@/shared/utils/slug";
+import { slugify } from "@/shared/utils/slug";
 
 export class TeachingNotFoundError extends NotFoundError {
   constructor(idOrSlug: string) {
@@ -104,19 +104,11 @@ export class TeachingService {
       preachedAt: body.preachedAt,
     });
 
-    let slug: string;
-    if (body.slug && body.slug.trim()) {
-      slug = slugify(body.slug.trim());
-      const existing = await this.repo.findBySlug(slug);
-      if (existing) {
-        throw new DuplicateSlugError(slug);
-      }
-    } else {
-      slug = await uniqueSlug(body.title, async (candidate) => {
-        const found = await this.repo.findBySlug(candidate);
-        return found !== null;
-      });
-    }
+    const slug = body.slug?.trim()
+      ? slugify(body.slug.trim())
+      : body.title?.trim()
+        ? slugify(body.title.trim())
+        : null;
 
     return this.repo.create({
       title: body.title.trim(),
@@ -144,16 +136,12 @@ export class TeachingService {
       preachedAt: body.preachedAt,
     });
 
-    let slug = body.slug;
-    if (slug !== undefined) {
-      slug = slugify(slug.trim());
-      if (slug !== existing.slug) {
-        const collision = await this.repo.findBySlug(slug);
-        if (collision && collision.id !== id) {
-          throw new DuplicateSlugError(slug);
-        }
-      }
-    }
+    const slug =
+      body.slug !== undefined
+        ? body.slug?.trim()
+          ? slugify(body.slug.trim())
+          : null
+        : undefined;
 
     return this.repo.update(id, {
       title: body.title?.trim(),
@@ -220,7 +208,7 @@ export class TeachingService {
 
   /**
    * Publication contrôlée de l'enseignement.
-   * Règle impérative : au moins un média audio ou vidéo principal valide doit être attaché.
+   * Règle impérative : au moins un média visuel (vidéo ou image) ou audio valide doit être attaché.
    */
   async publish(id: string): Promise<Teaching> {
     const teaching = await this.repo.findById(id);

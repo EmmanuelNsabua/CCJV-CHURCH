@@ -265,20 +265,19 @@ describe("TeachingService — Tests unitaires métier", () => {
       expect(created.status).toBe("DRAFT");
     });
 
-    it("refuse un slug en doublon explicite", async () => {
+    it("autorise un slug identique ou personnalisé non unique", async () => {
       teachingRepo.items.set(
         "existing-id",
-        teachingFixture({ id: "existing-id", slug: "mon-slug-unique" }),
+        teachingFixture({ id: "existing-id", slug: "mon-slug" }),
       );
 
-      await expect(
-        service.create({
-          title: "Autre titre",
-          slug: "mon-slug-unique",
-          speakerName: "Pasteur",
-          preachedAt: "2026-05-10",
-        }),
-      ).rejects.toThrow(DuplicateSlugError);
+      const created = await service.create({
+        title: "Autre titre",
+        slug: "mon-slug",
+        speakerName: "Pasteur",
+        preachedAt: "2026-05-10",
+      });
+      expect(created.slug).toBe("mon-slug");
     });
   });
 
@@ -405,7 +404,7 @@ describe("TeachingService — Tests unitaires métier", () => {
       await expect(service.publish(TEACHING_ID)).rejects.toThrow(ValidationError);
     });
 
-    it("refuse la publication si SEULE une miniature (THUMBNAIL) est associée", async () => {
+    it("autorise la publication si une image (THUMBNAIL) est associée", async () => {
       await service.updateMedias(TEACHING_ID, [
         {
           mediaId: MEDIA_THUMB_ID,
@@ -414,19 +413,9 @@ describe("TeachingService — Tests unitaires métier", () => {
         },
       ]);
 
-      await expect(service.publish(TEACHING_ID)).rejects.toThrow(ValidationError);
-    });
-
-    it("refuse la publication si un média audio/vidéo est présent mais NON désigné principal", async () => {
-      await service.updateMedias(TEACHING_ID, [
-        {
-          mediaId: MEDIA_VIDEO_ID,
-          role: "VIDEO",
-          isPrimary: false,
-        },
-      ]);
-
-      await expect(service.publish(TEACHING_ID)).rejects.toThrow(ValidationError);
+      const published = await service.publish(TEACHING_ID);
+      expect(published.status).toBe("PUBLISHED");
+      expect(published.publishedAt).toBeInstanceOf(Date);
     });
 
     it("autorise la publication si un média VIDEO principal est présent", async () => {

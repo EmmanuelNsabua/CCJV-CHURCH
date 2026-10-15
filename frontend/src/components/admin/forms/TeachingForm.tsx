@@ -6,27 +6,27 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Save,
-  Globe,
-  Archive,
   Plus,
+  Archive,
   Trash2,
   MoveUp,
   MoveDown,
   Video,
   Mic,
-  Image as ImageIcon,
   AlertCircle,
-  CheckCircle2,
   ExternalLink,
-  Library,
+  Upload,
   X,
+  FileText,
+  LayoutGrid,
+  List,
+  Eye,
+  PlayCircle,
 } from "lucide-react";
 import { FormField } from "@/components/admin/forms/FormField";
 import { Input } from "@/components/admin/forms/Input";
 import { Textarea } from "@/components/admin/forms/Textarea";
-import { Select } from "@/components/admin/forms/Select";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import { useToast } from "@/components/admin/feedback/ToastContext";
 import {
   createEnseignement,
@@ -41,7 +41,6 @@ import type {
   EnseignementRecord,
   BiblicalReferenceInputPayload,
   TeachingMediaInputPayload,
-  TeachingMediaRole,
   AdminMediaItem,
 } from "@/lib/api/types";
 import { slugify } from "@/lib/utils";
@@ -54,6 +53,7 @@ export interface TeachingFormProps {
 interface BiblicalRefDraft {
   id?: string;
   book: string;
+  verseText: string;
   startChapter: number;
   startVerse: number;
   endChapter?: number | null;
@@ -61,15 +61,96 @@ interface BiblicalRefDraft {
   position: number;
 }
 
-interface MediaItemDraft {
-  id?: string;
+interface MediaSlot {
   mediaId: string;
-  role: TeachingMediaRole;
-  isPrimary: boolean;
-  position: number;
-  title?: string;
-  url?: string;
-  mimeType?: string;
+  title: string;
+  url: string;
+  mimeType: string;
+  sizeBytes?: number;
+}
+
+function formatVerseString(r: {
+  startChapter: number;
+  startVerse: number;
+  endChapter?: number | null;
+  endVerse?: number | null;
+}): string {
+  if (r.endChapter && r.endVerse) {
+    if (r.endChapter === r.startChapter) {
+      return `${r.startChapter}:${r.startVerse}-${r.endVerse}`;
+    }
+    return `${r.startChapter}:${r.startVerse}-${r.endChapter}:${r.endVerse}`;
+  }
+  if (r.endVerse && r.endVerse !== r.startVerse) {
+    return `${r.startChapter}:${r.startVerse}-${r.endVerse}`;
+  }
+  return `${r.startChapter}:${r.startVerse}`;
+}
+
+function parseVerseString(text: string): {
+  startChapter: number;
+  startVerse: number;
+  endChapter?: number | null;
+  endVerse?: number | null;
+} {
+  const clean = text.trim();
+  // Format "16:3-17:2"
+  const rangeCrossMatch = clean.match(/^(\d+):(\d+)\s*[-–]\s*(\d+):(\d+)$/);
+  if (rangeCrossMatch && rangeCrossMatch[1] && rangeCrossMatch[2] && rangeCrossMatch[3] && rangeCrossMatch[4]) {
+    return {
+      startChapter: parseInt(rangeCrossMatch[1], 10),
+      startVerse: parseInt(rangeCrossMatch[2], 10),
+      endChapter: parseInt(rangeCrossMatch[3], 10),
+      endVerse: parseInt(rangeCrossMatch[4], 10),
+    };
+  }
+
+  // Format "16:1-5"
+  const sameChapMatch = clean.match(/^(\d+):(\d+)\s*[-–]\s*(\d+)$/);
+  if (sameChapMatch && sameChapMatch[1] && sameChapMatch[2] && sameChapMatch[3]) {
+    const ch = parseInt(sameChapMatch[1], 10);
+    return {
+      startChapter: ch,
+      startVerse: parseInt(sameChapMatch[2], 10),
+      endChapter: ch,
+      endVerse: parseInt(sameChapMatch[3], 10),
+    };
+  }
+
+  // Format "16:3"
+  const singleMatch = clean.match(/^(\d+):(\d+)$/);
+  if (singleMatch && singleMatch[1] && singleMatch[2]) {
+    return {
+      startChapter: parseInt(singleMatch[1], 10),
+      startVerse: parseInt(singleMatch[2], 10),
+      endChapter: null,
+      endVerse: null,
+    };
+  }
+
+  // Format "16" (chapitre entier)
+  const chapMatch = clean.match(/^(\d+)$/);
+  if (chapMatch && chapMatch[1]) {
+    return {
+      startChapter: parseInt(chapMatch[1], 10),
+      startVerse: 1,
+      endChapter: null,
+      endVerse: null,
+    };
+  }
+
+  // Fallback avec détection de chiffres
+  const digits = clean.split(/[^0-9]+/).filter(Boolean).map(Number);
+  const startChapter = digits[0] && digits[0] > 0 ? digits[0] : 1;
+  const startVerse = digits[1] && digits[1] > 0 ? digits[1] : 1;
+  const endVerse = digits[2] && digits[2] > 0 ? digits[2] : null;
+
+  return {
+    startChapter,
+    startVerse,
+    endChapter: endVerse ? startChapter : null,
+    endVerse,
+  };
 }
 
 export function TeachingForm({ initialData, isEditing = false }: TeachingFormProps) {
@@ -79,7 +160,6 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
   // Métadonnées générales
   const [title, setTitle] = useState(initialData?.title || "");
   const [slug, setSlug] = useState(initialData?.slug || "");
-  const [autoSlug, setAutoSlug] = useState(!initialData?.slug);
   const [speakerName, setSpeakerName] = useState(initialData?.speakerName || "");
   const [preachedAt, setPreachedAt] = useState(
     initialData?.preachedAt
@@ -90,11 +170,12 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
   const [description, setDescription] = useState(initialData?.description || "");
   const [status, setStatus] = useState(initialData?.status || "DRAFT");
 
-  // Références bibliques
+  // Références bibliques (avec champ texte unique pour les versets)
   const [references, setReferences] = useState<BiblicalRefDraft[]>(
     initialData?.references?.map((r, idx) => ({
       id: r.id,
       book: r.book,
+      verseText: formatVerseString(r),
       startChapter: r.startChapter,
       startVerse: r.startVerse,
       endChapter: r.endChapter,
@@ -103,30 +184,93 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
     })) || [],
   );
 
-  // Médias associés
-  const [medias, setMedias] = useState<MediaItemDraft[]>(
-    initialData?.medias?.map((m, idx) => ({
-      id: m.id,
-      mediaId: m.mediaId,
-      role: m.role,
-      isPrimary: m.isPrimary,
-      position: m.position ?? idx,
-      title: m.media?.title || "Média central",
-      url: m.media?.publicUrl,
-      mimeType: m.media?.mimeType,
-    })) || [],
+  // Sous-sections de médias dédiées
+  // 1. Vidéo
+  const initialVideo = initialData?.medias?.find(
+    (m) => m.role === "VIDEO" || m.media?.mimeType?.startsWith("video/"),
+  );
+  const [videoSlot, setVideoSlot] = useState<MediaSlot | null>(
+    initialVideo && initialVideo.media
+      ? {
+          mediaId: initialVideo.mediaId,
+          title: initialVideo.media.title || "Vidéo principale",
+          url: initialVideo.media.publicUrl,
+          mimeType: initialVideo.media.mimeType,
+        }
+      : null,
+  );
+  const [useVideoAsThumbnail, setUseVideoAsThumbnail] = useState<boolean>(
+    Boolean(initialVideo?.isPrimary && !initialData?.medias?.some((m) => m.role === "THUMBNAIL")),
+  );
+
+  // 2. Image / Miniature
+  const initialImage = initialData?.medias?.find(
+    (m) => m.role === "THUMBNAIL" || m.media?.mimeType?.startsWith("image/"),
+  );
+  const [imageSlot, setImageSlot] = useState<MediaSlot | null>(
+    initialImage && initialImage.media
+      ? {
+          mediaId: initialImage.mediaId,
+          title: initialImage.media.title || "Miniature de couverture",
+          url: initialImage.media.publicUrl,
+          mimeType: initialImage.media.mimeType,
+        }
+      : null,
+  );
+
+  // 3. Audio (Optionnel)
+  const initialAudio = initialData?.medias?.find(
+    (m) => m.role === "AUDIO" || m.media?.mimeType?.startsWith("audio/"),
+  );
+  const [audioSlot, setAudioSlot] = useState<MediaSlot | null>(
+    initialAudio && initialAudio.media
+      ? {
+          mediaId: initialAudio.mediaId,
+          title: initialAudio.media.title || "Enregistrement audio",
+          url: initialAudio.media.publicUrl,
+          mimeType: initialAudio.media.mimeType,
+        }
+      : null,
   );
 
   // Bibliothèque centrale pour sélection
   const [centralMediaList, setCentralMediaList] = useState<AdminMediaItem[]>([]);
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
+  const [modalTargetSlot, setModalTargetSlot] = useState<"visual" | "video" | "image" | "audio">("visual");
   const [mediaSearch, setMediaSearch] = useState("");
-  const [mediaFilterType, setMediaFilterType] = useState<"ALL" | "video" | "audio" | "image">("ALL");
+  const [mediaFilterType, setMediaFilterType] = useState<"ALL" | "visual" | "video" | "audio" | "image">("ALL");
+  const [modalViewMode, setModalViewMode] = useState<"grid" | "list">("grid");
+
+  // Aperçu agrandi (Lightbox inspecteur)
+  const [inspectingMedia, setInspectingMedia] = useState<AdminMediaItem | null>(null);
+
+  // Alerte mémorisée
+  const [isAlertDismissed, setIsAlertDismissed] = useState(false);
 
   // États de chargement et erreurs
   const [isSaving, setIsSaving] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    try {
+      const dismissed = localStorage.getItem("ccjv_dismiss_teaching_pub_warning");
+      if (dismissed === "true") {
+        setIsAlertDismissed(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleDismissAlert = () => {
+    setIsAlertDismissed(true);
+    try {
+      localStorage.setItem("ccjv_dismiss_teaching_pub_warning", "true");
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     listAdminMedia({ limit: 100 })
@@ -141,7 +285,7 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setTitle(val);
-    if (autoSlug) {
+    if (!initialData?.slug) {
       setSlug(slugify(val));
     }
   };
@@ -151,7 +295,8 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
     setReferences((prev) => [
       ...prev,
       {
-        book: "Hébreux",
+        book: "Romains",
+        verseText: "1:1",
         startChapter: 1,
         startVerse: 1,
         endChapter: null,
@@ -161,16 +306,30 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
     ]);
   };
 
-  const handleUpdateReference = <K extends keyof BiblicalRefDraft>(
-    index: number,
-    field: K,
-    value: BiblicalRefDraft[K],
-  ) => {
+  const handleUpdateReferenceBook = (index: number, book: string) => {
     setReferences((prev) => {
       const next = [...prev];
       const target = next[index];
       if (!target) return prev;
-      next[index] = { ...target, [field]: value };
+      next[index] = { ...target, book };
+      return next;
+    });
+  };
+
+  const handleUpdateReferenceVerseText = (index: number, verseText: string) => {
+    setReferences((prev) => {
+      const next = [...prev];
+      const target = next[index];
+      if (!target) return prev;
+      const parsed = parseVerseString(verseText);
+      next[index] = {
+        ...target,
+        verseText,
+        startChapter: parsed.startChapter,
+        startVerse: parsed.startVerse,
+        endChapter: parsed.endChapter,
+        endVerse: parsed.endVerse,
+      };
       return next;
     });
   };
@@ -185,77 +344,76 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
       if (targetIndex < 0 || targetIndex >= prev.length) return prev;
       const copy = [...prev];
       const temp = copy[index];
-      copy[index] = copy[targetIndex];
+      const target = copy[targetIndex];
+      if (!temp || !target) return prev;
+      copy[index] = target;
       copy[targetIndex] = temp;
       return copy.map((item, idx) => ({ ...item, position: idx }));
     });
   };
 
-  // Manipulation des médias
-  const handleSelectMediaFromLibrary = (item: AdminMediaItem) => {
-    // Déterminer le rôle par défaut selon le type mime
-    let defaultRole: TeachingMediaRole = "VIDEO";
-    if (item.mimeType.startsWith("audio/")) {
-      defaultRole = "AUDIO";
-    } else if (item.mimeType.startsWith("image/")) {
-      defaultRole = "THUMBNAIL";
+  // Ouverture du modal de sélection selon le type
+  const openMediaModalFor = (slotType: "visual" | "video" | "image" | "audio") => {
+    setModalTargetSlot(slotType);
+    setMediaFilterType(slotType);
+    setMediaSearch("");
+    setIsMediaModalOpen(true);
+  };
+
+  // Attribution d'un média sélectionné au slot ciblé
+  const handleAssignMedia = (item: AdminMediaItem) => {
+    const slotData: MediaSlot = {
+      mediaId: item.id,
+      title: item.filename,
+      url: item.url,
+      mimeType: item.mimeType,
+      sizeBytes: item.sizeBytes,
+    };
+
+    if (modalTargetSlot === "visual") {
+      if (item.mimeType.startsWith("video/")) {
+        setVideoSlot(slotData);
+        setImageSlot(null);
+      } else {
+        setImageSlot(slotData);
+        setVideoSlot(null);
+      }
+    } else if (modalTargetSlot === "video") {
+      setVideoSlot(slotData);
+    } else if (modalTargetSlot === "image") {
+      setImageSlot(slotData);
+    } else if (modalTargetSlot === "audio") {
+      setAudioSlot(slotData);
     }
 
-    // Si aucun média principal n'existe encore et que ce n'est pas une miniature, en faire le média principal
-    const hasPrimary = medias.some((m) => m.isPrimary);
-    const willBePrimary = !hasPrimary && defaultRole !== "THUMBNAIL";
-
-    setMedias((prev) => [
-      ...prev,
-      {
-        mediaId: item.id,
-        role: defaultRole,
-        isPrimary: willBePrimary,
-        position: prev.length,
-        title: item.filename,
-        url: item.url,
-        mimeType: item.mimeType,
-      },
-    ]);
     setIsMediaModalOpen(false);
   };
 
-  const handleSetPrimaryMedia = (index: number) => {
-    setMedias((prev) =>
-      prev.map((item, idx) => ({
-        ...item,
-        isPrimary: idx === index,
-      })),
-    );
-  };
+  // RÈGLE MÉTIER DES MÉDIAS :
+  // 1. Vidéo ou Image peuvent servir de miniature.
+  // 2. Audio est optionnel, mais Vidéo OU Image sont obligatoires.
+  const hasVideo = Boolean(videoSlot);
+  const hasImage = Boolean(imageSlot);
+  const hasRequiredMedia = hasVideo || hasImage;
 
-  const handleUpdateMediaRole = (index: number, role: TeachingMediaRole) => {
-    setMedias((prev) => {
-      const next = [...prev];
-      const isThumb = role === "THUMBNAIL";
-      next[index] = {
-        ...next[index],
-        role,
-        // Une miniature ne peut pas être média principal
-        isPrimary: isThumb ? false : next[index].isPrimary,
-      };
-      return next;
-    });
-  };
+  // SUIVI DES DONNÉES ET ACTIVATION DES BOUTONS :
+  // "l'utilisateur doit avoir le choix entre publier et enregistrer,
+  // donc les deux boutons doivent être disponibles qu'au moment où l'utilisateur aura rempli toutes les données nécessaires."
+  const isTitleFilled = Boolean(title.trim());
+  const isSpeakerFilled = Boolean(speakerName.trim());
+  const isDateFilled = Boolean(preachedAt.trim());
 
-  const handleRemoveMedia = (index: number) => {
-    setMedias((prev) => prev.filter((_, i) => i !== index));
-  };
+  const areReferencesValid = useMemo(() => {
+    return references.every((r) => r.book.trim() && r.verseText.trim());
+  }, [references]);
 
-  // Vérification de la condition impérative de publication :
-  // Au moins un média principal audio ou vidéo valide
-  const primaryMedia = useMemo(() => {
-    return medias.find(
-      (m) => m.isPrimary && (m.role === "VIDEO" || m.role === "AUDIO"),
-    );
-  }, [medias]);
-
-  const canBePublished = Boolean(primaryMedia);
+  const canSaveOrPublish = Boolean(
+    isTitleFilled &&
+    isSpeakerFilled &&
+    isDateFilled &&
+    hasRequiredMedia &&
+    areReferencesValid,
+  );
 
   // Validation formulaire
   const validateForm = (): boolean => {
@@ -264,27 +422,19 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
     if (!speakerName.trim()) errs.speakerName = "Le nom de l'orateur est obligatoire";
     if (!preachedAt.trim()) errs.preachedAt = "La date de prédication est obligatoire";
 
+    if (!hasRequiredMedia) {
+      errs.medias = "Vous devez associer au moins une Vidéo ou une Image.";
+    }
+
     // Vérifier les références
     for (let i = 0; i < references.length; i++) {
       const r = references[i];
+      if (!r) continue;
       if (!r.book.trim()) {
         errs[`ref_${i}_book`] = "Le nom du livre est obligatoire";
       }
-      if (!r.startChapter || r.startChapter <= 0) {
-        errs[`ref_${i}_startChapter`] = "Chapitre > 0 requis";
-      }
-      if (!r.startVerse || r.startVerse <= 0) {
-        errs[`ref_${i}_startVerse`] = "Verset > 0 requis";
-      }
-      if (r.endChapter && r.endChapter < r.startChapter) {
-        errs[`ref_${i}_endChapter`] = "Le chapitre de fin doit être >= au début";
-      }
-      if (
-        r.endChapter === r.startChapter &&
-        r.endVerse &&
-        r.endVerse < r.startVerse
-      ) {
-        errs[`ref_${i}_endVerse`] = "Le verset de fin doit être >= au verset de début";
+      if (!r.verseText.trim()) {
+        errs[`ref_${i}_verse`] = "Le verset est obligatoire (ex. 16:3)";
       }
     }
 
@@ -292,16 +442,58 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
     return Object.keys(errs).length === 0;
   };
 
-  // Sauvegarde principale (brouillon ou mise à jour normale)
+  // Assemblage du payload de médias pour le backend
+  const buildMediasPayload = (): TeachingMediaInputPayload[] => {
+    const payload: TeachingMediaInputPayload[] = [];
+    let pos = 0;
+
+    // Détermination du média principal (pour diffusion et affichage) :
+    // Le média annexé (Vidéo ou Image) joue le rôle de miniature et de flux.
+    // Priorité à la Vidéo si présente, sinon à l'Image si présente, sinon à l'Audio
+    const primaryIsVideo = Boolean(videoSlot);
+    const primaryIsImage = !videoSlot && Boolean(imageSlot);
+    const primaryIsAudio = !videoSlot && !imageSlot && Boolean(audioSlot);
+
+    if (videoSlot) {
+      payload.push({
+        mediaId: videoSlot.mediaId,
+        role: "VIDEO",
+        isPrimary: primaryIsVideo,
+        position: pos++,
+      });
+    }
+
+    if (imageSlot && (!useVideoAsThumbnail || !videoSlot)) {
+      payload.push({
+        mediaId: imageSlot.mediaId,
+        role: "THUMBNAIL",
+        isPrimary: primaryIsImage,
+        position: pos++,
+      });
+    }
+
+    if (audioSlot) {
+      payload.push({
+        mediaId: audioSlot.mediaId,
+        role: "AUDIO",
+        isPrimary: primaryIsAudio,
+        position: pos++,
+      });
+    }
+
+    return payload;
+  };
+
+  // Sauvegarde principale
   const handleSave = async (publishAfter = false) => {
     if (!validateForm()) {
-      toast.error("Veuillez corriger les erreurs du formulaire.");
+      toast.error("Veuillez remplir toutes les informations requises.");
       return;
     }
 
-    if (publishAfter && !canBePublished) {
+    if (publishAfter && !hasRequiredMedia) {
       toast.error(
-        "Publication impossible : vous devez associer au moins un média principal de type Audio ou Vidéo.",
+        "Pour publier cet enseignement sur le site public, vous devez lui associer un média de type Vidéo ou Image.",
       );
       return;
     }
@@ -309,22 +501,21 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
     setIsSaving(true);
     try {
       let savedTeachingId = initialData?.id;
+      const effectiveSlug = slug.trim() || slugify(title.trim());
 
       if (isEditing && savedTeachingId) {
-        // Mise à jour métadonnées
         await updateEnseignement(savedTeachingId, {
           title: title.trim(),
-          slug: slug.trim(),
+          slug: effectiveSlug,
           speakerName: speakerName.trim(),
           preachedAt: preachedAt.trim(),
           summary: summary.trim() || null,
           description: description.trim() || null,
         });
       } else {
-        // Création
         const created = await createEnseignement({
           title: title.trim(),
-          slug: slug.trim() || undefined,
+          slug: effectiveSlug,
           speakerName: speakerName.trim(),
           preachedAt: preachedAt.trim(),
           summary: summary.trim() || null,
@@ -334,7 +525,7 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
         savedTeachingId = created.id;
       }
 
-      // Mise à jour atomique des références bibliques
+      // Mise à jour des références bibliques
       const refsPayload: BiblicalReferenceInputPayload[] = references.map(
         (r, idx) => ({
           book: r.book.trim(),
@@ -347,15 +538,8 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
       );
       await updateEnseignementReferences(savedTeachingId, refsPayload);
 
-      // Mise à jour des associations de médias
-      const mediasPayload: TeachingMediaInputPayload[] = medias.map(
-        (m, idx) => ({
-          mediaId: m.mediaId,
-          role: m.role,
-          isPrimary: m.isPrimary,
-          position: idx,
-        }),
-      );
+      // Mise à jour des médias associés
+      const mediasPayload = buildMediasPayload();
       await updateEnseignementMedias(savedTeachingId, mediasPayload);
 
       // Publication si demandée
@@ -379,7 +563,6 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
     }
   };
 
-  // Action explicite d'archivage
   const handleArchive = async () => {
     if (!initialData?.id) return;
     setIsArchiving(true);
@@ -396,7 +579,6 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
     }
   };
 
-  // Médias filtrés pour le modal de sélection
   const filteredCentralMedias = useMemo(() => {
     return centralMediaList.filter((m) => {
       const matchSearch =
@@ -404,6 +586,8 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
         m.filename.toLowerCase().includes(mediaSearch.toLowerCase());
       const matchType =
         mediaFilterType === "ALL" ||
+        (mediaFilterType === "visual" &&
+          (m.mimeType.startsWith("video/") || m.mimeType.startsWith("image/"))) ||
         (mediaFilterType === "video" && m.mimeType.startsWith("video/")) ||
         (mediaFilterType === "audio" && m.mimeType.startsWith("audio/")) ||
         (mediaFilterType === "image" && m.mimeType.startsWith("image/"));
@@ -413,7 +597,7 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
 
   return (
     <div className="space-y-6">
-      {/* En-tête */}
+      {/* En-tête : sans badge Brouillon */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-ccjv-border">
         <div className="flex items-center gap-3">
           <Link
@@ -424,34 +608,16 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold font-serif text-ccjv-ink">
-                {isEditing ? `Modifier : ${initialData?.title}` : "Nouvel enseignement"}
-              </h1>
-              <Badge
-                variant={
-                  status === "PUBLISHED"
-                    ? "success"
-                    : status === "ARCHIVED"
-                    ? "neutral"
-                    : "warning"
-                }
-                className="text-[10px]"
-              >
-                {status === "PUBLISHED"
-                  ? "Publié"
-                  : status === "ARCHIVED"
-                  ? "Archivé"
-                  : "Brouillon"}
-              </Badge>
-            </div>
+            <h1 className="text-xl font-bold font-serif text-ccjv-ink">
+              {isEditing ? `Modifier : ${initialData?.title}` : "Nouvel enseignement"}
+            </h1>
             <p className="text-xs text-ccjv-ink-secondary mt-0.5">
               Renseignez les métadonnées, références bibliques et les médias vidéo/audio.
             </p>
           </div>
         </div>
 
-        {/* Boutons d'action principaux */}
+        {/* Actions principales : Enregistrer et Publier débloqués quand toutes les données sont remplies */}
         <div className="flex items-center gap-2">
           {isEditing && initialData?.status === "PUBLISHED" && (
             <a
@@ -479,58 +645,80 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
             </Button>
           )}
 
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => handleSave(false)}
-            disabled={isSaving}
-            className="text-xs"
+          {/* Bouton Enregistrer : actif dès que les données nécessaires sont complétées */}
+          <div
+            title={
+              !canSaveOrPublish
+                ? "Remplissez le titre, l'orateur, la date et au moins un média (Vidéo ou Image) pour enregistrer"
+                : "Enregistrer les modifications"
+            }
           >
-            <Save className="w-3.5 h-3.5 mr-1" />
-            {isSaving ? "Enregistrement..." : "Enregistrer brouillon"}
-          </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handleSave(false)}
+              disabled={isSaving || !canSaveOrPublish}
+              className="text-xs"
+            >
+              <Save className="w-3.5 h-3.5 mr-1" />
+              {isSaving ? "Enregistrement..." : "Enregistrer"}
+            </Button>
+          </div>
 
+          {/* Bouton Publier : actif avec icône Plus dès que les données nécessaires sont complétées */}
           {status !== "PUBLISHED" && (
             <div
               title={
-                !canBePublished
-                  ? "Associez au moins un média Audio ou Vidéo principal pour publier"
-                  : "Publier directement l'enseignement"
+                !canSaveOrPublish
+                  ? "Remplissez le titre, l'orateur, la date et au moins un média pour publier"
+                  : "Publier directement sur le site public"
               }
             >
               <Button
                 type="button"
                 size="sm"
                 onClick={() => handleSave(true)}
-                disabled={isSaving || !canBePublished}
+                disabled={isSaving || !canSaveOrPublish}
                 className="text-xs"
               >
-                <Globe className="w-3.5 h-3.5 mr-1" />
-                Publier l'enseignement
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                Publier
               </Button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Alerte média requis pour publication */}
-      {!canBePublished && (
-        <div className="p-3 bg-amber-50 border border-amber-200 flex items-start gap-3">
-          <AlertCircle className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
-          <div className="text-xs text-amber-800">
-            <span className="font-semibold">Condition de publication :</span>{" "}
-            Pour publier cet enseignement sur le site public, vous devez lui associer au moins un média principal de type <strong>Vidéo</strong> ou <strong>Audio</strong>. Vous pouvez l'enregistrer comme brouillon en attendant.
+      {/* Alerte conditionnelle dismissable avec bouton "J'ai compris" et croix */}
+      {!hasRequiredMedia && !isAlertDismissed && (
+        <div className="p-3 bg-amber-50 border border-amber-200 flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
+            <div className="text-xs text-amber-800">
+              <span className="font-semibold">Condition de publication :</span>{" "}
+              Pour publier cet enseignement sur le site public, vous devez lui associer au moins un média de type <strong>Vidéo</strong> ou <strong>Image</strong> (qui joue le rôle de miniature et de flux visuel ; l&apos;audio étant optionnel).
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleDismissAlert}
+              className="px-2.5 py-1 text-[11px] font-medium text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 transition-colors"
+            >
+              J&apos;ai compris
+            </button>
           </div>
         </div>
       )}
 
+      {/* Grille : Colonne gauche (Informations générales) et Colonne droite (Médias + Références) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Colonne gauche : Informations générales */}
+        {/* Colonne gauche : INFORMATIONS GÉNÉRALES (sans numéro) */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white p-5 border border-ccjv-border space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-ccjv-ink border-b border-ccjv-border pb-2">
-              1. Informations Générales
+              INFORMATIONS GÉNÉRALES
             </h2>
 
             <FormField label="Titre de la prédication *" error={errors.title}>
@@ -563,41 +751,11 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
             </div>
 
             <FormField
-              label="Slug de l'URL"
-              hint="Identifiant lisible utilisé dans l'adresse de la page publique"
-              error={errors.slug}
-            >
-              <div className="flex items-center gap-2">
-                <Input
-                  value={slug}
-                  onChange={(e) => {
-                    setSlug(e.target.value);
-                    setAutoSlug(false);
-                  }}
-                  placeholder="la-puissance-de-la-foi-agissante"
-                  className="text-xs font-mono"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSlug(slugify(title));
-                    setAutoSlug(true);
-                  }}
-                  className="text-xs whitespace-nowrap"
-                >
-                  Régénérer
-                </Button>
-              </div>
-            </FormField>
-
-            <FormField
               label="Résumé court"
               hint="Bref extrait affiché dans les listes et cartes de présentation"
             >
               <Textarea
-                rows={2}
+                rows={3}
                 value={summary}
                 onChange={(e) => setSummary(e.target.value)}
                 placeholder="Synthèse en deux phrases du sermon..."
@@ -610,7 +768,7 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
               hint="Texte complet ou résumé des points principaux abordés"
             >
               <Textarea
-                rows={5}
+                rows={7}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Points clés, contexte et réflexions de la prédication..."
@@ -618,17 +776,181 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
               />
             </FormField>
           </div>
+        </div>
 
-          {/* Section Références bibliques multiples */}
+        {/* Colonne droite : MÉDIAS avec sous-sections Audio, Vidéo, Image puis RÉFÉRENCES BIBLIQUES */}
+        <div className="space-y-6">
+          {/* Section MÉDIAS (sans numéro) */}
+          <div className="bg-white p-5 border border-ccjv-border space-y-5">
+            <div className="border-b border-ccjv-border pb-2">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-ccjv-ink">
+                  MÉDIAS
+                </h2>
+              </div>
+            </div>
+
+            {/* SOUS-SECTION FUSIONNÉE : VIDÉO OU IMAGE */}
+            <div className="border border-ccjv-border bg-ccjv-surface/30 p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <PlayCircle className="w-4 h-4 text-emerald-700" />
+                  <span className="text-xs font-bold uppercase tracking-wide text-ccjv-ink">
+                    Média
+                  </span>
+                </div>
+                {(videoSlot || imageSlot) && (
+                  <button
+                    type="button"
+                    onClick={() => openMediaModalFor("visual")}
+                    className="text-xs text-ccjv-green hover:underline flex items-center gap-1 font-medium"
+                  >
+                    <Upload className="w-3 h-3" />
+                    <span>Remplacer</span>
+                  </button>
+                )}
+              </div>
+
+              {videoSlot ? (
+                <div className="space-y-2.5">
+                  <div className="overflow-hidden border border-ccjv-border bg-black">
+                    <video
+                      src={videoSlot.url}
+                      controls
+                      className="w-full h-32 object-cover"
+                      preload="metadata"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5 overflow-hidden">
+                      <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                        VIDÉO
+                      </span>
+                      <span className="font-semibold text-ccjv-ink truncate max-w-[180px]" title={videoSlot.title}>
+                        {videoSlot.title}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setVideoSlot(null)}
+                      className="text-ccjv-ink-muted hover:text-red-600 p-1"
+                      title="Retirer la vidéo"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Option miniature par la vidéo */}
+                  <label className="flex items-center gap-2 text-xs text-ccjv-ink cursor-pointer pt-1 border-t border-ccjv-border/60">
+                    <input
+                      type="checkbox"
+                      checked={useVideoAsThumbnail}
+                      onChange={(e) => setUseVideoAsThumbnail(e.target.checked)}
+                      className="rounded-none border-ccjv-border text-ccjv-green focus:ring-ccjv-green"
+                    />
+                    <span>Utiliser cette vidéo comme miniature</span>
+                  </label>
+                </div>
+              ) : imageSlot ? (
+                <div className="space-y-2.5">
+                  <div className="overflow-hidden border border-ccjv-border bg-black/5">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imageSlot.url}
+                      alt={imageSlot.title}
+                      className="w-full h-32 object-cover"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5 overflow-hidden">
+                      <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold">
+                        IMAGE
+                      </span>
+                      <span className="font-semibold text-ccjv-ink truncate max-w-[180px]" title={imageSlot.title}>
+                        {imageSlot.title}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setImageSlot(null)}
+                      className="text-ccjv-ink-muted hover:text-red-600 p-1"
+                      title="Retirer l'image"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onClick={() => openMediaModalFor("visual")}
+                  className="p-5 border border-dashed border-ccjv-border hover:border-ccjv-green text-center cursor-pointer transition-colors text-xs text-ccjv-ink-secondary bg-white"
+                >
+                  <div className="flex items-center justify-center gap-2 mb-1.5 opacity-70">
+                   <PlayCircle className="w-4 h-4 text-emerald-700" />
+                  </div>
+                  <p className="font-semibold text-ccjv-ink">Choisir un média</p>
+                  <p className="text-[11px] text-ccjv-ink-secondary mt-0.5">Cliquez pour importer depuis le stockage</p>
+                </div>
+              )}
+            </div>
+
+            {/* SOUS-SECTION 3 : AUDIO */}
+            <div className="border border-ccjv-border bg-ccjv-surface/30 p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Mic className="w-4 h-4 text-blue-700" />
+                  <span className="text-xs font-bold uppercase tracking-wide text-ccjv-ink">
+                    Audio
+                  </span>
+                </div>
+              </div>
+
+              {audioSlot ? (
+                <div className="space-y-2.5">
+                  <div className="p-2.5 bg-gradient-to-r from-blue-900 to-indigo-900 text-white border border-ccjv-border">
+                    <div className="flex items-center gap-2 mb-1 text-[11px] font-medium">
+                      <Mic className="w-3.5 h-3.5 text-blue-300" />
+                      <span className="truncate">{audioSlot.title}</span>
+                    </div>
+                    <audio controls src={audioSlot.url} className="w-full h-8" />
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-ccjv-ink-secondary truncate max-w-[200px]">
+                      Fichier audio associé
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setAudioSlot(null)}
+                      className="text-ccjv-ink-muted hover:text-red-600 p-1"
+                      title="Retirer l'audio"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onClick={() => openMediaModalFor("audio")}
+                  className="p-4 border border-dashed border-ccjv-border hover:border-ccjv-green text-center cursor-pointer transition-colors text-xs text-ccjv-ink-secondary bg-white"
+                >
+                  <Mic className="w-5 h-5 text-ccjv-ink-muted mx-auto mb-1 opacity-70" />
+                  <p className="font-medium text-ccjv-ink">Aucun audio associé</p>
+                  <p className="text-[11px] text-ccjv-ink-secondary">Optionnel : écoute du sermon en streaming</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Section RÉFÉRENCES BIBLIQUES (sans numéro, avec un seul champ texte pour le verset) */}
           <div className="bg-white p-5 border border-ccjv-border space-y-4">
             <div className="flex items-center justify-between border-b border-ccjv-border pb-2">
               <div>
                 <h2 className="text-sm font-bold uppercase tracking-wider text-ccjv-ink">
-                  2. Références Bibliques ({references.length})
+                  RÉFÉRENCES BIBLIQUES ({references.length})
                 </h2>
-                <p className="text-[11px] text-ccjv-ink-secondary">
-                  Ajoutez les passages bibliques au cœur de cette prédication (ordre conservé).
-                </p>
               </div>
               <Button
                 type="button"
@@ -638,286 +960,86 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
                 className="text-xs flex items-center gap-1"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Ajouter un passage</span>
+                <span>Ajouter</span>
               </Button>
             </div>
 
             {references.length === 0 ? (
               <div className="p-4 text-center border border-dashed border-ccjv-border bg-ccjv-surface text-xs text-ccjv-ink-secondary">
-                Aucune référence biblique ajoutée pour l'instant. Cliquez sur « Ajouter un passage ».
+                Aucun passage biblique ajouté.
               </div>
             ) : (
               <div className="space-y-3">
                 {references.map((ref, idx) => (
                   <div
                     key={idx}
-                    className="p-3 border border-ccjv-border bg-ccjv-surface/40 flex flex-col md:flex-row items-center gap-3"
+                    className="p-3 border border-ccjv-border bg-ccjv-surface/40 space-y-2.5"
                   >
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleMoveReference(idx, "up")}
-                        disabled={idx === 0}
-                        className="p-1 hover:bg-ccjv-surface text-ccjv-ink-secondary disabled:opacity-30"
-                        title="Monter"
-                      >
-                        <MoveUp className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleMoveReference(idx, "down")}
-                        disabled={idx === references.length - 1}
-                        className="p-1 hover:bg-ccjv-surface text-ccjv-ink-secondary disabled:opacity-30"
-                        title="Descendre"
-                      >
-                        <MoveDown className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-2 w-full">
-                      <div className="col-span-2 md:col-span-1">
-                        <label className="text-[10px] uppercase font-bold text-ccjv-ink-secondary block mb-1">
-                          Livre *
-                        </label>
-                        <Input
-                          value={ref.book}
-                          onChange={(e) =>
-                            handleUpdateReference(idx, "book", e.target.value)
-                          }
-                          placeholder="Ex. Hébreux"
-                          className="text-xs"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] uppercase font-bold text-ccjv-ink-secondary block mb-1">
-                          Chap. début *
-                        </label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={ref.startChapter}
-                          onChange={(e) =>
-                            handleUpdateReference(
-                              idx,
-                              "startChapter",
-                              parseInt(e.target.value, 10) || 1,
-                            )
-                          }
-                          className="text-xs"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] uppercase font-bold text-ccjv-ink-secondary block mb-1">
-                          Verset début *
-                        </label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={ref.startVerse}
-                          onChange={(e) =>
-                            handleUpdateReference(
-                              idx,
-                              "startVerse",
-                              parseInt(e.target.value, 10) || 1,
-                            )
-                          }
-                          className="text-xs"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] uppercase font-bold text-ccjv-ink-secondary block mb-1">
-                          Chap. fin
-                        </label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={ref.endChapter ?? ""}
-                          onChange={(e) =>
-                            handleUpdateReference(
-                              idx,
-                              "endChapter",
-                              e.target.value ? parseInt(e.target.value, 10) : null,
-                            )
-                          }
-                          placeholder="Opt."
-                          className="text-xs"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] uppercase font-bold text-ccjv-ink-secondary block mb-1">
-                          Verset fin
-                        </label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={ref.endVerse ?? ""}
-                          onChange={(e) =>
-                            handleUpdateReference(
-                              idx,
-                              "endVerse",
-                              e.target.value ? parseInt(e.target.value, 10) : null,
-                            )
-                          }
-                          placeholder="Opt."
-                          className="text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveReference(idx)}
-                      className="p-1.5 text-ccjv-ink-muted hover:text-red-600 hover:bg-red-50 transition-colors"
-                      title="Supprimer la référence"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Colonne droite : Médias & Rôles */}
-        <div className="space-y-6">
-          <div className="bg-white p-5 border border-ccjv-border space-y-4">
-            <div className="flex items-center justify-between border-b border-ccjv-border pb-2">
-              <div>
-                <h2 className="text-sm font-bold uppercase tracking-wider text-ccjv-ink">
-                  3. Médias ({medias.length})
-                </h2>
-                <p className="text-[11px] text-ccjv-ink-secondary">
-                  Vidéo, enregistrement audio et miniature.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsMediaModalOpen(true)}
-                className="text-xs flex items-center gap-1"
-              >
-                <Library className="w-3.5 h-3.5" />
-                <span>Choisir média</span>
-              </Button>
-            </div>
-
-            {/* Statut média principal */}
-            <div className="p-3 bg-ccjv-surface border border-ccjv-border">
-              <span className="text-[11px] font-semibold text-ccjv-ink block mb-1">
-                Média principal pour la diffusion :
-              </span>
-              {primaryMedia ? (
-                <div className="flex items-center gap-2 text-xs text-emerald-800 font-medium">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>
-                    {primaryMedia.role === "VIDEO" ? "Vidéo" : "Audio"} :{" "}
-                    {primaryMedia.title || primaryMedia.mediaId.substring(0, 8)}
-                  </span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-xs text-amber-700">
-                  <AlertCircle className="w-4 h-4 text-amber-600" />
-                  <span>Aucun média Audio/Vidéo principal désigné.</span>
-                </div>
-              )}
-            </div>
-
-            {/* Liste des médias associés */}
-            {medias.length === 0 ? (
-              <div className="p-4 text-center border border-dashed border-ccjv-border bg-ccjv-surface text-xs text-ccjv-ink-secondary">
-                Aucun média associé. Cliquez sur « Choisir média » pour puiser dans la médiathèque centrale.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {medias.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className={`p-3 border transition-colors ${
-                      item.isPrimary
-                        ? "border-emerald-500 bg-emerald-50/30"
-                        : "border-ccjv-border bg-white"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2">
-                        {item.role === "VIDEO" && (
-                          <Video className="w-4 h-4 text-emerald-700 shrink-0" />
-                        )}
-                        {item.role === "AUDIO" && (
-                          <Mic className="w-4 h-4 text-blue-700 shrink-0" />
-                        )}
-                        {item.role === "THUMBNAIL" && (
-                          <ImageIcon className="w-4 h-4 text-amber-700 shrink-0" />
-                        )}
-                        <div>
-                          <p className="text-xs font-semibold text-ccjv-ink truncate max-w-[180px]">
-                            {item.title || item.mediaId}
-                          </p>
-                          <p className="text-[10px] text-ccjv-ink-secondary font-mono truncate max-w-[180px]">
-                            {item.mediaId}
-                          </p>
-                        </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleMoveReference(idx, "up")}
+                          disabled={idx === 0}
+                          className="p-1 hover:bg-ccjv-surface text-ccjv-ink-secondary disabled:opacity-30"
+                          title="Monter"
+                        >
+                          <MoveUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMoveReference(idx, "down")}
+                          disabled={idx === references.length - 1}
+                          className="p-1 hover:bg-ccjv-surface text-ccjv-ink-secondary disabled:opacity-30"
+                          title="Descendre"
+                        >
+                          <MoveDown className="w-3.5 h-3.5" />
+                        </button>
                       </div>
 
                       <button
                         type="button"
-                        onClick={() => handleRemoveMedia(idx)}
-                        className="text-ccjv-ink-muted hover:text-red-600 p-1"
-                        title="Détacher ce média"
+                        onClick={() => handleRemoveReference(idx)}
+                        className="p-1 text-ccjv-ink-muted hover:text-red-600 transition-colors"
+                        title="Supprimer la référence"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-ccjv-border/60">
-                      <div>
-                        <label className="text-[10px] uppercase font-bold text-ccjv-ink-secondary block mb-1">
-                          Rôle
-                        </label>
-                        <Select
-                          value={item.role}
-                          onChange={(e) =>
-                            handleUpdateMediaRole(
-                              idx,
-                              e.target.value as TeachingMediaRole,
-                            )
-                          }
-                          className="text-xs py-1"
-                        >
-                          <option value="VIDEO">Vidéo</option>
-                          <option value="AUDIO">Audio</option>
-                          <option value="THUMBNAIL">Miniature</option>
-                        </Select>
-                      </div>
+                    {/* Livre biblique */}
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-ccjv-ink-secondary block mb-1">
+                        Livre biblique *
+                      </label>
+                      <Input
+                        type="text"
+                        value={ref.book}
+                        onChange={(e) =>
+                          handleUpdateReferenceBook(idx, e.target.value)
+                        }
+                        placeholder="Ex. Romains, Jean, Psaumes"
+                        className="text-xs"
+                      />
+                    </div>
 
-                      <div>
-                        <label className="text-[10px] uppercase font-bold text-ccjv-ink-secondary block mb-1">
-                          Média principal ?
-                        </label>
-                        {item.role === "THUMBNAIL" ? (
-                          <span className="text-[11px] text-ccjv-ink-muted block py-1">
-                            Non permis
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleSetPrimaryMedia(idx)}
-                            className={`w-full py-1 text-xs border text-center transition-colors ${
-                              item.isPrimary
-                                ? "bg-emerald-600 text-white border-emerald-600 font-semibold"
-                                : "bg-white text-ccjv-ink border-ccjv-border hover:bg-ccjv-surface"
-                            }`}
-                          >
-                            {item.isPrimary ? "★ Principal" : "Définir"}
-                          </button>
-                        )}
-                      </div>
+                    {/* UN SEUL CHAMP DE TEXTE POUR LE VERSET (sans spinners / boutons numériques) */}
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-ccjv-ink-secondary block mb-1">
+                        Verset(s) *
+                      </label>
+                      <Input
+                        type="text"
+                        value={ref.verseText}
+                        onChange={(e) =>
+                          handleUpdateReferenceVerseText(idx, e.target.value)
+                        }
+                        placeholder="Ex. 16:3 ou 1:1-8 ou 3:16-17"
+                        className="text-xs"
+                      />
+                      <span className="text-[10px] text-ccjv-ink-muted mt-0.5 block">
+                        Format libre : 16:3 ou plage 1:1-8
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -927,100 +1049,399 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
         </div>
       </div>
 
-      {/* Modal de sélection dans la médiathèque centrale */}
+      {/* MODAL / VISUALISEUR ÉTENDU POUR L'IMPORTATION DEPUIS LE BUCKET */}
       {isMediaModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white border border-ccjv-border max-w-2xl w-full max-h-[80vh] flex flex-col shadow-xl">
-            <div className="p-4 border-b border-ccjv-border flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white border border-ccjv-border max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl">
+            {/* En-tête du modal */}
+            <div className="p-4 border-b border-ccjv-border flex items-center justify-between bg-ccjv-surface">
               <div>
-                <h3 className="font-serif font-bold text-sm text-ccjv-ink">
-                  Bibliothèque Centrale des Médias
+                <h3 className="text-base font-bold text-ccjv-ink flex items-center gap-2">
+                  <Upload className="w-4 h-4 text-ccjv-green" />
+                  Visualiseur et Importation du Stockage (Bucket)
                 </h3>
-                <p className="text-[11px] text-ccjv-ink-secondary">
-                  Sélectionnez une ressource déjà stockée pour l'associer à l'enseignement.
+                <p className="text-xs text-ccjv-ink-secondary mt-0.5">
+                  Visualisez fidèlement vos fichiers (Images, Vidéos, Audios, Textes) avant de les sélectionner.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsMediaModalOpen(false)}
-                className="p-1 hover:bg-ccjv-surface text-ccjv-ink-secondary"
+                className="p-1.5 hover:bg-ccjv-surface text-ccjv-ink-secondary transition-colors"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Filtres du modal */}
-            <div className="p-3 border-b border-ccjv-border bg-ccjv-surface flex flex-col md:flex-row gap-2">
-              <Input
-                value={mediaSearch}
-                onChange={(e) => setMediaSearch(e.target.value)}
-                placeholder="Rechercher par nom de fichier..."
-                className="text-xs flex-1"
-              />
-              <Select
-                value={mediaFilterType}
-                onChange={(e) =>
-                  setMediaFilterType(
-                    e.target.value as "ALL" | "video" | "audio" | "image",
-                  )
-                }
-                className="text-xs w-full md:w-36"
-              >
-                <option value="ALL">Tous types</option>
-                <option value="video">Vidéos</option>
-                <option value="audio">Audios</option>
-                <option value="image">Images</option>
-              </Select>
+            {/* Barre de recherche et filtres */}
+            <div className="p-3 border-b border-ccjv-border bg-ccjv-surface/40 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2 w-full sm:w-auto flex-1">
+                <Input
+                  value={mediaSearch}
+                  onChange={(e) => setMediaSearch(e.target.value)}
+                  placeholder="Rechercher par nom de fichier..."
+                  className="text-xs flex-1 sm:max-w-xs"
+                />
+
+                {/* Onglets / Filtre de type */}
+                <div className="flex items-center border border-ccjv-border bg-white text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setMediaFilterType("ALL")}
+                    className={`px-2.5 py-1 transition-colors ${
+                      mediaFilterType === "ALL"
+                        ? "bg-ccjv-ink text-white font-medium"
+                        : "text-ccjv-ink-secondary hover:text-ccjv-ink"
+                    }`}
+                  >
+                    Tous
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMediaFilterType("video")}
+                    className={`px-2.5 py-1 transition-colors border-l border-ccjv-border ${
+                      mediaFilterType === "video"
+                        ? "bg-ccjv-ink text-white font-medium"
+                        : "text-ccjv-ink-secondary hover:text-ccjv-ink"
+                    }`}
+                  >
+                    Vidéos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMediaFilterType("image")}
+                    className={`px-2.5 py-1 transition-colors border-l border-ccjv-border ${
+                      mediaFilterType === "image"
+                        ? "bg-ccjv-ink text-white font-medium"
+                        : "text-ccjv-ink-secondary hover:text-ccjv-ink"
+                    }`}
+                  >
+                    Images
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMediaFilterType("audio")}
+                    className={`px-2.5 py-1 transition-colors border-l border-ccjv-border ${
+                      mediaFilterType === "audio"
+                        ? "bg-ccjv-ink text-white font-medium"
+                        : "text-ccjv-ink-secondary hover:text-ccjv-ink"
+                    }`}
+                  >
+                    Audios
+                  </button>
+                </div>
+              </div>
+
+              {/* Bascule Grille / Liste */}
+              <div className="flex items-center gap-1 border border-ccjv-border bg-white p-0.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setModalViewMode("grid")}
+                  className={`p-1 text-xs transition-colors ${
+                    modalViewMode === "grid"
+                      ? "bg-ccjv-ink text-white"
+                      : "text-ccjv-ink-secondary hover:text-ccjv-ink"
+                  }`}
+                  title="Affichage Grille"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalViewMode("list")}
+                  className={`p-1 text-xs transition-colors ${
+                    modalViewMode === "list"
+                      ? "bg-ccjv-ink text-white"
+                      : "text-ccjv-ink-secondary hover:text-ccjv-ink"
+                  }`}
+                  title="Affichage Liste"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Liste des médias du modal */}
-            <div className="p-4 overflow-y-auto flex-1 divide-y divide-ccjv-border">
+            {/* Corps du visualiseur */}
+            <div className="p-4 overflow-y-auto flex-1">
               {filteredCentralMedias.length === 0 ? (
-                <div className="text-center py-8 text-xs text-ccjv-ink-secondary">
-                  Aucun média trouvé. Vous pouvez en téléverser un depuis la section Médiathèque.
+                <div className="text-center py-12 text-xs text-ccjv-ink-secondary">
+                  <Upload className="w-8 h-8 text-ccjv-ink-muted mx-auto mb-2 opacity-50" />
+                  <p>Aucun fichier correspondant trouvé dans le stockage.</p>
+                </div>
+              ) : modalViewMode === "grid" ? (
+                /* Mode GRILLE avec visualiseur riche et direct */
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {filteredCentralMedias.map((m) => {
+                    const isImg = m.mimeType.startsWith("image/");
+                    const isVid = m.mimeType.startsWith("video/");
+                    const isAud = m.mimeType.startsWith("audio/");
+
+                    const isCurrentlySelected =
+                      (modalTargetSlot === "visual" &&
+                        (videoSlot?.mediaId === m.id || imageSlot?.mediaId === m.id)) ||
+                      (modalTargetSlot === "video" && videoSlot?.mediaId === m.id) ||
+                      (modalTargetSlot === "image" && imageSlot?.mediaId === m.id) ||
+                      (modalTargetSlot === "audio" && audioSlot?.mediaId === m.id);
+
+                    return (
+                      <div
+                        key={m.id}
+                        className={`group border overflow-hidden bg-white transition-all flex flex-col justify-between ${
+                          isCurrentlySelected
+                            ? "ring-2 ring-ccjv-green border-ccjv-green"
+                            : "border-ccjv-border hover:border-ccjv-green hover:shadow-md"
+                        }`}
+                      >
+                        {/* Zone d'aperçu dynamique réel */}
+                        <div className="relative w-full h-40 bg-black/5 flex items-center justify-center overflow-hidden">
+                          {isImg ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={m.url}
+                              alt={m.filename}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              loading="lazy"
+                            />
+                          ) : isVid ? (
+                            <div className="w-full h-full bg-black relative flex items-center justify-center">
+                              <video
+                                src={m.url}
+                                className="w-full h-full object-cover opacity-85"
+                                preload="metadata"
+                              />
+                              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                                <Video className="w-9 h-9 text-white drop-shadow-lg" />
+                              </div>
+                            </div>
+                          ) : isAud ? (
+                            <div className="w-full h-full bg-gradient-to-br from-blue-900 to-indigo-950 flex flex-col items-center justify-center p-3 text-white">
+                              <Mic className="w-8 h-8 text-blue-300 mb-2" />
+                              <audio
+                                controls
+                                src={m.url}
+                                className="w-full h-7 mt-1 scale-90"
+                                preload="none"
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center p-4 text-ccjv-ink-secondary">
+                              <FileText className="w-8 h-8 text-ccjv-ink-muted mb-1" />
+                              <span className="text-[10px] font-mono">{m.mimeType}</span>
+                            </div>
+                          )}
+
+                          {/* Bouton d'inspection / aperçu plein écran */}
+                          <button
+                            type="button"
+                            onClick={() => setInspectingMedia(m)}
+                            className="absolute top-2 right-2 p-1.5 bg-black/70 hover:bg-black text-white transition-colors"
+                            title="Inspecter en plein écran"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+
+                          {isCurrentlySelected && (
+                            <div className="absolute top-2 left-2 bg-ccjv-green text-white px-2 py-0.5 text-[10px] font-bold shadow">
+                              Actif
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Métadonnées et bouton de sélection */}
+                        <div className="p-3 border-t border-ccjv-border flex items-center justify-between gap-2 bg-white">
+                          <div className="overflow-hidden">
+                            <p className="text-xs font-semibold text-ccjv-ink truncate" title={m.filename}>
+                              {m.filename}
+                            </p>
+                            <p className="text-[10px] text-ccjv-ink-secondary">
+                              {(m.sizeBytes / 1024 / 1024).toFixed(1)} Mo • {m.mimeType.split("/")[1]?.toUpperCase()}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={isCurrentlySelected ? "outline" : "primary"}
+                            onClick={() => handleAssignMedia(m)}
+                            className="text-[11px] h-7 px-2.5 shrink-0"
+                          >
+                            {isCurrentlySelected ? "Assigné" : "Choisir"}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
-                filteredCentralMedias.map((m) => (
-                  <div
-                    key={m.id}
-                    className="py-2.5 flex items-center justify-between gap-3 hover:bg-ccjv-surface px-2 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      {m.mimeType.startsWith("video/") ? (
-                        <div className="w-8 h-8 bg-emerald-100 flex items-center justify-center text-emerald-700">
-                          <Video className="w-4 h-4" />
-                        </div>
-                      ) : m.mimeType.startsWith("audio/") ? (
-                        <div className="w-8 h-8 bg-blue-100 flex items-center justify-center text-blue-700">
-                          <Mic className="w-4 h-4" />
-                        </div>
-                      ) : (
-                        <div className="w-8 h-8 bg-amber-100 flex items-center justify-center text-amber-700">
-                          <ImageIcon className="w-4 h-4" />
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-xs font-semibold text-ccjv-ink truncate max-w-sm">
-                          {m.filename}
-                        </p>
-                        <p className="text-[10px] text-ccjv-ink-secondary">
-                          {m.mimeType} • {(m.sizeBytes / 1024 / 1024).toFixed(1)} Mo
-                        </p>
-                      </div>
-                    </div>
+                /* Mode LISTE avec visualiseur compact */
+                <div className="divide-y divide-ccjv-border border border-ccjv-border">
+                  {filteredCentralMedias.map((m) => {
+                    const isImg = m.mimeType.startsWith("image/");
+                    const isVid = m.mimeType.startsWith("video/");
+                    const isAud = m.mimeType.startsWith("audio/");
 
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleSelectMediaFromLibrary(m)}
-                      className="text-xs"
-                    >
-                      Choisir
-                    </Button>
-                  </div>
-                ))
+                    const isCurrentlySelected =
+                      (modalTargetSlot === "visual" &&
+                        (videoSlot?.mediaId === m.id || imageSlot?.mediaId === m.id)) ||
+                      (modalTargetSlot === "video" && videoSlot?.mediaId === m.id) ||
+                      (modalTargetSlot === "image" && imageSlot?.mediaId === m.id) ||
+                      (modalTargetSlot === "audio" && audioSlot?.mediaId === m.id);
+
+                    return (
+                      <div
+                        key={m.id}
+                        className="p-3 flex items-center justify-between gap-3 hover:bg-ccjv-surface transition-colors"
+                      >
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <div className="w-14 h-14 bg-black/5 shrink-0 overflow-hidden flex items-center justify-center border border-ccjv-border">
+                            {isImg ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={m.url} alt={m.filename} className="w-full h-full object-cover" />
+                            ) : isVid ? (
+                              <Video className="w-6 h-6 text-emerald-700" />
+                            ) : isAud ? (
+                              <Mic className="w-6 h-6 text-blue-700" />
+                            ) : (
+                              <FileText className="w-6 h-6 text-ccjv-ink-muted" />
+                            )}
+                          </div>
+                          <div className="overflow-hidden">
+                            <p className="text-xs font-semibold text-ccjv-ink truncate">{m.filename}</p>
+                            <p className="text-[10px] text-ccjv-ink-secondary">
+                              {m.mimeType} • {(m.sizeBytes / 1024 / 1024).toFixed(1)} Mo
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setInspectingMedia(m)}
+                            className="p-1.5 text-ccjv-ink-secondary hover:text-ccjv-ink border border-ccjv-border"
+                            title="Aperçu agrandi"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={isCurrentlySelected ? "outline" : "primary"}
+                            onClick={() => handleAssignMedia(m)}
+                            className="text-xs"
+                          >
+                            {isCurrentlySelected ? "Assigné" : "Choisir"}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
+            </div>
+
+            {/* Pied du modal */}
+            <div className="p-3 border-t border-ccjv-border bg-ccjv-surface flex items-center justify-between">
+              <span className="text-xs text-ccjv-ink-secondary">
+                {filteredCentralMedias.length} fichier(s) disponible(s)
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsMediaModalOpen(false)}
+                className="text-xs"
+              >
+                Fermer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LIGHTBOX D'INSPECTION COMPLÈTE (APERÇU AGRANDI DU FICHIER) */}
+      {inspectingMedia && (
+        <div className="fixed inset-0 z-60 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-white border border-ccjv-border max-w-2xl w-full flex flex-col overflow-hidden shadow-2xl">
+            <div className="p-3 border-b border-ccjv-border flex items-center justify-between bg-ccjv-surface">
+              <div className="truncate mr-2">
+                <p className="text-xs font-bold text-ccjv-ink truncate">{inspectingMedia.filename}</p>
+                <p className="text-[10px] text-ccjv-ink-secondary">{inspectingMedia.mimeType}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectingMedia(null)}
+                className="p-1 hover:bg-ccjv-border transition-colors"
+              >
+                <X className="w-4 h-4 text-ccjv-ink" />
+              </button>
+            </div>
+
+            <div className="p-4 bg-black/10 flex items-center justify-center max-h-[60vh] overflow-auto">
+              {inspectingMedia.mimeType.startsWith("image/") ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={inspectingMedia.url}
+                  alt={inspectingMedia.filename}
+                  className="max-h-[50vh] max-w-full object-contain"
+                />
+              ) : inspectingMedia.mimeType.startsWith("video/") ? (
+                <video
+                  src={inspectingMedia.url}
+                  controls
+                  autoPlay
+                  className="max-h-[50vh] max-w-full bg-black"
+                />
+              ) : inspectingMedia.mimeType.startsWith("audio/") ? (
+                <div className="p-6 bg-gradient-to-r from-blue-900 to-indigo-900 text-white w-full rounded-none">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Mic className="w-8 h-8 text-blue-300" />
+                    <div>
+                      <p className="text-sm font-bold">{inspectingMedia.filename}</p>
+                      <p className="text-xs text-blue-200">Lecture audio complète</p>
+                    </div>
+                  </div>
+                  <audio controls src={inspectingMedia.url} autoPlay className="w-full" />
+                </div>
+              ) : (
+                <div className="p-8 text-center text-xs text-ccjv-ink-secondary">
+                  <FileText className="w-12 h-12 text-ccjv-ink-muted mx-auto mb-2" />
+                  <p className="font-semibold text-ccjv-ink">{inspectingMedia.filename}</p>
+                  <p className="text-[11px] text-ccjv-ink-secondary mt-1">Fichier documentaire / texte</p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 border-t border-ccjv-border bg-ccjv-surface flex items-center justify-between">
+              <a
+                href={inspectingMedia.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-ccjv-green hover:underline flex items-center gap-1"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Ouvrir le fichier direct</span>
+              </a>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setInspectingMedia(null)}
+                  className="text-xs"
+                >
+                  Fermer
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    handleAssignMedia(inspectingMedia);
+                    setInspectingMedia(null);
+                  }}
+                  className="text-xs"
+                >
+                  Choisir ce média
+                </Button>
+              </div>
             </div>
           </div>
         </div>

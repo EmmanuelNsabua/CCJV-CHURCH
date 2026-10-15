@@ -467,7 +467,7 @@ export interface TeachingMedia {
 export interface Teaching {
   id: string;
   title: string;
-  slug: string;
+  slug: string | null;
   speakerName: string;
   preachedAt: string;
   summary: string | null;

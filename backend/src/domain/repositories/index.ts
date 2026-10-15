@@ -579,7 +579,7 @@ export interface AdminProfileRepository {
 
 export interface CreateTeachingInput {
   title: string;
-  slug: string;
+  slug?: string | null;
   speakerName: string;
   preachedAt: string;
   summary?: string | null;
@@ -589,7 +589,7 @@ export interface CreateTeachingInput {
 
 export interface UpdateTeachingInput {
   title?: string;
-  slug?: string;
+  slug?: string | null;
   speakerName?: string;
   preachedAt?: string;
   summary?: string | null;

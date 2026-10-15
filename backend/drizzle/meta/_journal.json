@@ -71,6 +71,13 @@
       "when": 1791830000000,
       "tag": "0009_teachings",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791840000000,
+      "tag": "0010_teachings_slug_nullable",
+      "breakpoints": true
     }
   ]
 }

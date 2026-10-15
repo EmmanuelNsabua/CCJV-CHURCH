@@ -27,7 +27,7 @@ export const teachings = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     title: varchar("title", { length: 200 }).notNull(),
-    slug: varchar("slug", { length: 220 }).notNull(),
+    slug: varchar("slug", { length: 220 }),
     speakerName: varchar("speaker_name", { length: 150 }).notNull(),
     /** Date du sermon (distincte de published_at). */
     preachedAt: date("preached_at").notNull(),
@@ -43,7 +43,7 @@ export const teachings = pgTable(
       .defaultNow(),
   },
   (table) => [
-    uniqueIndex("teachings_slug_idx").on(table.slug),
+    index("teachings_slug_idx").on(table.slug),
     index("teachings_status_idx").on(table.status),
     index("teachings_preached_at_idx").on(table.preachedAt),
   ],

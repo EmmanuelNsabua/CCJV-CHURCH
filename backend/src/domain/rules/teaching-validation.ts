@@ -154,27 +154,28 @@ export function validateBiblicalReferences(
 }
 
 /**
- * Règle impérative de publication (Section 3.4 & 3.6) :
- * Au moins un média principal valide de type audio ou vidéo doit être associé avant toute publication.
- * Une miniature seule ne satisfait pas cette condition.
+ * Règle impérative de publication :
+ * Au moins un média de type Vidéo ou Image doit être associé avant toute publication (l'audio étant optionnel).
+ * Le média annexé joue le rôle de miniature et de flux.
  */
 export function validateTeachingCanBePublished(
   medias: Array<{ role: string; isPrimary: boolean }>,
 ): void {
-  const hasPrimaryAudioOrVideo = medias.some(
+  const hasValidMedia = medias.some(
     (m) =>
-      m.isPrimary &&
-      (m.role === "VIDEO" || m.role === "AUDIO"),
+      m.role === "VIDEO" ||
+      m.role === "THUMBNAIL" ||
+      m.role === "AUDIO",
   );
 
-  if (!hasPrimaryAudioOrVideo) {
+  if (!hasValidMedia) {
     throw new ValidationError(
-      "Publication impossible : au moins un média principal de type vidéo ou audio doit être associé avant de publier un enseignement",
+      "Publication impossible : au moins un média de type vidéo ou image doit être associé avant de publier un enseignement",
       [
         {
           champ: "medias",
           message:
-            "Un enseignement requiert un média principal AUDIO ou VIDEO pour être publié. Une miniature seule ne suffit pas.",
+            "Un enseignement requiert au moins un média de type Vidéo ou Image pour être publié.",
         },
       ],
     );

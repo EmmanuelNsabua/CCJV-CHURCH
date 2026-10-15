@@ -44,8 +44,9 @@ export default async function EnseignementDetailPage({
   }
 
   // Média principal
-  const primaryMedia = teaching.medias?.find((m) => m.isPrimary);
-  const secondaryMedias = teaching.medias?.filter((m) => !m.isPrimary) || [];
+  const primaryMedia = teaching.medias?.find((m) => m.isPrimary) || teaching.medias?.[0];
+  const audioMedia = teaching.medias?.find((m) => m.role === "AUDIO");
+  const secondaryMedias = teaching.medias?.filter((m) => m !== primaryMedia && m !== audioMedia) || [];
 
   return (
     <article className="min-h-screen bg-ccjv-surface/30">
@@ -98,7 +99,7 @@ export default async function EnseignementDetailPage({
               >
                 Votre navigateur ne prend pas en charge la lecture vidéo.
               </video>
-            ) : (
+            ) : primaryMedia.role === "AUDIO" ? (
               <div className="p-8 sm:p-12 bg-gradient-to-br from-ccjv-ink to-ccjv-ink-secondary text-white flex flex-col items-center justify-center text-center">
                 <Mic className="w-12 h-12 text-ccjv-green mb-4" />
                 <h3 className="font-serif text-xl font-bold mb-2">
@@ -115,11 +116,36 @@ export default async function EnseignementDetailPage({
                   Votre navigateur ne prend pas en charge la lecture audio.
                 </audio>
               </div>
+            ) : (
+              <div className="relative aspect-video max-h-[550px] bg-black flex items-center justify-center overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={primaryMedia.media.publicUrl}
+                  alt={teaching.title}
+                  className="w-full h-full object-contain"
+                />
+              </div>
             )}
           </div>
         ) : (
           <div className="p-8 bg-ccjv-surface border border-ccjv-line text-center text-sm text-ccjv-ink-secondary">
             Média de diffusion en cours de traitement.
+          </div>
+        )}
+
+        {/* Lecteur Audio additionnel si le média principal est une image ou vidéo */}
+        {primaryMedia?.role !== "AUDIO" && audioMedia?.media?.publicUrl && (
+          <div className="mt-4 p-4 bg-white border border-ccjv-line flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200 shrink-0">
+                <Mic className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-ccjv-ink">Enregistrement audio du culte</p>
+                <p className="text-[11px] text-ccjv-ink-secondary">Écouter la prédication</p>
+              </div>
+            </div>
+            <audio controls className="w-full sm:max-w-md h-9" src={audioMedia.media.publicUrl} />
           </div>
         )}
       </section>
