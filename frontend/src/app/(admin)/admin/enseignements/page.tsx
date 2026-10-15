@@ -41,7 +41,7 @@ export default function EnseignementsListPage() {
     try {
       const res = await listEnseignements({
         page: 1,
-        limit: 100,
+        limit: 50,
       });
       setTeachings(res.items || []);
     } catch (err: unknown) {

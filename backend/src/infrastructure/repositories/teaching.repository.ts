@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, ilike, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import type {
   BiblicalReference,
   Teaching,
@@ -24,20 +24,23 @@ import { NotFoundError } from "@/shared/errors/app-error";
 export class DrizzleTeachingRepository implements TeachingRepository {
   constructor(private readonly db: Database) {}
 
-  private async loadFullTeaching(id: string): Promise<Teaching | null> {
-    const [row] = await this.db
-      .select()
-      .from(teachings)
-      .where(eq(teachings.id, id));
+  /**
+   * Hydrate un ensemble d'enseignements avec leurs références bibliques et médias en 2 requêtes groupées.
+   * Supprime le problème N+1 et garantit une complexité O(1) en requêtes réseau.
+   */
+  private async hydrate(rows: (typeof teachings.$inferSelect)[]): Promise<Teaching[]> {
+    if (rows.length === 0) return [];
 
-    if (!row) return null;
+    const ids = rows.map((r) => r.id);
 
+    // Requête groupée pour toutes les références bibliques des IDs demandés
     const refs = await this.db
       .select()
       .from(teachingBiblicalReferences)
-      .where(eq(teachingBiblicalReferences.teachingId, id))
+      .where(inArray(teachingBiblicalReferences.teachingId, ids))
       .orderBy(asc(teachingBiblicalReferences.position));
 
+    // Requête groupée pour tous les médias des IDs demandés
     const mediaRows = await this.db
       .select({
         id: teachingMedia.id,
@@ -54,36 +57,46 @@ export class DrizzleTeachingRepository implements TeachingRepository {
       })
       .from(teachingMedia)
       .leftJoin(media, eq(teachingMedia.mediaId, media.id))
-      .where(eq(teachingMedia.teachingId, id))
+      .where(inArray(teachingMedia.teachingId, ids))
       .orderBy(asc(teachingMedia.position));
 
-    const biblicalReferences: BiblicalReference[] = refs.map((r) => ({
-      id: r.id,
-      teachingId: r.teachingId,
-      book: r.book,
-      startChapter: r.startChapter,
-      startVerse: r.startVerse,
-      endChapter: r.endChapter,
-      endVerse: r.endVerse,
-      position: r.position,
-      createdAt: r.createdAt,
-    }));
+    const refsByTeachingId = new Map<string, BiblicalReference[]>();
+    for (const r of refs) {
+      const list = refsByTeachingId.get(r.teachingId) ?? [];
+      list.push({
+        id: r.id,
+        teachingId: r.teachingId,
+        book: r.book,
+        startChapter: r.startChapter,
+        startVerse: r.startVerse,
+        endChapter: r.endChapter,
+        endVerse: r.endVerse,
+        position: r.position,
+        createdAt: r.createdAt,
+      });
+      refsByTeachingId.set(r.teachingId, list);
+    }
 
-    const medias: TeachingMedia[] = mediaRows.map((m) => ({
-      id: m.id,
-      teachingId: m.teachingId,
-      mediaId: m.mediaId,
-      role: m.role,
-      isPrimary: m.isPrimary,
-      position: m.position,
-      createdAt: m.createdAt,
-      publicUrl: m.publicUrl ?? undefined,
-      mimeType: m.mimeType ?? undefined,
-      sizeBytes: m.sizeBytes ?? undefined,
-      alt: m.alt,
-    }));
+    const mediasByTeachingId = new Map<string, TeachingMedia[]>();
+    for (const m of mediaRows) {
+      const list = mediasByTeachingId.get(m.teachingId) ?? [];
+      list.push({
+        id: m.id,
+        teachingId: m.teachingId,
+        mediaId: m.mediaId,
+        role: m.role,
+        isPrimary: m.isPrimary,
+        position: m.position,
+        createdAt: m.createdAt,
+        publicUrl: m.publicUrl ?? undefined,
+        mimeType: m.mimeType ?? undefined,
+        sizeBytes: m.sizeBytes ?? undefined,
+        alt: m.alt,
+      });
+      mediasByTeachingId.set(m.teachingId, list);
+    }
 
-    return {
+    return rows.map((row) => ({
       id: row.id,
       title: row.title,
       slug: row.slug,
@@ -98,9 +111,20 @@ export class DrizzleTeachingRepository implements TeachingRepository {
       publishedAt: row.publishedAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
-      biblicalReferences,
-      medias,
-    };
+      biblicalReferences: refsByTeachingId.get(row.id) ?? [],
+      medias: mediasByTeachingId.get(row.id) ?? [],
+    }));
+  }
+
+  private async loadFullTeaching(id: string): Promise<Teaching | null> {
+    const [row] = await this.db
+      .select()
+      .from(teachings)
+      .where(eq(teachings.id, id));
+
+    if (!row) return null;
+    const [hydrated] = await this.hydrate([row]);
+    return hydrated ?? null;
   }
 
   async findById(id: string): Promise<Teaching | null> {
@@ -147,18 +171,14 @@ export class DrizzleTeachingRepository implements TeachingRepository {
     const offset = filter.offset ?? 0;
 
     const rows = await this.db
-      .select({ id: teachings.id })
+      .select()
       .from(teachings)
       .where(whereClause)
       .orderBy(desc(teachings.preachedAt), desc(teachings.createdAt))
       .limit(limit)
       .offset(offset);
 
-    const items: Teaching[] = [];
-    for (const row of rows) {
-      const t = await this.loadFullTeaching(row.id);
-      if (t) items.push(t);
-    }
+    const items = await this.hydrate(rows);
 
     return { items, total };
   }

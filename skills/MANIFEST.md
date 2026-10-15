@@ -61,6 +61,13 @@ Ce document consigne la provenance officielle, la licence, les versions de réf�
 - **Rôle dans CCJV :** Détection et élimination des anti-patterns visuels génériques propres aux IA (« AI slop » : emboîtement superflu de cartes, typographie uniforme sans voix, dégradés clichés, textes vagues).
 - **Adaptation CCJV :** Subordonné aux tokens CCJV, aux angles droits stricts (`rounded-none`, 0px) et à la ligne éditoriale ecclésiale en français.
 
+### 2.7. `backend-db-performance`
+- **Chemin local :** [`skills/backend-db-performance/`](file:///c:/Users/HP/desktop/PROJETS%202026/CCJV-CHURCH/skills/backend-db-performance/)
+- **Auteur :** Équipe CCJV
+- **Licence :** MIT
+- **Rôle dans CCJV :** Prévention absolue du problème N+1 SQL, implémentation du pattern de chargement ensembliste (*Batch Hydration*) via `inArray()`, calibrage des limites de requêtes et adaptation des timeouts client HTTP pour éliminer tout risque de `TimeoutError`.
+- **Adaptation CCJV :** Guide impératif pour tout nouveau repository, toute relation 1:N ou N:M et tout endpoint de listing ou de pagination du backend Express.
+
 ---
 
 ## 3. Compétences évaluées et écartées

@@ -129,6 +129,7 @@ Les compétences d'ingénierie sont installées localement dans le dossier :
 | **Composition visuelle sobre, alignement, contraste, typographie, qualité UI** | `frontend-design` | [`skills/frontend-design/SKILL.md`](file:///c:/Users/HP/desktop/PROJETS%202026/CCJV-CHURCH/skills/frontend-design/SKILL.md) |
 | **Patterns de composition de composants modulaires et extensibles** | `composition-patterns` | [`skills/composition-patterns/SKILL.md`](file:///c:/Users/HP/desktop/PROJETS%202026/CCJV-CHURCH/skills/composition-patterns/SKILL.md) |
 | **Tests fonctionnels, validation de formulaires et composants** | `webapp-testing` | [`skills/webapp-testing/SKILL.md`](file:///c:/Users/HP/desktop/PROJETS%202026/CCJV-CHURCH/skills/webapp-testing/SKILL.md) |
+| **Performance DB, élimination N+1, batch hydration, calibrage timeouts** | `backend-db-performance` | [`skills/backend-db-performance/SKILL.md`](file:///c:/Users/HP/desktop/PROJETS%202026/CCJV-CHURCH/skills/backend-db-performance/SKILL.md) |
 
 ### 7.3. Primauté absolue du projet
 Si une recommandation générique issue d'une skill (par exemple l'utilisation d'une bibliothèque tierce, d'un framework CSS externe ou d'un composant tout fait) entre en conflit avec une décision gelée du CCJV (ex. `docs/037`, absence de TanStack Table, angles stricts `rounded-none`), **les règles du projet CCJV prévalent impérativement**.

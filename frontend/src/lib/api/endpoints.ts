@@ -882,6 +882,7 @@ export async function listEnseignements(
         status: query.status,
         search: query.search,
       }),
+      { timeoutMs: 15_000 },
     );
 
     if (payload && "data" in payload && Array.isArray(payload.data)) {
