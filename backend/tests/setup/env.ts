@@ -16,5 +16,13 @@
 
 process.env.NODE_ENV = "test";
 process.env.LOG_LEVEL = "silent";
+process.env.DATABASE_URL =
+  process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/postgres";
+process.env.SUPABASE_URL =
+  process.env.SUPABASE_URL || "https://dummy.supabase.co";
+process.env.SUPABASE_ANON_KEY =
+  process.env.SUPABASE_ANON_KEY || "dummy-anon-key";
+process.env.SUPABASE_SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || "dummy-service-role-key";
 
 export {};

@@ -1,0 +1,107 @@
+name: Backend CI/CD — Railway
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - ".github/workflows/railway-ci-cd.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ===========================================================================
+  #  1. INTÉGRATION CONTINUE (Linting, Typage TypeScript strict, Tests, Build)
+  # ===========================================================================
+  ci:
+    name: Backend CI (Typecheck & Tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      NODE_ENV: test
+      LOG_LEVEL: silent
+      DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/postgres' }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://dummy.supabase.co' }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'dummy-anon-key' }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'dummy-service-role-key' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter (oxlint)
+        run: npm run lint
+
+      - name: Run strict typecheck (tsc)
+        run: npm run typecheck
+
+      - name: Run unit & integration tests (Jest)
+        run: npm test
+
+      - name: Run production build (tsc-alias)
+        run: npm run build
+
+  # ===========================================================================
+  #  2. DÉPLOIEMENT CONTINU SUR RAILWAY
+  # ===========================================================================
+  deploy:
+    name: Deploy to Railway
+    needs: ci
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Check Railway Secret
+        run: |
+          if [ -z "${{ secrets.RAILWAY_TOKEN }}" ]; then
+            echo "::error::Le secret RAILWAY_TOKEN n'est pas encore défini dans GitHub Secrets !"
+            echo "Veuillez définir RAILWAY_TOKEN via: gh secret set RAILWAY_TOKEN"
+            exit 1
+          fi
+
+      - name: Deploy Backend to Railway
+        run: |
+          SERVICE_FLAG=""
+          if [ -n "${{ secrets.RAILWAY_SERVICE_NAME }}" ]; then
+            SERVICE_FLAG="--service ${{ secrets.RAILWAY_SERVICE_NAME }}"
+          elif [ -n "ccjv-api" ]; then
+            SERVICE_FLAG="--service ccjv-api"
+          fi
+          echo "Déploiement du backend sur Railway (service: ${SERVICE_FLAG:-défaut})..."
+          railway up $SERVICE_FLAG --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
