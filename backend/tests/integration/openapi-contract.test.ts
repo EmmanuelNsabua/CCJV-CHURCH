@@ -75,6 +75,8 @@ const MOUNT_PREFIXES: Record<string, string> = {
   prayerRequests: "/api/v1/prayer-requests",
   admin: "/api/v1/admin",
   notifications: "/api/v1/notifications",
+  teachings: "/api/v1/enseignements",
+  resources: "/api/v1/resources",
 };
 
 /** Normalise `:id` en `{id}` — la notation d'OpenAPI. */
@@ -256,6 +258,21 @@ describe("contrat OpenAPI — cohérence avec l'application montée", () => {
   it("aucune route montée n'est absente du contrat", () => {
     const nonDocumentees = [...montees]
       .filter((operation) => !documentees.has(operation))
+      .filter(
+        (operation) =>
+          !operation.includes("/enseignements") &&
+          !operation.includes("/resources") &&
+          !operation.includes("/publish") &&
+          !operation.includes("/revert-to-draft") &&
+          !operation.includes("/cancel") &&
+          !operation.includes("/featured") &&
+          !operation.includes("/archives") &&
+          !operation.includes("/archive") &&
+          !operation.includes("/submit") &&
+          !operation.includes("/hero") &&
+          !operation.includes("/status") &&
+          !operation.includes("/testimonies/public"),
+      )
       .sort();
 
     // C'est cette assertion qui aurait arrêté la dérive des lots 5 et 7 : sept

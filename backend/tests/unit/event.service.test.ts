@@ -44,6 +44,10 @@ function eventFixture(overrides: Partial<Event> = {}): Event {
     excerpt: null,
     eventDate: "2026-05-17",
     eventTime: "09:00",
+    startDate: "2026-05-17",
+    endDate: "2026-05-17",
+    startTime: "09:00",
+    endTime: null,
     location: "Temple central",
     imageMediaId: null,
     bannerMediaId: null,
@@ -53,7 +57,7 @@ function eventFixture(overrides: Partial<Event> = {}): Event {
     departmentId: DEPARTMENT_ID,
     visibilityScope: "DEPARTMENT",
     practicalInfo: null,
-    status: "UPCOMING",
+    status: "DRAFT",
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     updatedAt: new Date("2026-01-01T00:00:00.000Z"),
     ...overrides,
@@ -62,10 +66,6 @@ function eventFixture(overrides: Partial<Event> = {}): Event {
 
 /**
  * Double **en mémoire** du contrat `EventRepository`.
- *
- * Il applique les deux règles que le service délègue explicitement : le slug
- * fourni est celui qui est persisté, et le statut est calculé par
- * `computeEventStatus` — jamais relu d'une colonne.
  */
 function fakeEventRepository(seed: readonly Event[] = []) {
   const store = new Map<string, Event>(seed.map((item) => [item.id, item]));
@@ -110,11 +110,15 @@ function fakeEventRepository(seed: readonly Event[] = []) {
         excerpt: data.excerpt ?? null,
         eventDate: data.eventDate,
         eventTime: data.eventTime ?? null,
+        startDate: data.startDate ?? data.eventDate,
+        endDate: data.endDate ?? data.eventDate,
+        startTime: data.startTime ?? data.eventTime ?? null,
+        endTime: data.endTime ?? null,
         location: data.location ?? null,
         departmentId: data.departmentId ?? null,
+        imageMediaId: data.imageMediaId ?? null,
         practicalInfo: data.practicalInfo ?? null,
-        // Le statut n'est jamais fourni par l'appelant.
-        status: computeEventStatus(data.eventDate),
+        status: data.status ?? "DRAFT",
       });
 
       store.set(created.id, created);
@@ -136,6 +140,30 @@ function fakeEventRepository(seed: readonly Event[] = []) {
         updatedAt: new Date("2026-02-01T00:00:00.000Z"),
       };
 
+      store.set(id, updated);
+      return updated;
+    },
+
+    async publish(id) {
+      const existing = store.get(id);
+      if (!existing) return null;
+      const updated: Event = { ...existing, status: "PUBLISHED", updatedAt: new Date() };
+      store.set(id, updated);
+      return updated;
+    },
+
+    async revertToDraft(id) {
+      const existing = store.get(id);
+      if (!existing) return null;
+      const updated: Event = { ...existing, status: "DRAFT", updatedAt: new Date() };
+      store.set(id, updated);
+      return updated;
+    },
+
+    async cancel(id) {
+      const existing = store.get(id);
+      if (!existing) return null;
+      const updated: Event = { ...existing, status: "CANCELLED", updatedAt: new Date() };
       store.set(id, updated);
       return updated;
     },
@@ -174,6 +202,15 @@ function fakeDepartmentRepository(exists: boolean): DepartmentRepository {
       return nonSollicite();
     },
     async update() {
+      return nonSollicite();
+    },
+    async archiveAndDelete() {
+      return nonSollicite();
+    },
+    async listActivities() {
+      return nonSollicite();
+    },
+    async saveActivities() {
       return nonSollicite();
     },
     async remove() {
@@ -387,24 +424,37 @@ describe("EventService — statut délégué", () => {
     expect(input).not.toHaveProperty("status");
   });
 
-  it("expose le statut calculé par computeEventStatus, pour une date passée", async () => {
+  it("crée un événement au statut DRAFT par défaut", async () => {
     const { repository } = fakeEventRepository();
     const service = new EventService(repository, fakeDepartmentRepository(true));
 
-    const created = await service.create(body({ eventDate: "2020-01-01" }));
+    const created = await service.create(body({ eventDate: "2026-06-01" }));
 
-    expect(created.status).toBe("ARCHIVED");
-    expect(created.status).toBe(computeEventStatus("2020-01-01"));
+    expect(created.status).toBe("DRAFT");
   });
 
-  it("expose le statut calculé par computeEventStatus, pour une date à venir", async () => {
+  it("gère les transitions de cycle de vie (publish, revertToDraft, cancel)", async () => {
     const { repository } = fakeEventRepository();
     const service = new EventService(repository, fakeDepartmentRepository(true));
 
-    const created = await service.create(body({ eventDate: "2099-12-31" }));
+    const created = await service.create(
+      body({
+        title: "Séminaire",
+        eventDate: "2026-08-01",
+        location: "Grand Temple",
+        imageMediaId: "11111111-1111-4111-8111-111111111111",
+      }),
+    );
+    expect(created.status).toBe("DRAFT");
 
-    expect(created.status).toBe("UPCOMING");
-    expect(created.status).toBe(computeEventStatus("2099-12-31"));
+    const published = await service.publish(created.id);
+    expect(published.status).toBe("PUBLISHED");
+
+    const reverted = await service.revertToDraft(created.id);
+    expect(reverted.status).toBe("DRAFT");
+
+    const cancelled = await service.cancel(created.id);
+    expect(cancelled.status).toBe("CANCELLED");
   });
 
   it("transmet les filtres de liste sans injecter de borne `today`", async () => {

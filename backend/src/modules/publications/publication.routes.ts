@@ -36,6 +36,8 @@ export function createPublicationRouter(deps: PublicationRouterDeps): Router {
   const admin = requireAuthenticatedAdmin(deps.authDeps);
 
   // --- Lecture publique (jamais de brouillon) --------------------------------
+  router.get("/featured", controller.featured);
+  router.get("/archives", validate({ query: listPublicationQuerySchema }), controller.archives);
   router.get("/", validate({ query: listPublicationQuerySchema }), controller.list);
   router.get(
     "/:idOrSlug",
@@ -50,6 +52,20 @@ export function createPublicationRouter(deps: PublicationRouterDeps): Router {
     authorize(PublicationPolicy, "CREATE"),
     validate({ body: createPublicationSchema }),
     controller.create,
+  );
+  router.post(
+    "/:idOrSlug/publish",
+    ...admin,
+    authorize(PublicationPolicy, "PUBLISH"),
+    validate({ params: publicationIdOrSlugSchema }),
+    controller.publish,
+  );
+  router.post(
+    "/:idOrSlug/revert-to-draft",
+    ...admin,
+    authorize(PublicationPolicy, "UPDATE"),
+    validate({ params: publicationIdOrSlugSchema }),
+    controller.revertToDraft,
   );
   router.patch(
     "/:idOrSlug",

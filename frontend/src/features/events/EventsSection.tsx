@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { getDepartmentName } from "@/data/mock/departments";
-import { upcomingEvents } from "@/data/mock/events";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type { Event } from "@/types";
 
 export interface EventsSectionProps {
@@ -13,12 +12,18 @@ export interface EventsSectionProps {
   ctaLabel?: string;
   /** Lien du bouton d'action */
   ctaHref?: string;
-  /** Liste des événements à afficher */
-  events?: Event[];
+  /**
+   * Liste des événements à afficher — **requise**.
+   *
+   * Elle vient de `getEvents(...)` : la section ne contient plus aucun jeu de
+   * démonstration, et une liste vide est un fait éditorial qu'elle présente
+   * comme tel (`EmptyState`).
+   */
+  events: Event[];
   /**
    * Noms de départements indexés par identifiant, pour les événements venus de
-   * l'API (qui référence les départements par UUID). Absent, on retombe sur le
-   * référentiel de démonstration.
+   * l'API (qui référence les départements par UUID) : `getDepartments()` côté
+   * page appelante. Sans correspondance, le libellé reste « ÉVÉNEMENT ».
    */
   departmentNames?: Record<string, string>;
   /** Nombre maximum d'événements affichés */
@@ -67,7 +72,7 @@ export function EventsSection({
   description = "Rejoignez-nous et grandissons ensemble ! Découvrez nos prochains rassemblements, cultes, retraites et temps forts.",
   ctaLabel = "VOIR TOUT L'AGENDA",
   ctaHref = "/vie-de-leglise/evenements",
-  events = upcomingEvents,
+  events,
   departmentNames,
   maxEvents = 3,
   tone = "offwhite",
@@ -135,108 +140,114 @@ export function EventsSection({
               Colonne droite : Liste épurée des événements
               ============================================================ */}
           <div className="lg:col-span-7">
-            <div
-              className={cn(
-                "divide-y",
-                isDark ? "divide-white/15" : "divide-ccjv-line",
-              )}
-            >
-              {displayedEvents.map((event) => {
-                const { month, day } = getEventDateParts(event.eventDate);
-                const department =
-                  departmentNames?.[event.departmentId ?? ""] ??
-                  getDepartmentName(event.departmentId);
+            {displayedEvents.length === 0 ? (
+              <EmptyState
+                title="Aucun événement à venir"
+                description="Les prochains rendez-vous publiés depuis le back-office apparaîtront ici."
+              />
+            ) : (
+              <div
+                className={cn(
+                  "divide-y",
+                  isDark ? "divide-white/15" : "divide-ccjv-line",
+                )}
+              >
+                {displayedEvents.map((event) => {
+                  const { month, day } = getEventDateParts(event.eventDate);
+                  const department =
+                    departmentNames?.[event.departmentId ?? ""] ?? "ÉVÉNEMENT";
 
-                return (
-                  <Link
-                    key={event.id}
-                    href={`/vie-de-leglise/evenements/${event.slug}`}
-                    className={cn(
-                      "group flex items-center justify-between gap-6 py-7 md:py-8 transition-colors duration-200",
-                      isDark ? "hover:bg-white/[0.03]" : "hover:bg-black/[0.02]",
-                    )}
-                  >
-                    {/* Bloc Date (Mois / Jour) */}
-                    <div className="flex w-14 flex-shrink-0 flex-col items-center text-center">
-                      <span
-                        className={cn(
-                          "w-full border-b pb-1 font-sans text-[0.78rem] font-semibold tracking-[0.14em] uppercase",
-                          isDark
-                            ? "border-white/25 text-white/70"
-                            : "border-ccjv-ink/30 text-ccjv-ink-secondary",
-                        )}
-                      >
-                        {month}
-                      </span>
-                      <span
-                        className={cn(
-                          "pt-1 font-serif text-2xl md:text-3xl font-bold leading-tight",
-                          isDark ? "text-white" : "text-ccjv-ink",
-                        )}
-                      >
-                        {day}
-                      </span>
-                    </div>
-
-                    {/* Bloc Informations (Catégorie & Titre) */}
-                    <div className="flex-1 pl-2 md:pl-4">
-                      <p
-                        className={cn(
-                          "font-sans text-[0.7rem] font-semibold tracking-[0.18em] uppercase",
-                          isDark ? "text-ccjv-cream" : "text-ccjv-green",
-                        )}
-                      >
-                        {department || "ÉVÉNEMENT"}
-                      </p>
-                      <h3
-                        className={cn(
-                          "mt-1 font-serif text-[clamp(1.2rem,0.9rem+0.8vw,1.55rem)] font-semibold leading-snug transition-colors duration-200",
-                          isDark
-                            ? "text-white group-hover:text-ccjv-cream"
-                            : "text-ccjv-ink group-hover:text-ccjv-green",
-                        )}
-                      >
-                        {event.title}
-                      </h3>
-                      {event.location && (
-                        <p
+                  return (
+                    <Link
+                      key={event.id}
+                      href={`/vie-de-leglise/evenements/${event.slug}`}
+                      className={cn(
+                        "group flex items-center justify-between gap-6 py-7 md:py-8 transition-colors duration-200",
+                        isDark ? "hover:bg-white/[0.03]" : "hover:bg-black/[0.02]",
+                      )}
+                    >
+                      {/* Bloc Date (Mois / Jour) */}
+                      <div className="flex w-14 flex-shrink-0 flex-col items-center text-center">
+                        <span
                           className={cn(
-                            "mt-1 font-sans text-xs",
-                            isDark ? "text-white/55" : "text-ccjv-ink-secondary",
+                            "w-full border-b pb-1 font-sans text-[0.78rem] font-semibold tracking-[0.14em] uppercase",
+                            isDark
+                              ? "border-white/25 text-white/70"
+                              : "border-ccjv-ink/30 text-ccjv-ink-secondary",
                           )}
                         >
-                          {event.eventTime && `${event.eventTime} · `}
-                          {event.location}
-                        </p>
-                      )}
-                    </div>
+                          {month}
+                        </span>
+                        <span
+                          className={cn(
+                            "pt-1 font-serif text-2xl md:text-3xl font-bold leading-tight",
+                            isDark ? "text-white" : "text-ccjv-ink",
+                          )}
+                        >
+                          {day}
+                        </span>
+                      </div>
 
-                    {/* Flèche d'action */}
-                    <div
-                      className={cn(
-                        "flex h-10 w-10 flex-shrink-0 items-center justify-center transition-transform duration-300 group-hover:translate-x-1.5",
-                        isDark ? "text-white" : "text-ccjv-ink",
-                      )}
-                      aria-hidden="true"
-                    >
-                      <svg
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="square"
-                        strokeLinejoin="miter"
+                      {/* Bloc Informations (Catégorie & Titre) */}
+                      <div className="flex-1 pl-2 md:pl-4">
+                        <p
+                          className={cn(
+                            "font-sans text-[0.7rem] font-semibold tracking-[0.18em] uppercase",
+                            isDark ? "text-ccjv-cream" : "text-ccjv-green",
+                          )}
+                        >
+                          {department}
+                        </p>
+                        <h3
+                          className={cn(
+                            "mt-1 font-serif text-[clamp(1.2rem,0.9rem+0.8vw,1.55rem)] font-semibold leading-snug transition-colors duration-200",
+                            isDark
+                              ? "text-white group-hover:text-ccjv-cream"
+                              : "text-ccjv-ink group-hover:text-ccjv-green",
+                          )}
+                        >
+                          {event.title}
+                        </h3>
+                        {event.location && (
+                          <p
+                            className={cn(
+                              "mt-1 font-sans text-xs",
+                              isDark ? "text-white/55" : "text-ccjv-ink-secondary",
+                            )}
+                          >
+                            {event.eventTime && `${event.eventTime} · `}
+                            {event.location}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Flèche d'action */}
+                      <div
+                        className={cn(
+                          "flex h-10 w-10 flex-shrink-0 items-center justify-center transition-transform duration-300 group-hover:translate-x-1.5",
+                          isDark ? "text-white" : "text-ccjv-ink",
+                        )}
+                        aria-hidden="true"
                       >
-                        <path d="M5 12h14" />
-                        <path d="M12 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
+                        <svg
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="square"
+                          strokeLinejoin="miter"
+                        >
+                          <path d="M5 12h14" />
+                          <path d="M12 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

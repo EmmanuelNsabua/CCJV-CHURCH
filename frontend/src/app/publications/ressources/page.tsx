@@ -1,35 +1,36 @@
-import Link from "next/link";
 import { HeroPractical } from "@/components/composition/HeroPractical";
 import { ListingPage } from "@/components/archetypes/ListingPage";
 import { FeatureImage } from "@/components/editorial/FeatureImage";
 import { StepsList, type Step } from "@/components/editorial/StepsList";
 import { CrossLinks, type CrossLink } from "@/components/editorial/CrossLinks";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { getPublications } from "@/lib/api";
-import { images } from "@/data/mock/images";
+import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
+import { getResources, readOrUnavailable } from "@/lib/api/endpoints";
+import { images } from "@/data/images";
 import { formatLongDate } from "@/lib/utils";
 import { pageMetadata } from "@/lib/seo";
+import { FileText, Download } from "lucide-react";
 
 export const metadata = pageMetadata({
-  title: "Ressources",
+  title: "Ressources & Guides",
   description:
-    "Guides d'étude et plans de lecture proposés par le Centre Chrétien Jésus ma Vie pour avancer dans la foi, seul ou en groupe.",
+    "Guides d'étude, livrets et plans de lecture au format PDF proposés par le Centre Chrétien Jésus ma Vie en téléchargement libre.",
   path: "/publications/ressources",
 });
 
-/** Comment se servir d'une ressource — mode d'emploi, sans engagement institutionnel. */
+/** Comment se servir d'une ressource — mode d'emploi. */
 const steps: Step[] = [
   {
-    title: "Choisir selon le moment",
-    text: "Un guide d'étude convient à qui veut reprendre les fondements ; un plan de lecture à qui cherche un rythme régulier. Les deux se lisent directement en ligne.",
+    title: "Téléchargement libre",
+    text: "Toutes les ressources sont disponibles au format PDF. Téléchargez-les directement pour une lecture hors-ligne sur votre téléphone, tablette ou ordinateur.",
   },
   {
     title: "Avancer à son rythme",
-    text: "Ces textes ne fixent aucune cadence. Une séance, un passage, une question : mieux vaut peu, tenu dans le temps, que beaucoup en une fois.",
+    text: "Ces livrets et guides ne fixent aucune cadence. Une séance, un passage, une question : avancez selon votre disponibilité spirituelle.",
   },
   {
-    title: "En parler avec d'autres",
-    text: "Une ressource lue seul prend une autre dimension lorsqu'elle est partagée. Elle peut servir de base à un échange en petit groupe.",
+    title: "Partager avec d'autres",
+    text: "Ces supports peuvent être librement partagés au sein de votre cellule de prière, votre famille ou votre groupe d'étude biblique.",
   },
 ];
 
@@ -52,7 +53,16 @@ const related: CrossLink[] = [
 ];
 
 export default async function RessourcesPage() {
-  const items = await getPublications({ category: "RESSOURCE", limit: 50 });
+  /*
+   * `getResources` ne lève jamais mais renvoie une collection vide aussi bien
+   * quand il n'y a aucun document que quand l'API n'a pas répondu : le résultat
+   * est donc lu par `readOrUnavailable`, qui sépare les deux situations.
+   */
+  const read = await readOrUnavailable((options) =>
+    getResources({ limit: 50 }, options),
+  );
+
+  const items = read.status === "ok" ? read.data.data : [];
   const lead = items[0];
   const others = items.slice(1);
 
@@ -63,45 +73,48 @@ export default async function RessourcesPage() {
         <HeroPractical
           overline="Publications & Médias"
           title="Ressources"
-          intro="Des outils simples pour avancer : guides d'étude et plans de lecture, à lire seul ou en petit groupe. Rien à imprimer, rien à télécharger."
+          intro="Des outils d'édification au format PDF : livrets de jeûne, plans de lecture et guides spirituels en téléchargement direct et sans inscription."
           facts={[
             {
               label: "Ressources disponibles",
-              value: `${items.length}`,
-              hint: "Publiées sur le site à ce jour.",
+              value: read.status === "unreachable" ? "Indisponible" : `${items.length}`,
+              hint: "Documents PDF en accès libre.",
             },
             {
               label: "Format",
-              value: "Textes à lire en ligne",
-              hint: "Aucun document à télécharger n'est proposé pour ces ressources.",
+              value: "Documents PDF",
+              hint: "Téléchargement immédiat et sans authentification.",
             },
             {
               label: "Public",
               value: "Seul ou en groupe",
-              hint: "Ces textes peuvent servir à une lecture personnelle comme à un échange à plusieurs.",
+              hint: "Utilisable pour l'étude personnelle ou les partages fraternels.",
             },
             {
               label: "Dernière parution",
-              value: lead ? formatLongDate(lead.publishedAt) : "À venir",
-              hint: "Les ressources s'ajoutent au fil des publications.",
+              value: lead && lead.createdAt ? formatLongDate(lead.createdAt.slice(0, 10)) : "Régulier",
+              hint: "Ressources mises à jour régulièrement.",
             },
           ]}
         />
       }
       lead={
-        lead ? (
-          <article>
-            <p className="font-sans text-xs font-semibold tracking-[0.2em] text-ccjv-green uppercase">
-              Ressource principale
-            </p>
+        read.status === "unreachable" ? (
+          <ContentUnavailable resource="Les ressources documentaires" />
+        ) : lead ? (
+          <article className="border border-ccjv-line bg-white p-8 sm:p-10">
+            <div className="flex items-center gap-2 text-ccjv-green">
+              <FileText className="h-5 w-5" />
+              <p className="font-sans text-xs font-semibold tracking-[0.2em] uppercase">
+                Document PDF à la une
+              </p>
+            </div>
 
-            <div className="mt-6 grid grid-cols-1 gap-8 border-t border-ccjv-line pt-8 lg:grid-cols-12 lg:gap-16">
-              <div className="lg:col-span-7">
-                <Link href={`/publications/${lead.slug}`} className="group block">
-                  <h2 className="max-w-[24ch] font-serif text-[clamp(1.8rem,1rem+2.4vw,3rem)] leading-[1.08] transition-colors duration-[250ms] group-hover:text-ccjv-green">
-                    {lead.title}
-                  </h2>
-                </Link>
+            <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-16">
+              <div className="lg:col-span-8">
+                <h2 className="font-serif text-[clamp(1.8rem,1rem+2.4vw,3rem)] leading-[1.08] text-ccjv-ink">
+                  {lead.name}
+                </h2>
 
                 {lead.description && (
                   <p className="mt-6 max-w-[62ch] text-[1.0625rem] leading-[1.7] text-ccjv-ink-secondary">
@@ -109,38 +122,38 @@ export default async function RessourcesPage() {
                   </p>
                 )}
 
-                <Link
-                  href={`/publications/${lead.slug}`}
-                  className="mt-7 inline-flex items-center gap-2 font-sans text-[0.9rem] font-medium text-ccjv-green"
-                >
-                  Consulter la ressource
-                  <span aria-hidden="true">→</span>
-                </Link>
+                <div className="mt-8 flex items-center gap-4">
+                  <a
+                    href={lead.file}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2.5 bg-ccjv-green px-6 py-3 font-sans text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                  >
+                    <Download className="h-4 w-4" />
+                    Télécharger le document PDF
+                  </a>
+                </div>
               </div>
 
-              <dl className="lg:col-span-4 lg:col-start-9">
-                <div className="border-t border-ccjv-line py-4">
+              <dl className="lg:col-span-4 lg:col-start-9 border-t border-ccjv-line lg:border-t-0 lg:border-l lg:pl-8">
+                <div className="py-4 first:pt-0">
                   <dt className="font-sans text-[0.68rem] font-semibold tracking-[0.18em] text-ccjv-ink-secondary uppercase">
-                    Publiée le
+                    Disponibilité
                   </dt>
-                  <dd className="mt-1 font-serif text-[1.1rem]">
-                    <time dateTime={lead.publishedAt}>
-                      {formatLongDate(lead.publishedAt)}
-                    </time>
-                  </dd>
+                  <dd className="mt-1 font-serif text-[1.1rem]">Accès libre</dd>
                 </div>
                 <div className="border-t border-ccjv-line py-4">
                   <dt className="font-sans text-[0.68rem] font-semibold tracking-[0.18em] text-ccjv-ink-secondary uppercase">
-                    Rubrique
+                    Format de fichier
                   </dt>
-                  <dd className="mt-1 font-serif text-[1.1rem]">Ressources</dd>
+                  <dd className="mt-1 font-serif text-[1.1rem]">PDF téléchargeable</dd>
                 </div>
-                <div className="border-y border-ccjv-line py-4">
+                <div className="border-t border-ccjv-line py-4">
                   <dt className="font-sans text-[0.68rem] font-semibold tracking-[0.18em] text-ccjv-ink-secondary uppercase">
-                    Lecture
+                    Ajouté le
                   </dt>
                   <dd className="mt-1 font-serif text-[1.1rem]">
-                    Directement en ligne
+                    {lead.createdAt ? formatLongDate(lead.createdAt.slice(0, 10)) : "Récemment"}
                   </dd>
                 </div>
               </dl>
@@ -148,44 +161,48 @@ export default async function RessourcesPage() {
           </article>
         ) : (
           <EmptyState
-            title="Aucune ressource pour le moment"
-            description="Les ressources publiées depuis le back-office apparaîtront ici."
+            title="Aucun document pour le moment"
+            description="Les ressources et livrets PDF mis en ligne apparaîtront ici."
           />
         )
       }
-      listTitle="Autres ressources"
+      listTitle="Autres ressources documentaires"
       list={
-        others.length > 0 ? (
+        read.status === "unreachable" ? (
+          <ContentUnavailable resource="La liste des ressources" />
+        ) : others.length > 0 ? (
           <ul className="border-t border-ccjv-line">
             {others.map((item) => (
               <li key={item.id} className="border-b border-ccjv-line">
-                <Link
-                  href={`/publications/${item.slug}`}
-                  className="group grid grid-cols-1 gap-3 py-7 sm:grid-cols-12 sm:items-baseline sm:gap-6"
-                >
+                <div className="group grid grid-cols-1 gap-3 py-7 sm:grid-cols-12 sm:items-baseline sm:gap-6">
                   <time
-                    dateTime={item.publishedAt}
+                    dateTime={item.createdAt}
                     className="font-sans text-[0.78rem] text-ccjv-ink-secondary sm:col-span-3"
                   >
-                    {formatLongDate(item.publishedAt)}
+                    {item.createdAt ? formatLongDate(item.createdAt.slice(0, 10)) : "—"}
                   </time>
-                  <span className="sm:col-span-7">
-                    <span className="block font-serif text-[1.3rem] leading-snug transition-colors duration-[250ms] group-hover:text-ccjv-green">
-                      {item.title}
-                    </span>
+                  <div className="sm:col-span-6">
+                    <h3 className="font-serif text-[1.3rem] leading-snug text-ccjv-ink">
+                      {item.name}
+                    </h3>
                     {item.description && (
-                      <span className="mt-2 block max-w-[62ch] font-sans text-[0.92rem] leading-relaxed text-ccjv-ink-secondary">
+                      <p className="mt-2 max-w-[62ch] font-sans text-[0.92rem] leading-relaxed text-ccjv-ink-secondary">
                         {item.description}
-                      </span>
+                      </p>
                     )}
-                  </span>
-                  <span
-                    className="font-sans text-[0.85rem] font-medium text-ccjv-green sm:col-span-2 sm:text-right"
-                    aria-hidden="true"
-                  >
-                    Consulter →
-                  </span>
-                </Link>
+                  </div>
+                  <div className="sm:col-span-3 sm:text-right">
+                    <a
+                      href={item.file}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 font-sans text-[0.85rem] font-medium text-ccjv-green hover:underline"
+                    >
+                      <Download className="h-4 w-4" />
+                      Télécharger (PDF)
+                    </a>
+                  </div>
+                </div>
               </li>
             ))}
           </ul>

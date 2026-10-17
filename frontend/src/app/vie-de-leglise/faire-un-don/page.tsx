@@ -3,8 +3,8 @@ import Link from "next/link";
 import { CrossMark } from "@/components/shared/CrossMark";
 import { Reveal } from "@/components/shared/Reveal";
 import { ParallaxImage } from "@/components/shared/ParallaxImage";
-import { site } from "@/data/mock/site";
-import { images } from "@/data/mock/images";
+import { site } from "@/data/site";
+import { images } from "@/data/images";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({

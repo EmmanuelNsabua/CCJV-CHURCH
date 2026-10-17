@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { departments as mockDepartments } from "@/data/mock/departments";
-import { leaders as mockLeaders } from "@/data/mock/leaders";
-import { images } from "@/data/mock/images";
-import { site } from "@/data/mock/site";
+import { images } from "@/data/images";
+import { site } from "@/data/site";
 import { pageMetadata } from "@/lib/seo";
 import { Button } from "@/components/ui/Button";
+import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { VerseSection } from "@/components/shared/VerseSection";
 import { CrossMark } from "@/components/shared/CrossMark";
+import { getDepartments, getLeaders } from "@/lib/api";
+import { readOrUnavailable } from "@/lib/api/endpoints";
 import { OrganisationExplorer } from "./OrganisationExplorer";
 
 export const metadata: Metadata = pageMetadata({
@@ -17,12 +19,23 @@ export const metadata: Metadata = pageMetadata({
   path: "/organisation",
 });
 
-export default function OrganisationPage() {
-  /** Les 10 départements officiels CCJV et l'ensemble des coordinateurs */
-  const departments = mockDepartments;
-  const leaders = mockLeaders;
+/**
+ * Page Organisation : les départements et les responsables viennent tous deux
+ * de l'API. Aucun référentiel de démonstration ne s'y substitue : une réponse
+ * vide produit un état vide, une lecture impossible un état d'indisponibilité.
+ */
+export default async function OrganisationPage() {
+  const [departmentsRead, leadersRead] = await Promise.all([
+    readOrUnavailable((options) => getDepartments(options)),
+    readOrUnavailable((options) => getLeaders(options)),
+  ]);
 
-  /** Le responsable visionnaire et les coordinateurs de pôles */
+  /** Départements officiels CCJV, dans l'ordre défini par le back-office. */
+  const departments =
+    departmentsRead.status === "ok" ? departmentsRead.data : [];
+  const leaders = leadersRead.status === "ok" ? leadersRead.data : [];
+
+  /** Le responsable visionnaire et les coordinateurs de pôles. */
   const [leadPastor, ...teamLeaders] = leaders;
 
   return (
@@ -145,72 +158,97 @@ export default function OrganisationPage() {
           </div>
 
           {/* Grille : Portrait pastoral dominant à gauche + Coordinateurs synthétiques à droite */}
-          <div className="mt-14 grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16 items-start">
-            {/* Responsable Visionnaire (Pasteur) */}
-            <div className="lg:col-span-5 lg:sticky lg:top-28">
-              {leadPastor && (
-                <div className="border border-ccjv-line bg-ccjv-cream p-6 sm:p-8">
-                  <div className="relative aspect-[3/4] w-full overflow-hidden bg-ccjv-line">
-                    <Image
-                      src={leadPastor.photo ?? images.portraitLarge}
-                      alt={leadPastor.name}
-                      fill
-                      sizes="(max-width: 1024px) 100vw, 40vw"
-                      className="object-cover"
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <h3 className="font-serif text-2xl text-ccjv-ink">
-                      {leadPastor.name}
-                    </h3>
-                    <p className="mt-0.5 font-sans text-sm font-medium text-ccjv-green">
-                      {leadPastor.role}
-                    </p>
-
-                    <p className="mt-3 font-sans text-sm leading-[1.65] text-ccjv-ink-secondary">
-                      {leadPastor.bio || "Affermir l'assemblée dans la foi, la prière et l'amour fraternel."}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Coordinateurs : Présentation visuelle pour chaque pôle */}
-            <div className="lg:col-span-7">
-              <h3 className="font-serif text-xl sm:text-2xl text-ccjv-ink mb-6">
-                La coordination des pôles
-              </h3>
-
-              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                {teamLeaders.map((ldr) => (
-                  <div
-                    key={ldr.id}
-                    className="flex items-center gap-3.5 border border-ccjv-line bg-white p-3.5 transition-colors hover:border-ccjv-green/40"
-                  >
-                    <div className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 overflow-hidden border border-ccjv-line bg-ccjv-line">
-                      <Image
-                        src={ldr.photo ?? images.portraitB}
-                        alt={ldr.name}
-                        fill
-                        sizes="80px"
-                        className="object-cover"
-                      />
+          {leadersRead.status === "unreachable" ? (
+            <ContentUnavailable className="mt-14" resource="Les responsables" />
+          ) : leaders.length === 0 ? (
+            <EmptyState
+              className="mt-14"
+              title="Aucun responsable publié pour le moment"
+              description="Les responsables et coordinateurs publiés depuis le back-office apparaîtront ici."
+            />
+          ) : (
+            <div className="mt-14 grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16 items-start">
+              {/* Responsable Visionnaire (Pasteur) */}
+              <div className="lg:col-span-5 lg:sticky lg:top-28">
+                {leadPastor && (
+                  <div className="border border-ccjv-line bg-ccjv-cream p-6 sm:p-8">
+                    {/* Sans portrait rattaché côté API, le cadre reste vide :
+                        emprunter le visage d'une autre personne serait pire. */}
+                    <div className="relative aspect-[3/4] w-full overflow-hidden bg-ccjv-line">
+                      {leadPastor.photo && (
+                        <Image
+                          src={leadPastor.photo}
+                          alt={leadPastor.name}
+                          fill
+                          sizes="(max-width: 1024px) 100vw, 40vw"
+                          className="object-cover"
+                        />
+                      )}
                     </div>
 
-                    <div className="min-w-0 flex-1">
-                      <h4 className="mt-0.5 font-serif text-[0.95rem] font-semibold text-ccjv-ink truncate">
-                        {ldr.name}
-                      </h4>
-                      <p className="font-sans text-[0.78rem] text-ccjv-ink-secondary truncate">
-                        {ldr.role}
+                    <div className="mt-6">
+                      <h3 className="font-serif text-2xl text-ccjv-ink">
+                        {leadPastor.name}
+                      </h3>
+                      <p className="mt-0.5 font-sans text-sm font-medium text-ccjv-green">
+                        {leadPastor.role}
                       </p>
+
+                      {leadPastor.bio && (
+                        <p className="mt-3 font-sans text-sm leading-[1.65] text-ccjv-ink-secondary">
+                          {leadPastor.bio}
+                        </p>
+                      )}
                     </div>
                   </div>
-                ))}
+                )}
+              </div>
+
+              {/* Coordinateurs : Présentation visuelle pour chaque pôle */}
+              <div className="lg:col-span-7">
+                <h3 className="font-serif text-xl sm:text-2xl text-ccjv-ink mb-6">
+                  La coordination des pôles
+                </h3>
+
+                {teamLeaders.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                    {teamLeaders.map((ldr) => (
+                      <div
+                        key={ldr.id}
+                        className="flex items-center gap-3.5 border border-ccjv-line bg-white p-3.5 transition-colors hover:border-ccjv-green/40"
+                      >
+                        <div className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 overflow-hidden border border-ccjv-line bg-ccjv-line">
+                          {ldr.photo && (
+                            <Image
+                              src={ldr.photo}
+                              alt={ldr.name}
+                              fill
+                              sizes="80px"
+                              className="object-cover"
+                            />
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <h4 className="mt-0.5 font-serif text-[0.95rem] font-semibold text-ccjv-ink truncate">
+                            {ldr.name}
+                          </h4>
+                          <p className="font-sans text-[0.78rem] text-ccjv-ink-secondary truncate">
+                            {ldr.role}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    title="Aucun coordinateur de pôle publié pour le moment"
+                    description="Les coordinateurs publiés depuis le back-office apparaîtront ici."
+                  />
+                )}
               </div>
             </div>
-          </div>
+          )}
         </div>
       </section>
 
@@ -271,8 +309,12 @@ export default function OrganisationPage() {
             </p>
           </div>
 
-          {/* Rendu dynamique et épuré des 10 départements */}
-          <OrganisationExplorer departments={departments} />
+          {/* Rendu dynamique et épuré des départements servis par l'API */}
+          {departmentsRead.status === "unreachable" ? (
+            <ContentUnavailable className="mt-16" resource="Les départements" />
+          ) : (
+            <OrganisationExplorer departments={departments} />
+          )}
         </div>
       </section>
 

@@ -1,8 +1,16 @@
 import type { Metadata } from "next";
 import { Inter, Lora } from "next/font/google";
 import { PublicSiteChrome } from "@/components/layout/PublicSiteChrome";
+import { getScripture, getSettings } from "@/lib/api";
+import type { SocialLink } from "@/lib/api";
+/*
+ * `readOrUnavailable` n'est pas réexporté par le barrel `@/lib/api` ; il est
+ * importé depuis son module d'origine plutôt que de modifier un fichier hors
+ * périmètre. C'est le même client, aucune couche parallèle.
+ */
+import { readOrUnavailable } from "@/lib/api/endpoints";
 import { defaultTitle, siteUrl } from "@/lib/seo";
-import { site } from "@/data/mock/site";
+import { site } from "@/data/site";
 import "./globals.css";
 
 const inter = Inter({
@@ -40,14 +48,41 @@ export const metadata: Metadata = {
  */
 const introScript = `try{var e=document.documentElement;if(sessionStorage.getItem("ccjv-intro")==="1"){e.classList.add("intro-seen")}else{sessionStorage.setItem("ccjv-intro","1")}}catch(t){}`;
 
-export default function RootLayout({
+/**
+ * Racine du site public.
+ *
+ * `PublicSiteChrome` (Header, menu plein écran, rideau d'introduction, Footer)
+ * est un composant client : ses données institutionnelles — liens sociaux et
+ * verset du rideau — sont donc lues **ici, côté serveur**, puis descendent en
+ * props. Aucun appel réseau n'est fait dans le navigateur.
+ *
+ * Aucun repli de démonstration : une lecture impossible laisse la donnée
+ * absente (`socialLinks` vide, verset `null`) et l'élément concerné n'est pas
+ * rendu — il n'est jamais remplacé par un contenu inventé.
+ */
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const [reglages, verset] = await Promise.all([
+    readOrUnavailable((o) => getSettings(o)),
+    readOrUnavailable((o) => getScripture("rassemblement", o)),
+  ]);
+
+  const socialLinks: SocialLink[] =
+    reglages.status === "ok" && reglages.data !== null
+      ? reglages.data.socialLinks
+      : [];
+
   return (
     <html lang="fr" className={`${inter.variable} ${lora.variable}`} suppressHydrationWarning>
       <body suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{ __html: introScript }} />
-        <PublicSiteChrome>{children}</PublicSiteChrome>
+        <PublicSiteChrome
+          socialLinks={socialLinks}
+          verse={verset.status === "ok" ? verset.data : null}
+        >
+          {children}
+        </PublicSiteChrome>
       </body>
     </html>
   );

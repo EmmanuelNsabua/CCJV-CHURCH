@@ -5,6 +5,7 @@ import { authorize, DepartmentPolicy } from "@/presentation/policies";
 import { validate } from "@/presentation/middlewares/validate";
 import { createDepartmentController } from "./department.controller";
 import {
+  archiveDepartmentSchema,
   createDepartmentSchema,
   departmentIdOrSlugSchema,
   listDepartmentQuerySchema,
@@ -60,6 +61,16 @@ export function createDepartmentRouter(deps: DepartmentRouterDeps): Router {
       body: updateDepartmentSchema,
     }),
     controller.update,
+  );
+  router.post(
+    "/:idOrSlug/archive",
+    ...admin,
+    authorize(DepartmentPolicy, "DELETE"),
+    validate({
+      params: departmentIdOrSlugSchema,
+      body: archiveDepartmentSchema,
+    }),
+    controller.archive,
   );
   router.delete(
     "/:idOrSlug",

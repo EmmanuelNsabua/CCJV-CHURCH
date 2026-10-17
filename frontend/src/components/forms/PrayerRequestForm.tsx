@@ -2,9 +2,25 @@
 
 import { useState } from "react";
 import { CrossMark } from "@/components/shared/CrossMark";
-import { site } from "@/data/mock/site";
+import { site } from "@/data/site";
 
-export function PrayerRequestForm() {
+/**
+ * Verset d'encouragement affiché après l'envoi d'une demande.
+ *
+ * Fourni par la page appelante, qui est un composant serveur et le lit depuis
+ * l'API (`getScripture`). Aucun texte biblique n'est codé en dur ici : sans
+ * verset configuré côté back-office, le bloc n'est simplement pas rendu.
+ */
+export interface PrayerRequestVerse {
+  text: string;
+  reference: string;
+}
+
+export function PrayerRequestForm({
+  verse = null,
+}: {
+  verse?: PrayerRequestVerse | null;
+}) {
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [request, setRequest] = useState("");
@@ -54,10 +70,11 @@ export function PrayerRequestForm() {
           la portera fidèlement dans la prière dès aujourd&apos;hui.
         </p>
 
-        <p className="mt-4 font-serif text-base italic text-ccjv-green">
-          « Que la paix de Dieu, qui surpasse toute intelligence, garde votre
-          cœur et vos pensées. »
-        </p>
+        {verse && (
+          <p className="mt-4 font-serif text-base italic text-ccjv-green">
+            «&nbsp;{verse.text}&nbsp;»
+          </p>
+        )}
 
         <div className="mt-8 flex flex-wrap justify-center gap-4">
           <button

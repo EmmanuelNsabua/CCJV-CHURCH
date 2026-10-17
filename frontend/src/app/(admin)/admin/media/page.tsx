@@ -11,12 +11,11 @@ import {
   Copy,
   Trash2,
   Check,
-  Search,
   ExternalLink,
 } from "lucide-react";
 import { listAdminMedia, uploadAdminMedia, deleteAdminMedia } from "@/lib/api/endpoints";
 import type { AdminMediaItem } from "@/lib/api/types";
-import { Input } from "@/components/admin/forms/Input";
+import { Select } from "@/components/admin/forms/Select";
 
 export default function MediaLibraryPage() {
   const toast = useToast();
@@ -25,7 +24,7 @@ export default function MediaLibraryPage() {
   const [mediaList, setMediaList] = useState<AdminMediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
-  const [search, setSearch] = useState("");
+  const [selectedMediaType, setSelectedMediaType] = useState<string>("ALL");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const [itemToDelete, setItemToDelete] = useState<AdminMediaItem | null>(null);
@@ -94,10 +93,16 @@ export default function MediaLibraryPage() {
     }
   };
 
-
-  const filteredMedia = mediaList.filter((m) =>
-    search ? (m.filename || m.url || "").toLowerCase().includes(search.toLowerCase()) : true,
-  );
+  const filteredMedia = mediaList.filter((m) => {
+    if (selectedMediaType === "ALL") return true;
+    if (selectedMediaType === "IMAGE") {
+      return (
+        m.mimeType?.startsWith("image/") ||
+        /\.(jpe?g|png|webp|gif|svg|avif)$/i.test(m.filename || m.url || "")
+      );
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
@@ -128,19 +133,22 @@ export default function MediaLibraryPage() {
         }
       />
 
-      {/* Barre de recherche */}
-      <div className="p-4 bg-white border border-ccjv-line rounded-none flex items-center gap-3">
-        <div className="relative flex-1">
-          <Input
-            type="search"
-            placeholder="Rechercher un média par nom ou URL..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+      {/* Barre de filtre (sans barre de recherche) 
+      <div className="p-4 bg-white border border-ccjv-line rounded-none flex items-center justify-between gap-3">
+        <div className="w-full sm:w-64">
+          <Select
+            value={selectedMediaType}
+            onChange={(e) => setSelectedMediaType(e.target.value)}
+            options={[
+              { label: "Tous les types de fichiers", value: "ALL" },
+              { label: "Images uniquement (JPEG, PNG, WebP...)", value: "IMAGE" },
+            ]}
           />
-          <Search className="absolute left-3 top-3 h-4 w-4 text-ccjv-ink-secondary pointer-events-none" />
         </div>
-      </div>
+        <div className="text-xs text-ccjv-ink-secondary">
+          {filteredMedia.length} fichier{filteredMedia.length > 1 ? "s" : ""}
+        </div>
+      </div>*/}
 
       {/* Grille des médias */}
       {isLoading ? (

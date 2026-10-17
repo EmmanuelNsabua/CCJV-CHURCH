@@ -11,6 +11,7 @@ import {
   DuplicateSlugError,
   ForbiddenError,
   NotFoundError,
+  ValidationError,
 } from "@/shared/errors/app-error";
 import { toOffset } from "@/shared/http/pagination";
 import { slugify, uniqueSlug } from "@/shared/utils/slug";
@@ -113,8 +114,11 @@ export class EventService {
   async list(query: EventListQuery): Promise<ListResult<Event>> {
     return this.events.list(
       { limit: query.limit, offset: toOffset(query.page, query.limit) },
-      // `today` n'est pas transmis : le repository prend la date du jour.
-      { status: query.status, departmentId: query.departmentId },
+      {
+        status: query.status,
+        view: query.view,
+        departmentId: query.departmentId,
+      },
       query.sort,
     );
   }
@@ -127,18 +131,115 @@ export class EventService {
   async create(data: CreateEventBody): Promise<Event> {
     const { slug: requestedSlug, ...input } = data;
 
-    await this.assertDepartmentExists(input.departmentId);
+    const startDate = input.startDate ?? input.eventDate;
+    if (!startDate) {
+      throw new ValidationError("La date de début est obligatoire");
+    }
+
+    const endDate = input.endDate ?? startDate;
+    if (endDate < startDate) {
+      throw new ValidationError("La date de fin ne peut pas être antérieure à la date de début");
+    }
+
+    // Si l'événement est créé directement en statut PUBLISHED, valider les prérequis
+    if (input.status === "PUBLISHED") {
+      this.assertPublishConditions({
+        title: input.title,
+        startDate,
+        endDate,
+        location: input.location,
+        imageMediaId: input.imageMediaId,
+      });
+    }
+
+    if (input.departmentId) {
+      await this.assertDepartmentExists(input.departmentId);
+    }
 
     const slug = await this.resolveSlug(input.title, requestedSlug);
-    return this.events.create(input, slug);
+    return this.events.create(
+      {
+        ...input,
+        startDate,
+        eventDate: startDate,
+        endDate,
+        eventTime: input.startTime ?? input.eventTime ?? null,
+        startTime: input.startTime ?? input.eventTime ?? null,
+        endTime: input.endTime ?? null,
+      },
+      slug,
+    );
   }
 
+  /**
+   * Publication d'un événement avec vérification stricte des conditions requises (§4.3).
+   */
+  async publish(idOrSlug: string): Promise<Event> {
+    const existing = await this.require(idOrSlug);
+
+    this.assertPublishConditions({
+      title: existing.title,
+      startDate: existing.startDate,
+      endDate: existing.endDate,
+      location: existing.location,
+      imageMediaId: existing.imageMediaId,
+    });
+
+    const published = await this.events.publish(existing.id);
+    if (!published) {
+      throw notFound(idOrSlug);
+    }
+    return published;
+  }
+
+  /**
+   * Repasse un événement publié en brouillon avant modification (§4.4).
+   */
+  async revertToDraft(idOrSlug: string): Promise<Event> {
+    const existing = await this.require(idOrSlug);
+    const updated = await this.events.revertToDraft(existing.id);
+    if (!updated) {
+      throw notFound(idOrSlug);
+    }
+    return updated;
+  }
+
+  /**
+   * Annulation d'un événement (§4.5).
+   * L'événement annulé conserve sa fiche et reste visible dans l'agenda avec la mention « Annulé ».
+   */
+  async cancel(idOrSlug: string): Promise<Event> {
+    const existing = await this.require(idOrSlug);
+    const updated = await this.events.cancel(existing.id);
+    if (!updated) {
+      throw notFound(idOrSlug);
+    }
+    return updated;
+  }
+
+  /**
+   * Modification d'un événement.
+   * Règle §4.4 : Toute modification d'un envent publié exige son retour au brouillon avant les changements.
+   */
   async update(idOrSlug: string, data: UpdateEventBody): Promise<Event> {
     const existing = await this.require(idOrSlug);
 
-    // Un `departmentId` absent (`undefined`) laisse le rattachement intact ;
-    // `null` le supprime explicitement — l'événement redevient général.
-    await this.assertDepartmentExists(data.departmentId);
+    // Règle §4.4 : interdire la modification directe d'un événement publié sans repasser par le brouillon
+    if (existing.status === "PUBLISHED" && data.status !== "DRAFT") {
+      throw new ValidationError(
+        "Un événement publié ne peut pas être modifié directement. Veuillez d'abord le repasser en brouillon.",
+      );
+    }
+
+    if (data.departmentId !== undefined) {
+      await this.assertDepartmentExists(data.departmentId);
+    }
+
+    const startDate = data.startDate ?? data.eventDate ?? existing.startDate;
+    const endDate = data.endDate ?? existing.endDate;
+    if (startDate && endDate && endDate < startDate) {
+      throw new ValidationError("La date de fin ne peut pas être antérieure à la date de début");
+    }
 
     const updated = await this.events.update(existing.id, data);
     if (updated === null) {
@@ -154,6 +255,34 @@ export class EventService {
     const removed = await this.events.remove(existing.id);
     if (!removed) {
       throw notFound(idOrSlug);
+    }
+  }
+
+  /** Conditions impératives pour publier un événement (§4.3) */
+  private assertPublishConditions(event: {
+    title?: string;
+    startDate?: string;
+    endDate?: string;
+    location?: string | null;
+    imageMediaId?: string | null;
+  }): void {
+    if (!event.title || event.title.trim().length < 2) {
+      throw new ValidationError("Un titre valide est requis pour publier un événement");
+    }
+    if (!event.startDate) {
+      throw new ValidationError("Une date de début est requise pour publier un événement");
+    }
+    if (!event.endDate) {
+      throw new ValidationError("Une date de fin est requise pour publier un événement");
+    }
+    if (event.endDate < event.startDate) {
+      throw new ValidationError("La date de fin ne peut pas précéder la date de début");
+    }
+    if (!event.location || event.location.trim().length === 0) {
+      throw new ValidationError("Un lieu est obligatoire pour publier un événement");
+    }
+    if (!event.imageMediaId) {
+      throw new ValidationError("Une miniature issue de la bibliothèque est obligatoire pour publier un événement");
     }
   }
 

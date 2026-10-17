@@ -8,10 +8,13 @@ import { ScriptureBlock } from "@/components/editorial/ScriptureBlock";
 import { ContentPending } from "@/components/editorial/ContentPending";
 import { CrossLinks, type CrossLink } from "@/components/editorial/CrossLinks";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { listEnseignements, getPublications } from "@/lib/api/endpoints";
-import { photoPool } from "@/data/mock/images";
-import { verses } from "@/data/mock/verses";
-import { formatLongDate } from "@/lib/utils";
+import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
+import {
+  getScriptures,
+  listEnseignements,
+  readOrUnavailable,
+} from "@/lib/api/endpoints";
+import { formatLongDate, getYouTubeId } from "@/lib/utils";
 import { pageMetadata } from "@/lib/seo";
 import { Video, Mic, BookOpen } from "lucide-react";
 import type { BiblicalReferenceRecord } from "@/lib/api/types";
@@ -52,18 +55,60 @@ function formatBiblicalReference(ref: BiblicalReferenceRecord): string {
 }
 
 export default async function EnseignementsPage() {
-  // Récupérer les prédications publiées du modèle métier Enseignement
-  const teachingsRes = await listEnseignements({ limit: 50 });
-  const teachings = teachingsRes.items;
+  /*
+   * Source réelle : les enseignements publiés (`listEnseignements`) et le verset
+   * éditorial de l'API (`getScriptures`). Aucune publication de secours ne vient
+   * remplacer une liste vide : un message absent de l'API n'est pas affiché.
+   *
+   * `listEnseignements` absorbe les pannes (il renvoie une liste vide), tandis
+   * que la lecture des versets, elle, signale l'échec. C'est cette seconde
+   * lecture qui permet de ne pas présenter une API injoignable comme « aucun
+   * enseignement publié ».
+   */
+  const [teachingsRes, scripturesRead] = await Promise.all([
+    listEnseignements({ limit: 50 }),
+    readOrUnavailable((options) => getScriptures(options)),
+  ]);
 
-  // Récupération facultative des publications génériques de secours si aucun enseignement n'est encore publié
-  const legacyPublications =
-    teachings.length === 0
-      ? await getPublications({ category: "ENSEIGNEMENT", limit: 50 })
-      : [];
+  const teachings = teachingsRes.items;
+  const verse =
+    scripturesRead.status === "ok"
+      ? scripturesRead.data.find((scripture) => scripture.key === "parole")
+      : undefined;
+
+  /*
+   * « Rien de publié » ou « on n'a pas pu lire » ? Une liste vide n'a de sens
+   * que si l'API a répondu : c'est donc le signal d'échec porté par la lecture
+   * des versets qui tranche. Quand des messages sont bel et bien revenus, ils
+   * sont affichés — seul le verset manquant est omis.
+   */
+  const teachingsUnavailable =
+    teachings.length === 0 && scripturesRead.status === "unreachable";
 
   const featuredTeaching = teachings[0];
   const primaryMedia = featuredTeaching?.medias?.find((m) => m.isPrimary);
+  const primaryMediaUrl = primaryMedia?.media?.publicUrl;
+
+  /*
+   * `MediaFeature` présente la vidéo comme regardable **sur YouTube** : on ne
+   * l'utilise donc que pour un média réellement hébergé sur YouTube. Un média
+   * hébergé ailleurs est présenté par sa fiche, où il est lu par le lecteur de
+   * la page — plutôt que sous une promesse qui ne correspondrait pas.
+   */
+  const primaryMediaOnYouTube = primaryMediaUrl
+    ? Boolean(getYouTubeId(primaryMediaUrl))
+    : false;
+
+  /** Vignettes réelles des messages publiés — aucune image d'emprunt. */
+  const thumbnails = teachings.flatMap((teaching) => {
+    const thumbnail = teaching.medias.find((media) => media.role === "THUMBNAIL");
+    const url = thumbnail?.media?.publicUrl;
+    return url ? [{ url, title: teaching.title }] : [];
+  });
+
+  const featuredMeta = featuredTeaching
+    ? [featuredTeaching.speakerName, formatLongDate(featuredTeaching.preachedAt)].join(" · ")
+    : "";
 
   return (
     <MediaPage
@@ -76,9 +121,9 @@ export default async function EnseignementsPage() {
           intro="Les messages et prédications donnés à l'assemblée du Centre Chrétien Jésus ma Vie. On vient ici pour écouter, méditer les Écritures et grandir dans la foi."
           aside={
             <p className="font-sans text-[0.8rem] text-ccjv-ink-secondary">
-              {teachings.length > 0
-                ? `${teachings.length} message${teachings.length > 1 ? "s" : ""} publié${teachings.length > 1 ? "s" : ""}`
-                : `${legacyPublications.length} message${legacyPublications.length > 1 ? "s" : ""}`}
+              {teachingsUnavailable
+                ? "Le nombre de messages publiés n'a pas pu être lu."
+                : `${teachings.length} message${teachings.length > 1 ? "s" : ""} publié${teachings.length > 1 ? "s" : ""}`}
               {featuredTeaching
                 ? ` · le plus récent le ${formatLongDate(featuredTeaching.preachedAt)}`
                 : ""}
@@ -87,15 +132,49 @@ export default async function EnseignementsPage() {
         />
       }
       featured={
-        featuredTeaching && primaryMedia?.media?.publicUrl ? (
+        teachingsUnavailable ? (
+          <ContentUnavailable resource="Les enseignements" />
+        ) : featuredTeaching && primaryMediaUrl && primaryMediaOnYouTube ? (
           <MediaFeature
             variant="hero"
-            href={`/publications/enseignements/${featuredTeaching.slug}`}
+            href={primaryMediaUrl}
             title={featuredTeaching.title}
             excerpt={featuredTeaching.summary || featuredTeaching.description || undefined}
             author={featuredTeaching.speakerName}
             date={formatLongDate(featuredTeaching.preachedAt)}
           />
+        ) : featuredTeaching ? (
+          /* Message publié sans vidéo YouTube : on le met en avant sans faux lecteur. */
+          <div className="border-t border-ccjv-line pt-10">
+            <p className="font-sans text-[0.7rem] font-semibold tracking-[0.2em] text-ccjv-green uppercase">
+              Dernier enseignement
+            </p>
+            <Link
+              href={`/publications/enseignements/${featuredTeaching.slug}`}
+              className="group mt-5 block"
+            >
+              <h3 className="max-w-[30ch] font-serif text-[clamp(1.7rem,1rem+1.9vw,2.6rem)] leading-[1.12] transition-colors duration-[250ms] group-hover:text-ccjv-green">
+                {featuredTeaching.title}
+              </h3>
+            </Link>
+            {(featuredTeaching.summary || featuredTeaching.description) && (
+              <p className="mt-6 max-w-[60ch] text-[1.02rem] leading-[1.7] text-ccjv-ink-secondary">
+                {featuredTeaching.summary || featuredTeaching.description}
+              </p>
+            )}
+            <p className="mt-6 font-sans text-[0.88rem] text-ccjv-ink-secondary">
+              {featuredMeta}
+            </p>
+            <Link
+              href={`/publications/enseignements/${featuredTeaching.slug}`}
+              className="group mt-8 inline-flex items-center gap-3 border border-ccjv-ink px-6 py-3 font-sans text-[0.9rem] font-medium transition-colors duration-[250ms] hover:border-ccjv-green hover:text-ccjv-green"
+            >
+              Lire la fiche du message
+              <span aria-hidden="true" className="transition-transform duration-[250ms] group-hover:translate-x-1">
+                →
+              </span>
+            </Link>
+          </div>
         ) : (
           <EmptyState
             title="Aucun enseignement pour le moment"
@@ -105,7 +184,9 @@ export default async function EnseignementsPage() {
       }
       listingTitle="Toutes les prédications"
       listing={
-        teachings.length > 0 ? (
+        teachingsUnavailable ? (
+          <ContentUnavailable resource="La liste des prédications" />
+        ) : teachings.length > 0 ? (
           <>
             <div className="mb-12 grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-16">
               <div className="lg:col-span-4">
@@ -118,14 +199,16 @@ export default async function EnseignementsPage() {
                 </Prose>
               </div>
 
-              <div className="lg:col-span-5 lg:col-start-8">
-                <ScriptureBlock
-                  variant="inline"
-                  context="Pourquoi nous revenons à la Parole"
-                  text={verses.parole.text}
-                  reference={verses.parole.reference}
-                />
-              </div>
+              {verse && (
+                <div className="lg:col-span-5 lg:col-start-8">
+                  <ScriptureBlock
+                    variant="inline"
+                    context={verse.context ?? "Pourquoi nous revenons à la Parole"}
+                    text={verse.text}
+                    reference={verse.reference}
+                  />
+                </div>
+              )}
             </div>
 
             <ul className="border-t border-ccjv-line">
@@ -203,56 +286,6 @@ export default async function EnseignementsPage() {
               })}
             </ul>
           </>
-        ) : legacyPublications.length > 0 ? (
-          <ul className="border-t border-ccjv-line">
-            {legacyPublications.map((publication) => (
-              <li key={publication.id} className="border-b border-ccjv-line">
-                <div className="grid grid-cols-1 gap-3 py-7 sm:grid-cols-12 sm:items-baseline sm:gap-6">
-                  <time
-                    dateTime={publication.publishedAt}
-                    className="font-sans text-[0.78rem] text-ccjv-ink-secondary sm:col-span-2"
-                  >
-                    {formatLongDate(publication.publishedAt)}
-                  </time>
-
-                  <div className="sm:col-span-6">
-                    <Link
-                      href={`/publications/${publication.slug}`}
-                      className="font-serif text-[1.3rem] leading-snug transition-colors duration-[250ms] hover:text-ccjv-green"
-                    >
-                      {publication.title}
-                    </Link>
-                    {publication.description && (
-                      <p className="mt-2 max-w-[62ch] font-sans text-[0.92rem] leading-relaxed text-ccjv-ink-secondary">
-                        {publication.description}
-                      </p>
-                    )}
-                  </div>
-
-                  <p className="font-sans text-[0.85rem] text-ccjv-ink-secondary sm:col-span-2">
-                    {publication.author ?? "Auteur non renseigné"}
-                  </p>
-
-                  <p className="sm:col-span-2 sm:text-right">
-                    {publication.type === "VIDEO" && publication.contentUrl ? (
-                      <a
-                        href={publication.contentUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-sans text-[0.85rem] font-medium text-ccjv-green underline decoration-1 underline-offset-4"
-                      >
-                        YouTube ↗
-                      </a>
-                    ) : (
-                      <span className="font-sans text-[0.85rem] text-ccjv-ink-secondary">
-                        Vidéo à venir
-                      </span>
-                    )}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
         ) : (
           <EmptyState
             title="Aucune prédication publiée"
@@ -261,7 +294,16 @@ export default async function EnseignementsPage() {
         )
       }
       galleryTitle="En images"
-      gallery={<PhotoGallery variant="strip" images={photoPool.slice(0, 3)} />}
+      /* Vignettes réellement rattachées aux messages publiés ; sinon, pas de bande. */
+      gallery={
+        thumbnails.length > 0 ? (
+          <PhotoGallery
+            variant="strip"
+            images={thumbnails.slice(0, 6).map((thumbnail) => thumbnail.url)}
+            captions={thumbnails.slice(0, 6).map((thumbnail) => thumbnail.title)}
+          />
+        ) : undefined
+      }
       collectionsTitle="Séries et thèmes"
       collections={
         <ContentPending

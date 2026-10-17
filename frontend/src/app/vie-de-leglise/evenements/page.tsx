@@ -3,8 +3,15 @@ import Link from "next/link";
 import { CrossMark } from "@/components/shared/CrossMark";
 import { VerseSection } from "@/components/shared/VerseSection";
 import { Reveal } from "@/components/shared/Reveal";
-import { getDepartments, getEvents } from "@/lib/api";
-import { images } from "@/data/mock/images";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
+import {
+  getDepartments,
+  getEvents,
+  getSchedule,
+  readOrUnavailable,
+} from "@/lib/api/endpoints";
+import { images } from "@/data/images";
 import { pageMetadata } from "@/lib/seo";
 import { formatLongDate, formatDay, formatMonthShort, formatYear } from "@/lib/utils";
 
@@ -17,15 +24,34 @@ export const metadata = pageMetadata({
 
 export default async function EvenementsPage() {
   /*
-   * `status` est calculé par l'API depuis la date : le frontend ne recalcule
-   * plus « à venir / passé ». Les collections arrivent vides si l'API est
-   * injoignable, et les sections concernées sont alors simplement omises.
+   * `status` (à venir / passé) est **calculé par l'API** depuis la date : le
+   * frontend ne recalcule rien. On interroge `status: "UPCOMING"` plutôt que
+   * `view: "UPCOMING"` : le filtre déployé est strict et `view` n'y est pas
+   * encore accepté (400), alors que `status` porte exactement la même
+   * sémantique côté serveur — sur le déploiement actuel comme sur le suivant.
+   *
+   * Les horaires du rythme hebdomadaire viennent de `getSchedule()` : aucune
+   * heure n'est codée en dur ici.
+   *
+   * Chaque lecture est évaluée séparément — « rien à afficher » et « on n'a pas
+   * pu lire » mènent à deux présentations différentes.
    */
-  const [upcomingEvents, archivedEvents, departments] = await Promise.all([
-    getEvents({ status: "UPCOMING", limit: 50 }),
-    getEvents({ status: "ARCHIVED", sort: "-event_date", limit: 50 }),
-    getDepartments(),
-  ]);
+  const [upcomingRead, archivedRead, departmentsRead, scheduleRead] =
+    await Promise.all([
+      readOrUnavailable((options) =>
+        getEvents({ status: "UPCOMING", limit: 50 }, options),
+      ),
+      readOrUnavailable((options) =>
+        getEvents({ status: "ARCHIVED", sort: "-event_date", limit: 50 }, options),
+      ),
+      readOrUnavailable((options) => getDepartments(options)),
+      readOrUnavailable((options) => getSchedule(options)),
+    ]);
+
+  const upcomingEvents = upcomingRead.status === "ok" ? upcomingRead.data : [];
+  const archivedEvents = archivedRead.status === "ok" ? archivedRead.data : [];
+  const departments = departmentsRead.status === "ok" ? departmentsRead.data : [];
+  const schedule = scheduleRead.status === "ok" ? scheduleRead.data : [];
 
   const [leadEvent, ...otherEvents] = upcomingEvents;
   const [firstUpcoming, ...subsequentEvents] = otherEvents;
@@ -77,33 +103,7 @@ export default async function EvenementsPage() {
     },
   ];
 
-  // Rythme récurrent de la semaine
-  const weeklyRhythm = [
-    {
-      day: "MERCREDI",
-      time: "18:00",
-      title: "Étude biblique & Intercession",
-      location: "Temple CCJV",
-      type: "Enseignement",
-      description: "Méditation collective des Écritures et temps de prière pour la communauté.",
-    },
-    {
-      day: "VENDREDI",
-      time: "17:00",
-      title: "Répétition de la chorale",
-      location: "Temple CCJV",
-      type: "Louange & Musique",
-      description: "Préparation vocale, instrumentale et consécration dans la prière.",
-    },
-    {
-      day: "DIMANCHE",
-      time: "09:00",
-      title: "Culte Dominical & Ecodim",
-      location: "Grand Temple CCJV",
-      type: "Célébration générale",
-      description: "Le grand rassemblement de la famille CCJV : louange, prédication et culte des enfants.",
-    },
-  ];
+  // Rythme récurrent de la semaine — horaires réels servis par l'API
 
   return (
     <div className="bg-ccjv-offwhite text-ccjv-ink selection:bg-ccjv-cream selection:text-ccjv-ink">
@@ -199,44 +199,66 @@ export default async function EvenementsPage() {
       {/* =========================================================================
           03 — SECTION : LE PROCHAIN RENDEZ-VOUS (AFFICHE ÉDITORIALE MAJEURE)
           ========================================================================= */}
-      {leadEvent && (
-        <section
-          id="a-venir"
-          className="relative scroll-mt-24 border-y border-ccjv-line bg-white py-16 lg:py-24"
-          aria-labelledby="featured-event-title"
-        >
-          <div className="container">
-            <Reveal>
-              <h2
-                id="featured-event-title"
-                className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.4rem)] font-normal tracking-[-0.02em] leading-tight"
-              >
-                Le prochain rendez-vous.
-              </h2>
-            </Reveal>
+      <section
+        id="a-venir"
+        className="relative scroll-mt-24 border-y border-ccjv-line bg-white py-16 lg:py-24"
+        aria-labelledby="featured-event-title"
+      >
+        <div className="container">
+          <Reveal>
+            <h2
+              id="featured-event-title"
+              className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.4rem)] font-normal tracking-[-0.02em] leading-tight"
+            >
+              Le prochain rendez-vous.
+            </h2>
+          </Reveal>
 
-            {/* Affiche numérique éditoriale */}
+          {upcomingRead.status === "unreachable" ? (
+            <ContentUnavailable
+              className="mt-10 lg:mt-14"
+              resource="Les prochains rendez-vous"
+            />
+          ) : leadEvent ? (
+            /* Affiche numérique éditoriale */
             <Reveal delay={80} className="mt-10 lg:mt-14">
               <div className="grid grid-cols-1 overflow-hidden border border-ccjv-line bg-ccjv-offwhite shadow-sm lg:grid-cols-12">
-                {/* Colonne visuelle (Grande photo narrative) */}
-                <div className="relative aspect-[16/10] w-full overflow-hidden bg-ccjv-line lg:col-span-7 lg:aspect-auto lg:min-h-[440px]">
-                  <Image
-                    src={leadEvent.imageUrl || images.assemblee}
-                    alt={leadEvent.title}
-                    fill
-                    sizes="(max-width: 1024px) 100vw, 60vw"
-                    className="object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent lg:hidden" />
+                {/* Colonne visuelle — uniquement si l'événement a réellement une photo */}
+                {leadEvent.imageUrl && (
+                  <div className="relative aspect-[16/10] w-full overflow-hidden bg-ccjv-line lg:col-span-7 lg:aspect-auto lg:min-h-[440px]">
+                    <Image
+                      src={leadEvent.imageUrl}
+                      alt={leadEvent.title}
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 60vw"
+                      className="object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent lg:hidden" />
 
-                  {/* Badge département sur l'image */}
-                  <div className="absolute top-5 left-5 bg-ccjv-black px-3.5 py-1.5 font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-cream uppercase">
-                    {departmentName(leadEvent.departmentId) || "Événement Majeur"}
+                    {/* Badge département et mention Annulé sur l'image */}
+                    <div className="absolute top-5 left-5 flex items-center gap-2">
+                      {leadEvent.lifecycleStatus === "CANCELLED" && (
+                        <span className="bg-red-700 px-3.5 py-1.5 font-sans text-xs font-bold tracking-[0.16em] text-white uppercase">
+                          Annulé
+                        </span>
+                      )}
+                      {departmentName(leadEvent.departmentId) && (
+                        <div className="bg-ccjv-black px-3.5 py-1.5 font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-cream uppercase">
+                          {departmentName(leadEvent.departmentId)}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Colonne textuelle & Date forte */}
-                <div className="flex flex-col justify-between p-8 sm:p-10 lg:col-span-5 lg:p-12">
+                {/* Colonne textuelle & Date forte — pleine largeur sans photographie */}
+                <div
+                  className={
+                    leadEvent.imageUrl
+                      ? "flex flex-col justify-between p-8 sm:p-10 lg:col-span-5 lg:p-12"
+                      : "flex flex-col justify-between p-8 sm:p-10 lg:col-span-12 lg:p-12"
+                  }
+                >
                   <div>
                     {/* Date typographique monumentale */}
                     <div className="flex items-baseline gap-3 border-b border-ccjv-line pb-6">
@@ -258,22 +280,31 @@ export default async function EvenementsPage() {
                       {leadEvent.title}
                     </h3>
 
-                    <p className="mt-4 font-sans text-sm leading-relaxed text-ccjv-ink-secondary">
-                      {leadEvent.description || leadEvent.excerpt}
-                    </p>
+                    {(leadEvent.description || leadEvent.excerpt) && (
+                      <p className="mt-4 font-sans text-sm leading-relaxed text-ccjv-ink-secondary">
+                        {leadEvent.description || leadEvent.excerpt}
+                      </p>
+                    )}
 
                     {/* Détails pratiques concis (Horaires & Lieu) */}
                     <div className="mt-6 flex flex-col gap-2 font-sans text-xs text-ccjv-ink">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-ccjv-green">Quand :</span>
                         <span>
-                          {formatLongDate(leadEvent.eventDate)} à {leadEvent.eventTime}
+                          {[
+                            formatLongDate(leadEvent.eventDate),
+                            leadEvent.eventTime,
+                          ]
+                            .filter(Boolean)
+                            .join(" à ")}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-ccjv-green">Lieu :</span>
-                        <span>{leadEvent.location}</span>
-                      </div>
+                      {leadEvent.location && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-ccjv-green">Lieu :</span>
+                          <span>{leadEvent.location}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -289,9 +320,15 @@ export default async function EvenementsPage() {
                 </div>
               </div>
             </Reveal>
-          </div>
-        </section>
-      )}
+          ) : (
+            <EmptyState
+              className="mt-10 lg:mt-14"
+              title="Aucun rendez-vous programmé"
+              description="Les prochains événements publiés depuis le back-office apparaîtront ici."
+            />
+          )}
+        </div>
+      </section>
 
       {/* =========================================================================
           04 — SECTION : CE QUI ARRIVE BIENTÔT (STICKY À GAUCHE, SCROLLABLE À DROITE)
@@ -332,8 +369,17 @@ export default async function EvenementsPage() {
                             sizes="(max-width: 1024px) 100vw, 66vw"
                             className="object-cover"
                           />
-                          <div className="absolute top-4 left-4 bg-black/85 px-3 py-1 font-sans text-xs font-semibold tracking-[0.14em] text-white uppercase backdrop-blur-xs">
-                            {departmentName(firstUpcoming.departmentId) || "Vie de l'église"}
+                          <div className="absolute top-4 left-4 flex items-center gap-2">
+                            {firstUpcoming.lifecycleStatus === "CANCELLED" && (
+                              <span className="bg-red-700 px-3 py-1 font-sans text-xs font-bold tracking-[0.14em] text-white uppercase">
+                                Annulé
+                              </span>
+                            )}
+                            {departmentName(firstUpcoming.departmentId) && (
+                              <div className="bg-black/85 px-3 py-1 font-sans text-xs font-semibold tracking-[0.14em] text-white uppercase backdrop-blur-xs">
+                                {departmentName(firstUpcoming.departmentId)}
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
@@ -392,8 +438,17 @@ export default async function EvenementsPage() {
                                 sizes="(max-width: 1024px) 100vw, 30vw"
                                 className="object-cover"
                               />
-                              <div className="absolute top-2.5 left-2.5 bg-black/80 px-2.5 py-0.5 font-sans text-[0.62rem] font-semibold tracking-[0.14em] text-white uppercase backdrop-blur-xs">
-                                {dept || "Vie de l'église"}
+                              <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                                {event.lifecycleStatus === "CANCELLED" && (
+                                  <span className="bg-red-700 px-2 py-0.5 font-sans text-[0.62rem] font-bold tracking-[0.14em] text-white uppercase">
+                                    Annulé
+                                  </span>
+                                )}
+                                {dept && (
+                                  <div className="bg-black/80 px-2.5 py-0.5 font-sans text-[0.62rem] font-semibold tracking-[0.14em] text-white uppercase backdrop-blur-xs">
+                                    {dept}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )}
@@ -519,38 +574,54 @@ export default async function EvenementsPage() {
             </p>
           </Reveal>
 
-          {/* Timeline / Liste rythmée */}
-          <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-3">
-            {weeklyRhythm.map((item, i) => (
-              <Reveal key={item.day} delay={i * 80}>
-                <div className="flex h-full flex-col justify-between border border-ccjv-line bg-ccjv-offwhite p-8">
-                  <div>
-                    <div className="flex items-center justify-between border-b border-ccjv-line pb-4">
-                      <span className="font-sans text-xs font-bold tracking-[0.2em] text-ccjv-green uppercase">
-                        {item.day}
-                      </span>
-                      <span className="font-serif text-lg font-bold text-ccjv-ink">
-                        {item.time}
-                      </span>
+          {/* Timeline / Liste rythmée — horaires servis par l'API */}
+          {scheduleRead.status === "unreachable" ? (
+            <ContentUnavailable
+              className="mt-12"
+              resource="Le rythme hebdomadaire"
+            />
+          ) : schedule.length > 0 ? (
+            <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-3">
+              {schedule.map((item, i) => (
+                <Reveal key={item.id} delay={i * 80}>
+                  <div className="flex h-full flex-col justify-between border border-ccjv-line bg-ccjv-offwhite p-8">
+                    <div>
+                      <div className="flex items-center justify-between border-b border-ccjv-line pb-4">
+                        <span className="font-sans text-xs font-bold tracking-[0.2em] text-ccjv-green uppercase">
+                          {item.day}
+                        </span>
+                        <span className="font-serif text-lg font-bold text-ccjv-ink">
+                          {item.timeLabel}
+                        </span>
+                      </div>
+
+                      <h3 className="mt-5 font-serif text-xl font-semibold leading-snug">
+                        {item.title}
+                      </h3>
+
+                      {item.audience && (
+                        <p className="mt-3 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
+                          {item.audience}
+                        </p>
+                      )}
                     </div>
 
-                    <h3 className="mt-5 font-serif text-xl font-semibold leading-snug">
-                      {item.title}
-                    </h3>
-
-                    <p className="mt-3 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
-                      {item.description}
-                    </p>
+                    <div className="mt-6 flex items-center justify-between pt-4 border-t border-ccjv-line font-sans text-xs text-ccjv-ink-secondary">
+                      <span className="text-ccjv-green font-medium">
+                        {item.isConfirmed ? "Horaire confirmé" : "Horaire provisoire"}
+                      </span>
+                    </div>
                   </div>
-
-                  <div className="mt-6 flex items-center justify-between pt-4 border-t border-ccjv-line font-sans text-xs text-ccjv-ink-secondary">
-                    <span>📍 {item.location}</span>
-                    <span className="text-ccjv-green font-medium">{item.type}</span>
-                  </div>
-                </div>
-              </Reveal>
-            ))}
-          </div>
+                </Reveal>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              className="mt-12"
+              title="Aucun horaire publié"
+              description="Le rythme des rencontres hebdomadaires apparaîtra ici dès sa publication."
+            />
+          )}
         </div>
       </section>
 
@@ -619,53 +690,61 @@ export default async function EvenementsPage() {
             </p>
           </Reveal>
 
-          <div className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-3">
-            {departments.map((dept, index) => (
-              <Reveal key={dept.id} delay={index * 80}>
-                <div className="flex h-full flex-col justify-between border border-ccjv-line bg-white p-6 sm:p-8 shadow-xs">
-                  <div>
-                    <div className="relative mb-6 aspect-[4/3] w-full overflow-hidden bg-ccjv-line">
-                      <Image
-                        src={dept.bannerImage || "/media/ccjv-27.jpeg"}
-                        alt={dept.name}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 33vw"
-                        className="object-cover"
-                      />
+          {departmentsRead.status === "unreachable" ? (
+            <ContentUnavailable className="mt-12" resource="Les ministères" />
+          ) : departments.length > 0 ? (
+            <div className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-3">
+              {departments.map((dept, index) => (
+                <Reveal key={dept.id} delay={index * 80}>
+                  <div className="flex h-full flex-col justify-between border border-ccjv-line bg-white p-6 sm:p-8 shadow-xs">
+                    <div>
+                      {dept.bannerImage && (
+                        <div className="relative mb-6 aspect-[4/3] w-full overflow-hidden bg-ccjv-line">
+                          <Image
+                            src={dept.bannerImage}
+                            alt={dept.name}
+                            fill
+                            sizes="(max-width: 768px) 100vw, 33vw"
+                            className="object-cover"
+                          />
+                        </div>
+                      )}
+
+                      <h3 className="font-serif text-2xl font-semibold leading-snug">
+                        {dept.name}
+                      </h3>
+
+                      {dept.tagline && (
+                        <p className="mt-3 font-sans text-xs font-medium text-ccjv-green">
+                          {dept.tagline}
+                        </p>
+                      )}
+
+                      {dept.description && (
+                        <p className="mt-3 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
+                          {dept.description}
+                        </p>
+                      )}
                     </div>
 
-                    <h3 className="font-serif text-2xl font-semibold leading-snug">
-                      {dept.name}
-                    </h3>
-
-                    <p className="mt-3 font-sans text-xs font-medium text-ccjv-green">
-                      {dept.tagline}
-                    </p>
-
-                    <p className="mt-3 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
-                      {dept.description}
-                    </p>
+                    <div className="mt-8 pt-6 border-t border-ccjv-line">
+                      <Link
+                        href={`/organisation#${dept.slug}`}
+                        className="font-sans text-xs font-bold tracking-[0.14em] text-ccjv-ink uppercase underline underline-offset-4 transition-colors hover:text-ccjv-green"
+                      >
+                        Découvrir ce département →
+                      </Link>
+                    </div>
                   </div>
-
-                  <div className="mt-8 pt-6 border-t border-ccjv-line">
-                    <Link
-                      href={`/organisation#${dept.slug}`}
-                      className="font-sans text-xs font-bold tracking-[0.14em] text-ccjv-ink uppercase underline underline-offset-4 transition-colors hover:text-ccjv-green"
-                    >
-                      Découvrir ce département →
-                    </Link>
-                  </div>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-
-          {departments.length === 0 && (
-            <p className="mt-12 border-t border-ccjv-line pt-8 font-sans text-sm text-ccjv-ink-secondary">
-              La présentation des ministères n&apos;est pas disponible pour le
-              moment. Vous pouvez nous écrire : nous vous orienterons vers le
-              département qui correspond à votre place.
-            </p>
+                </Reveal>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              className="mt-12"
+              title="Aucun ministère publié"
+              description="La présentation des départements apparaîtra ici dès sa publication. Vous pouvez aussi nous écrire : nous vous orienterons vers le département qui correspond à votre place."
+            />
           )}
         </div>
       </section>
@@ -673,7 +752,27 @@ export default async function EvenementsPage() {
       {/* =========================================================================
           09 — SECTION : MOMENTS VÉCUS (MÉMOIRE VISUELLE & ARCHIVES)
           ========================================================================= */}
-      {archivedEvents.length > 0 && (
+      {archivedRead.status === "unreachable" ? (
+        <section
+          className="relative border-t border-ccjv-line bg-white py-16 lg:py-24"
+          aria-labelledby="archived-events-title"
+        >
+          <div className="container">
+            <Reveal>
+              <h2
+                id="archived-events-title"
+                className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight"
+              >
+                Les moments vécus ensemble.
+              </h2>
+            </Reveal>
+            <ContentUnavailable
+              className="mt-12"
+              resource="Les événements passés"
+            />
+          </div>
+        </section>
+      ) : archivedEvents.length > 0 && (
         <section
           className="relative border-t border-ccjv-line bg-white py-16 lg:py-24"
           aria-labelledby="archived-events-title"
@@ -700,24 +799,28 @@ export default async function EvenementsPage() {
                     href={`/vie-de-leglise/evenements/${event.slug}`}
                     className="group flex flex-col border border-ccjv-line bg-ccjv-offwhite p-5 transition-all duration-300 hover:border-ccjv-green"
                   >
-                    <div className="relative mb-4 aspect-[16/10] w-full overflow-hidden bg-ccjv-line">
-                      <Image
-                        src={event.imageUrl || "/media/ccjv-11.jpeg"}
-                        alt={event.title}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 33vw"
-                        className="object-cover"
-                      />
-                    </div>
+                    {event.imageUrl && (
+                      <div className="relative mb-4 aspect-[16/10] w-full overflow-hidden bg-ccjv-line">
+                        <Image
+                          src={event.imageUrl}
+                          alt={event.title}
+                          fill
+                          sizes="(max-width: 768px) 100vw, 33vw"
+                          className="object-cover"
+                        />
+                      </div>
+                    )}
                     <span className="font-sans text-[0.7rem] font-semibold tracking-[0.14em] text-ccjv-green uppercase">
                       {formatLongDate(event.eventDate)}
                     </span>
                     <h3 className="mt-2 font-serif text-lg font-semibold text-ccjv-ink group-hover:text-ccjv-green transition-colors">
                       {event.title}
                     </h3>
-                    <p className="mt-2 font-sans text-xs leading-relaxed text-ccjv-ink-secondary line-clamp-2">
-                      {event.excerpt || event.description}
-                    </p>
+                    {(event.excerpt || event.description) && (
+                      <p className="mt-2 font-sans text-xs leading-relaxed text-ccjv-ink-secondary line-clamp-2">
+                        {event.excerpt || event.description}
+                      </p>
+                    )}
                   </Link>
                 </Reveal>
               ))}

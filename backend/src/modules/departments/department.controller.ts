@@ -57,11 +57,30 @@ export function createDepartmentController(service: DepartmentService) {
       sendItem(res, toDepartmentDto(await service.update(idOrSlug, body)));
     },
 
-    /** `DELETE /:idOrSlug` — administration : suppression. */
+    /** `POST /:idOrSlug/archive` — administration : archivage explicite. */
+    async archive(req: Request, res: Response): Promise<void> {
+      const { idOrSlug } = validatedParams<DepartmentIdOrSlugParams>(req);
+      const user = (req as unknown as { user?: { id?: string } }).user;
+      const body = req.body as { reason?: string | null };
+
+      const archived = await service.archive(idOrSlug, {
+        archivedBy: user?.id ?? null,
+        reason: body?.reason ?? null,
+      });
+
+      sendItem(res, archived, 200);
+    },
+
+    /** `DELETE /:idOrSlug` — administration : archivage préalable puis suppression. */
     async remove(req: Request, res: Response): Promise<void> {
       const { idOrSlug } = validatedParams<DepartmentIdOrSlugParams>(req);
+      const user = (req as unknown as { user?: { id?: string } }).user;
+      const body = req.body as { reason?: string | null } | undefined;
 
-      await service.remove(idOrSlug);
+      await service.archive(idOrSlug, {
+        archivedBy: user?.id ?? null,
+        reason: body?.reason ?? "Suppression administrative",
+      });
       sendNoContent(res);
     },
   };

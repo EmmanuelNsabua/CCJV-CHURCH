@@ -1,7 +1,9 @@
 import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getEnseignement } from "@/lib/api/endpoints";
+import { getEnseignement, getScriptures, readOrUnavailable } from "@/lib/api/endpoints";
+import type { EnseignementRecord } from "@/lib/api/types";
+import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
 import { formatLongDate } from "@/lib/utils";
 import { ArrowLeft, BookOpen, Calendar, User, Video, Mic, FileText, Download } from "lucide-react";
 import { pageMetadata } from "@/lib/seo";
@@ -11,18 +13,48 @@ interface EnseignementDetailPageProps {
   params: Promise<{ slug: string }>;
 }
 
+/**
+ * Panne ou absence ? `getEnseignement` ne lève jamais : il renvoie `null` aussi
+ * bien quand la prédication n'existe pas que quand l'API est injoignable, et il
+ * n'accepte pas encore les options de lecture publique qui portent `onFailure`.
+ * Une seconde lecture — sur l'API publique — dit si le serveur répond : « on
+ * n'a pas pu lire » ne doit jamais se présenter comme « cette prédication
+ * n'existe pas ».
+ */
+type TeachingRead =
+  | { status: "ok"; data: EnseignementRecord }
+  | { status: "missing" }
+  | { status: "unreachable" };
+
+async function readTeaching(slug: string): Promise<TeachingRead> {
+  const teaching = await getEnseignement(slug);
+  if (teaching !== null) return { status: "ok", data: teaching };
+
+  const apiRead = await readOrUnavailable((options) => getScriptures(options));
+
+  return apiRead.status === "ok"
+    ? { status: "missing" }
+    : { status: "unreachable" };
+}
+
 export async function generateMetadata({
   params,
 }: EnseignementDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const teaching = await getEnseignement(slug);
-  if (!teaching) {
+  const read = await readTeaching(slug);
+
+  /* Aucune métadonnée n'est affirmée sur un contenu qu'on n'a pas pu lire. */
+  if (read.status === "unreachable") return {};
+
+  if (read.status === "missing") {
     return pageMetadata({
       title: "Enseignement introuvable",
       description: "La prédication demandée n'existe pas ou n'est plus publiée.",
       path: "/publications/enseignements",
     });
   }
+
+  const teaching = read.data;
 
   return pageMetadata({
     title: `${teaching.title} — Prédication`,
@@ -37,11 +69,19 @@ export default async function EnseignementDetailPage({
   params,
 }: EnseignementDetailPageProps) {
   const { slug } = await params;
-  const teaching = await getEnseignement(slug);
+  const read = await readTeaching(slug);
 
-  if (!teaching) {
-    notFound();
+  if (read.status === "unreachable") {
+    return (
+      <div className="container py-[clamp(3rem,7vw,6rem)]">
+        <ContentUnavailable resource="Cette prédication" />
+      </div>
+    );
   }
+
+  if (read.status === "missing") notFound();
+
+  const teaching = read.data;
 
   // Média principal
   const primaryMedia = teaching.medias?.find((m) => m.isPrimary) || teaching.medias?.[0];
@@ -129,7 +169,7 @@ export default async function EnseignementDetailPage({
           </div>
         ) : (
           <div className="p-8 bg-ccjv-surface border border-ccjv-line text-center text-sm text-ccjv-ink-secondary">
-            Média de diffusion en cours de traitement.
+            Aucun média n&apos;est rattaché à cette prédication pour l&apos;instant.
           </div>
         )}
 

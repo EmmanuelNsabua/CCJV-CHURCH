@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { type Department } from "@/types";
-import { site } from "@/data/mock/site";
+import { site } from "@/data/site";
 import { Button } from "@/components/ui/Button";
 
 interface DepartmentModalProps {
@@ -16,8 +16,13 @@ interface DepartmentModalProps {
 /**
  * Volet contextuel (Drawer) de présentation détaillée d'un département :
  * - S'ouvre sur la page /organisation sans naviguer vers une autre route
- * - Restitue toutes les informations riches : photo, vision, piliers, horaires, responsable, galerie
+ * - Restitue photo, accroche, description, rythme de rencontre, responsable,
+ *   piliers et galerie tels que l'API les fournit
  * - Supporte la navigation au clavier (Escape), le verrouillage du scroll et les ancres d'URL
+ *
+ * Chaque bloc n'est rendu que lorsque son champ existe côté API : un champ
+ * absent (`undefined`) fait disparaître le bloc, il n'est jamais remplacé par
+ * une valeur de démonstration.
  */
 export function DepartmentModal({
   departments,
@@ -156,30 +161,36 @@ export function DepartmentModal({
           )}
 
           {/* Vocation / Description */}
-          <div className="mt-6 font-sans text-[1.02rem] leading-[1.75] text-ccjv-ink-secondary">
-            <p>{activeDept.description}</p>
-          </div>
+          {activeDept.description && (
+            <div className="mt-6 font-sans text-[1.02rem] leading-[1.75] text-ccjv-ink-secondary">
+              <p>{activeDept.description}</p>
+            </div>
+          )}
 
           {/* Repères essentiels (Horaires, Responsable, Adresse) */}
           <div className="mt-8 border-y border-ccjv-line py-6">
             <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <div>
-                <dt className="font-sans text-[0.7rem] font-semibold tracking-[0.18em] text-ccjv-green uppercase">
-                  Rythme & Horaires
-                </dt>
-                <dd className="mt-1 font-sans text-sm text-ccjv-ink">
-                  {activeDept.meetingSchedule ?? "Culte dominical · 09:00"}
-                </dd>
-              </div>
+              {activeDept.meetingSchedule && (
+                <div>
+                  <dt className="font-sans text-[0.7rem] font-semibold tracking-[0.18em] text-ccjv-green uppercase">
+                    Rythme & Horaires
+                  </dt>
+                  <dd className="mt-1 font-sans text-sm text-ccjv-ink">
+                    {activeDept.meetingSchedule}
+                  </dd>
+                </div>
+              )}
 
-              <div>
-                <dt className="font-sans text-[0.7rem] font-semibold tracking-[0.18em] text-ccjv-green uppercase">
-                  Responsable
-                </dt>
-                <dd className="mt-1 font-sans text-sm text-ccjv-ink">
-                  {activeDept.responsibleName ?? "Équipe de coordination"}
-                </dd>
-              </div>
+              {activeDept.responsibleName && (
+                <div>
+                  <dt className="font-sans text-[0.7rem] font-semibold tracking-[0.18em] text-ccjv-green uppercase">
+                    Responsable
+                  </dt>
+                  <dd className="mt-1 font-sans text-sm text-ccjv-ink">
+                    {activeDept.responsibleName}
+                  </dd>
+                </div>
+              )}
 
               <div className="sm:col-span-2">
                 <dt className="font-sans text-[0.7rem] font-semibold tracking-[0.18em] text-ccjv-green uppercase">

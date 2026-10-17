@@ -1,7 +1,13 @@
 import { PageHeader } from "./PageHeader";
 import { Section } from "./Section";
 import { VerseSection } from "./VerseSection";
-import { verses } from "@/data/mock/verses";
+import { getScripture } from "@/lib/api";
+/*
+ * `readOrUnavailable` n'est pas réexporté par le barrel `@/lib/api` ; il est
+ * importé depuis son module d'origine plutôt que de modifier un fichier hors
+ * périmètre. C'est le même client, aucune couche parallèle.
+ */
+import { readOrUnavailable } from "@/lib/api/endpoints";
 
 export interface LegalSection {
   title: string;
@@ -11,8 +17,13 @@ export interface LegalSection {
 /**
  * Gabarit commun des pages transversales (mentions, confidentialité,
  * conditions, accessibilité) : lecture longue, sobre et aérée.
+ *
+ * Composant **serveur** : le verset de clôture est lu depuis l'API
+ * (`getScripture("parole")`), jamais codé en dur. Si la lecture échoue ou si le
+ * verset n'est pas configuré côté back-office, la section est simplement omise —
+ * aucun texte biblique de remplacement n'est inventé.
  */
-export function LegalPage({
+export async function LegalPage({
   overline,
   title,
   description,
@@ -25,6 +36,9 @@ export function LegalPage({
   sections: LegalSection[];
   updatedAt: string;
 }) {
+  const resultat = await readOrUnavailable((o) => getScripture("parole", o));
+  const verset = resultat.status === "ok" ? resultat.data : null;
+
   return (
     <>
       <PageHeader
@@ -64,12 +78,14 @@ export function LegalPage({
         </div>
       </Section>
 
-      <VerseSection
-        context="Marcher dans la vérité"
-        text={verses.parole.text}
-        reference={verses.parole.reference}
-        tone="dark"
-      />
+      {verset && (
+        <VerseSection
+          context="Marcher dans la vérité"
+          text={verset.text}
+          reference={verset.reference}
+          tone="dark"
+        />
+      )}
     </>
   );
 }

@@ -2,6 +2,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -33,6 +34,10 @@ export const departments = pgTable(
     name: varchar("name", { length: 100 }).notNull(),
     slug: varchar("slug", { length: 160 }).notNull(),
     description: text("description"),
+    /** Présentation de la mission du département. */
+    mission: text("mission"),
+    /** Historique du département. */
+    history: text("history"),
     responsibleName: varchar("responsible_name", { length: 120 }),
     /** Accroche courte affichée dans les listes. */
     tagline: varchar("tagline", { length: 200 }),
@@ -59,7 +64,38 @@ export const departments = pgTable(
   ],
 );
 
-/** Galerie photographique ordonnée d'un département. */
+/** Activités de présentation d'un département. */
+export const departmentActivities = pgTable(
+  "department_activities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    departmentId: uuid("department_id")
+      .notNull()
+      .references(() => departments.id, { onDelete: "cascade" }),
+    title: varchar("title", { length: 150 }).notNull(),
+    description: text("description"),
+    imageMediaId: uuid("image_media_id").references(() => media.id, {
+      onDelete: "set null",
+    }),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("department_activities_department_idx").on(table.departmentId),
+    index("department_activities_position_idx").on(
+      table.departmentId,
+      table.position,
+    ),
+  ],
+);
+
+/** Galerie photographique ordonnée d'un département (galerie unique). */
 export const departmentMedia = pgTable(
   "department_media",
   {
@@ -78,31 +114,34 @@ export const departmentMedia = pgTable(
 );
 
 /**
+ * Archive complète d'un département avant suppression active.
+ * Conserve un snapshot JSON des données, activités, responsables et références médias.
+ */
+export const departmentArchives = pgTable(
+  "department_archives",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    originalDepartmentId: uuid("original_department_id").notNull(),
+    name: varchar("name", { length: 100 }).notNull(),
+    slug: varchar("slug", { length: 160 }).notNull(),
+    snapshot: jsonb("snapshot").notNull(),
+    archivedBy: uuid("archived_by").references(
+      (): AnyPgColumn => adminProfiles.id,
+      { onDelete: "set null" },
+    ),
+    archivedAt: timestamp("archived_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    reason: text("reason"),
+  },
+  (table) => [
+    index("department_archives_original_id_idx").on(table.originalDepartmentId),
+    index("department_archives_slug_idx").on(table.slug),
+  ],
+);
+
+/**
  * Capacités d'un département (`docs/028` D-25, `docs/032` §3.5).
- *
- * C'est la réponse retenue à « comment un département publie-t-il un événement à
- * l'échelle de toute l'église, sans que le code nomme ce département ? ».
- *
- * **Le vocabulaire est fermé, et volontairement minuscule.** Une seule capacité
- * existe : `EVENT_SCOPE_GLOBAL`. `docs/032` §3.5 est explicite — « Aucune autre
- * n'est inventée ; le `CHECK` est élargi par **décision explicite**, jamais par
- * commodité ». Un `CHECK` plutôt qu'une énumération PostgreSQL pour une raison
- * pratique : élargir un `CHECK` est un `ALTER` anodin, là où ajouter une valeur
- * à une énumération impose la séquence `ADD VALUE` et ses contraintes
- * transactionnelles (`docs/033` §2.3.2).
- *
- * **La clé primaire est composée** `(department_id, capability)` : une capacité
- * est un attribut du département, pas une entité autonome. L'index inverse (par
- * capacité) sert le sens de lecture réel — « quels départements peuvent publier
- * globalement ? » — c'est-à-dire celui du trigger de portée (`docs/032` §3.6) et
- * de la résolution des capacités d'un acteur.
- *
- * `granted_by` est **nullable** : `docs/032` §3.5 le déclare `NULL`-able, et
- * c'est cohérent avec l'absence d'arbitrage de Q-06 — une capacité peut avoir
- * été posée par une migration, sans auteur applicatif. Le jour où Q-06 est
- * tranchée, la valeur devient renseignée par la policy qui l'écrit ; la colonne
- * n'a pas à changer. `RESTRICT` préserve l'attribution : supprimer le compte
- * auteur d'un grant est refusé tant que le grant existe.
  */
 export const departmentCapabilities = pgTable(
   "department_capabilities",
@@ -139,3 +178,9 @@ export type NewDepartmentCapabilityRow = typeof departmentCapabilities.$inferIns
 
 export type DepartmentRow = typeof departments.$inferSelect;
 export type NewDepartmentRow = typeof departments.$inferInsert;
+
+export type DepartmentActivityRow = typeof departmentActivities.$inferSelect;
+export type NewDepartmentActivityRow = typeof departmentActivities.$inferInsert;
+
+export type DepartmentArchiveRow = typeof departmentArchives.$inferSelect;
+export type NewDepartmentArchiveRow = typeof departmentArchives.$inferInsert;

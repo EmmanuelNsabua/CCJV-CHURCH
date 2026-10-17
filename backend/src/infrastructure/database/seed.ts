@@ -814,8 +814,6 @@ async function run(): Promise<void> {
         await repositories.leaders.create({
           name: leader.name,
           role: leader.role,
-          scope: leader.scope,
-          bio: leader.bio,
           photoMediaId: mediaIdFor(media.ids, leader.photo),
           departmentId: departmentIdFor(departmentIds, leader.departmentName),
           position,
@@ -831,9 +829,12 @@ async function run(): Promise<void> {
       let position = 0;
       for (const testimony of seedDataset.testimonies) {
         await repositories.testimonies.create({
+          content: testimony.quote,
           quote: testimony.quote,
+          authorName: testimony.personName,
           personName: testimony.personName,
-          personRole: testimony.personRole,
+          status: "PUBLISHED",
+          isFeatured: position < 3,
           photoMediaId: mediaIdFor(media.ids, testimony.photo),
           position,
         });

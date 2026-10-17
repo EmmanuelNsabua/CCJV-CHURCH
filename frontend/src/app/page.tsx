@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Section } from "@/components/shared/Section";
 import { SectionHeading } from "@/components/shared/SectionHeading";
 import { Reveal } from "@/components/shared/Reveal";
@@ -9,7 +11,7 @@ import { CrossMark } from "@/components/shared/CrossMark";
 import { OpenBookMark } from "@/components/shared/OpenBookMark";
 import { VerseSection } from "@/components/shared/VerseSection";
 import { BreathingPhoto } from "@/components/shared/BreathingPhoto";
-import { WeekRhythm } from "@/components/shared/WeekRhythm";
+import { WeekRhythm, type RhythmItem } from "@/components/shared/WeekRhythm";
 import { CommunityFaces } from "@/components/shared/CommunityFaces";
 import { Hero } from "@/features/pages/Hero";
 import { EventsSection } from "@/features/events/EventsSection";
@@ -20,11 +22,16 @@ import {
   getCommunityFaces,
   getDepartments,
   getEvents,
+  getHeroTestimonies,
   getPublications,
+  getSchedule,
+  getScripture,
+  getSettings,
 } from "@/lib/api";
-import { images } from "@/data/mock/images";
-import { site, socials, weeklyRhythm } from "@/data/mock/site";
-import { verses } from "@/data/mock/verses";
+import { readOrUnavailable } from "@/lib/api/endpoints";
+import type { Scripture } from "@/lib/api";
+import { images } from "@/data/images";
+import { site } from "@/data/site";
 import { defaultTitle } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -33,38 +40,116 @@ export const metadata: Metadata = {
     "Le Centre Chrétien Jésus ma Vie est une église vivante à Lubumbashi : cultes, communauté, enseignements et accueil de chacun.",
 };
 
+/** Résultat de la lecture d'un verset éditorial. */
+type ScriptureRead =
+  | { status: "ok"; scripture: Scripture }
+  | { status: "absent" }
+  | { status: "unreachable" };
+
+/**
+ * Lit un verset en séparant nettement trois situations.
+ *
+ * Une clé non configurée côté API répond `404 SCRIPTURE_NOT_FOUND` : c'est une
+ * **absence** de contenu, pas une panne. Or `readOrUnavailable` signale les deux
+ * de la même manière (le lecteur ne lève jamais, il prévient par `onFailure`) :
+ * on relève donc le statut HTTP pour ne pas annoncer une panne là où il n'y a
+ * simplement rien à afficher — et inversement.
+ */
+async function readScripture(key: string): Promise<ScriptureRead> {
+  let httpStatus: number | null = null;
+
+  const read = await readOrUnavailable((options) =>
+    getScripture(key, {
+      onFailure: (error) => {
+        httpStatus = error.status;
+        options.onFailure?.(error);
+      },
+    }),
+  );
+
+  if (read.status === "unreachable") {
+    return httpStatus === 404 ? { status: "absent" } : { status: "unreachable" };
+  }
+
+  return read.data ? { status: "ok", scripture: read.data } : { status: "absent" };
+}
+
 export default async function HomePage() {
   /*
    * Lectures publiques servies par l'API (mises en cache 60 s côté Next).
-   * Chaque appel renvoie une collection vide si l'API ne répond pas : la page
-   * se rend donc toujours, avec ses sections éditoriales et, le cas échéant,
-   * des listes vides.
+   * `readOrUnavailable` distingue « l'API a répondu, et sa réponse est vide »
+   * de « on n'a pas pu lire » : la page n'affiche donc jamais une panne comme
+   * un état éditorial, et ne se rabat sur aucune donnée de démonstration.
    */
-  const [upcoming, teachings, communityFaces, departments] = await Promise.all([
-    getEvents({ status: "UPCOMING", limit: 6 }),
-    getPublications({ category: "ENSEIGNEMENT", limit: 3 }),
-    getCommunityFaces(),
-    getDepartments(),
+  const [
+    scriptureRead,
+    eventsRead,
+    teachingsRead,
+    facesRead,
+    scheduleRead,
+    settingsRead,
+    departmentsRead,
+    heroTestimoniesRead,
+  ] = await Promise.all([
+    readScripture("rassemblement"),
+    readOrUnavailable((options) =>
+      getEvents({ status: "UPCOMING", limit: 6 }, options),
+    ),
+    readOrUnavailable((options) =>
+      getPublications({ category: "ENSEIGNEMENT", limit: 3 }, options),
+    ),
+    readOrUnavailable((options) => getCommunityFaces(options)),
+    readOrUnavailable((options) => getSchedule(options)),
+    readOrUnavailable((options) => getSettings(options)),
+    readOrUnavailable((options) => getDepartments(options)),
+    readOrUnavailable((options) => getHeroTestimonies(options)),
   ]);
 
+  const upcoming = eventsRead.status === "ok" ? eventsRead.data : [];
+  const teachings = teachingsRead.status === "ok" ? teachingsRead.data : [];
+  const communityFaces = facesRead.status === "ok" ? facesRead.data : [];
+  const featuredTestimony =
+    heroTestimoniesRead.status === "ok" ? heroTestimoniesRead.data[0] ?? null : null;
   const [leadTeaching, ...otherTeachings] = teachings;
 
   /** Les événements de l'API référencent les départements par identifiant. */
   const departmentNames = Object.fromEntries(
-    departments.map((department) => [department.id, department.name]),
+    (departmentsRead.status === "ok" ? departmentsRead.data : []).map(
+      (department) => [department.id, department.name],
+    ),
   );
+
+  /** Rythme hebdomadaire : `timeLabel` de l'API est déjà mis en forme. */
+  const weeklyRhythm: RhythmItem[] = (
+    scheduleRead.status === "ok" ? scheduleRead.data : []
+  ).map((entry) => ({
+    day: entry.day,
+    title: entry.title,
+    time: entry.timeLabel,
+    audience: entry.audience ?? undefined,
+  }));
+
+  /** Liens officiels des réseaux, servis par les réglages institutionnels. */
+  const socialLinks =
+    settingsRead.status === "ok" ? (settingsRead.data?.socialLinks ?? []) : [];
 
   return (
     <>
       {/* 01 — ACCUEILLIR */}
-      <Hero />
+      <Hero featuredTestimony={featuredTestimony} />
 
       {/* 02 — LA PAROLE DU JOUR */}
-      <VerseSection
-        text={verses.rassemblement.text}
-        reference={verses.rassemblement.reference}
-        tone="dark"
-      />
+      {scriptureRead.status === "unreachable" ? (
+        <Section aria-label="Parole du jour momentanément indisponible">
+          <ContentUnavailable resource="La parole du jour" />
+        </Section>
+      ) : scriptureRead.status === "ok" ? (
+        <VerseSection
+          text={scriptureRead.scripture.text}
+          reference={scriptureRead.scripture.reference}
+          tone="dark"
+        />
+      ) : null}
 
       {/* 03 — UN MOT DU PASTEUR */}
       <Section
@@ -140,15 +225,34 @@ export default async function HomePage() {
       </Section>
 
       {/* 05 — LA VIE DE L'ÉGLISE / ÉVÉNEMENTS */}
-      <EventsSection
-        title="Ce qui se passe"
-        description="Rejoignez-nous et marchons ensemble avec Jésus ! Découvrez nos prochains cultes, temps de prière et rencontres fraternelles."
-        ctaLabel="TOUT L'AGENDA"
-        ctaHref="/vie-de-leglise/evenements"
-        events={upcoming}
-        departmentNames={departmentNames}
-        tone="tinted"
-      />
+      {eventsRead.status === "unreachable" ? (
+        <Section tone="tinted" aria-labelledby="evenements-titre">
+          <SectionHeading
+            id="evenements-titre"
+            title="Ce qui se passe"
+            description="Rejoignez-nous et marchons ensemble avec Jésus ! Découvrez nos prochains cultes, temps de prière et rencontres fraternelles."
+          />
+          <ContentUnavailable resource="L'agenda" />
+          <div className="mt-10">
+            <Button
+              variant="outline"
+              href="/vie-de-leglise/evenements"
+            >
+              TOUT L&apos;AGENDA
+            </Button>
+          </div>
+        </Section>
+      ) : (
+        <EventsSection
+          title="Ce qui se passe"
+          description="Rejoignez-nous et marchons ensemble avec Jésus ! Découvrez nos prochains cultes, temps de prière et rencontres fraternelles."
+          ctaLabel="TOUT L'AGENDA"
+          ctaHref="/vie-de-leglise/evenements"
+          events={upcoming}
+          departmentNames={departmentNames}
+          tone="tinted"
+        />
+      )}
 
 
       {/* 06 — NOTRE RYTHME DE LA SEMAINE */}
@@ -158,7 +262,16 @@ export default async function HomePage() {
           id="horaires-titre"
           description="Retrouvez les horaires de nos cultes, temps de prière et répétitions tout au long de la semaine."
         />
-        <WeekRhythm items={weeklyRhythm} />
+        {scheduleRead.status === "unreachable" ? (
+          <ContentUnavailable resource="Le rythme de la semaine" />
+        ) : weeklyRhythm.length > 0 ? (
+          <WeekRhythm items={weeklyRhythm} />
+        ) : (
+          <EmptyState
+            title="Aucun horaire publié pour le moment"
+            description="Les temps de rassemblement publiés depuis le back-office apparaîtront ici."
+          />
+        )}
         <div className="mt-10">
           <Button variant="outline" href="/vie-de-leglise/ou-nous-trouver">
             Nous trouver et nous contacter →
@@ -177,19 +290,30 @@ export default async function HomePage() {
           id="enseignements-titre"
           description="Retrouvez nos prédications et messages récents pour nourrir votre foi."
         />
-        {leadTeaching && (
-          <Reveal>
-            <TeachingFeature publication={leadTeaching} />
-          </Reveal>
-        )}
-        {otherTeachings.length > 0 && (
-          <div className="mt-14 grid grid-cols-1 gap-8 sm:grid-cols-2">
-            {otherTeachings.slice(0, 2).map((teaching) => (
-              <Reveal key={teaching.id} delay={80}>
-                <TeachingCard publication={teaching} />
+        {teachingsRead.status === "unreachable" ? (
+          <ContentUnavailable resource="Les enseignements" />
+        ) : teachings.length === 0 ? (
+          <EmptyState
+            title="Aucun enseignement publié pour le moment"
+            description="Les prédications publiées depuis le back-office apparaîtront ici."
+          />
+        ) : (
+          <>
+            {leadTeaching && (
+              <Reveal>
+                <TeachingFeature publication={leadTeaching} />
               </Reveal>
-            ))}
-          </div>
+            )}
+            {otherTeachings.length > 0 && (
+              <div className="mt-14 grid grid-cols-1 gap-8 sm:grid-cols-2">
+                {otherTeachings.slice(0, 2).map((teaching) => (
+                  <Reveal key={teaching.id} delay={80}>
+                    <TeachingCard publication={teaching} />
+                  </Reveal>
+                ))}
+              </div>
+            )}
+          </>
         )}
         <div className="mt-14 flex flex-col items-start gap-4 border-t border-ccjv-line pt-8 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
@@ -212,7 +336,16 @@ export default async function HomePage() {
           id="communaute-titre"
           description="Découvrez les hommes et les femmes qui font vivre l'église au quotidien."
         />
-        <CommunityFaces faces={communityFaces} />
+        {facesRead.status === "unreachable" ? (
+          <ContentUnavailable resource="Les visages de notre communauté" />
+        ) : communityFaces.length > 0 ? (
+          <CommunityFaces faces={communityFaces} />
+        ) : (
+          <EmptyState
+            title="Aucun portrait publié pour le moment"
+            description="Les visages publiés depuis le back-office apparaîtront ici."
+          />
+        )}
       </Section>
 
       {/* 09 — RESPIRATION (photographie-témoignage) */}
@@ -307,21 +440,30 @@ export default async function HomePage() {
               Écrire sur WhatsApp
             </Button>
           </div>
-          <ul className="mt-10 flex flex-wrap items-center justify-center gap-6">
-            {socials.map((social) => (
-              <li key={social.label}>
-                <a
-                  href={social.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-sans text-sm text-ccjv-cream underline underline-offset-4 hover:text-white"
-                >
-                  {social.label}
-                  <span aria-hidden="true"> ↗</span>
-                </a>
-              </li>
-            ))}
-          </ul>
+          {settingsRead.status === "unreachable" ? (
+            <ContentUnavailable
+              className="mt-10 max-w-xl text-left"
+              resource="Nos liens vers les réseaux sociaux"
+            />
+          ) : (
+            socialLinks.length > 0 && (
+              <ul className="mt-10 flex flex-wrap items-center justify-center gap-6">
+                {socialLinks.map((social) => (
+                  <li key={social.label}>
+                    <a
+                      href={social.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-sans text-sm text-ccjv-cream underline underline-offset-4 hover:text-white"
+                    >
+                      {social.label}
+                      <span aria-hidden="true"> ↗</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )
+          )}
           <p className="mt-10">
             <Link
               href="/vie-de-leglise/ou-nous-trouver"

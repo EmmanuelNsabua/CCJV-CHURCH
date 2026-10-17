@@ -15,11 +15,25 @@ export type PublicationType = "VIDEO" | "PHOTO" | "TEXTE";
  */
 export type EventStatus = "UPCOMING" | "ARCHIVED";
 
+export type EventLifecycleStatus = "DRAFT" | "PUBLISHED" | "CANCELLED";
+
+export interface DepartmentActivityItem {
+  id: string;
+  title: string;
+  description?: string | null;
+  imageMediaId?: string | null;
+  imageUrl?: string | null;
+  position?: number;
+}
+
 export interface Department {
   id: string;
   name: string;
   slug: string;
   description?: string;
+  mission?: string | null;
+  history?: string | null;
+  activities?: DepartmentActivityItem[];
   responsibleName?: string;
   /** Image d'en-tête de la fiche département. */
   bannerImage?: string;
@@ -44,12 +58,19 @@ export interface Event {
   slug: string;
   description?: string;
   eventDate: string; // date ISO "YYYY-MM-DD"
+  startDate?: string; // alias date début
+  endDate?: string; // date fin obligatoire en base (>= startDate)
   eventTime?: string; // heure "HH:mm" ou placeholder
+  startTime?: string | null;
+  endTime?: string | null;
   location?: string;
   imageUrl?: string;
-  /** `null` = événement général de l'église. */
+  imageMediaId?: string | null;
+  bannerMediaId?: string | null;
+  /** `null` = événement général de l'église (aucun département obligatoire). */
   departmentId?: string | null;
-  status: EventStatus;
+  status: EventStatus | EventLifecycleStatus;
+  lifecycleStatus?: EventLifecycleStatus;
   /** Accroche éditoriale (liste / fiche). */
   excerpt?: string;
   /** Bandeau de la fiche événement. */
@@ -59,6 +80,8 @@ export interface Event {
   /** Informations pratiques complémentaires. */
   practicalInfo?: string[];
 }
+
+export type PublicationAuthor = "Presse" | "Ecodume";
 
 export interface Publication {
   id: string;
@@ -71,10 +94,20 @@ export interface Publication {
   publishedAt: string; // date ISO "YYYY-MM-DD"
   /** Rubrique éditoriale : actualité, enseignement, média, ressource. */
   category?: "ACTUALITE" | "ENSEIGNEMENT" | "MEDIA" | "RESSOURCE";
-  /** Auteur / orateur. */
-  author?: string;
+  /** Auteur éditorial : Presse ou Ecodume */
+  author?: PublicationAuthor | string;
   /** Corps éditorial (publications de type TEXTE). */
   body?: string[];
+}
+
+export interface Resource {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  file: string; // URL directe ou référence stable au PDF Supabase Storage
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type PageKey = "ACCUEIL" | "QUI_SOMMES_NOUS" | "COMMUNAUTE" | "CONTACT";

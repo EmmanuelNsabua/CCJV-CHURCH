@@ -2,14 +2,18 @@ import { HeroPractical } from "@/components/composition/HeroPractical";
 import { InformationPage } from "@/components/archetypes/InformationPage";
 import { Prose } from "@/components/editorial/Prose";
 import { CrossLinks } from "@/components/editorial/CrossLinks";
+import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
 import {
   SearchClient,
   type SearchEntry,
 } from "@/features/search/SearchClient";
 import { primaryNav } from "@/lib/nav";
-import { events } from "@/data/mock/events";
-import { departments } from "@/data/mock/departments";
-import { publications } from "@/data/mock/publications";
+import {
+  getDepartments,
+  getEvents,
+  getPublications,
+  readOrUnavailable,
+} from "@/lib/api/endpoints";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
@@ -19,8 +23,8 @@ export const metadata = pageMetadata({
   path: "/recherche",
 });
 
-/** Index construit au rendu serveur à partir des données réelles du site. */
-function buildIndex(): SearchEntry[] {
+/** Entrées de navigation : elles ne dépendent d'aucune lecture d'API. */
+function navigationEntries(): SearchEntry[] {
   const entries: SearchEntry[] = [];
 
   for (const item of primaryNav) {
@@ -43,47 +47,75 @@ function buildIndex(): SearchEntry[] {
     }
   }
 
-  for (const event of events) {
-    entries.push({
-      href: `/vie-de-leglise/evenements/${event.slug}`,
-      title: event.title,
-      description: event.excerpt ?? event.description ?? "",
-      kind: "Événement",
-    });
-  }
-
-  for (const department of departments) {
-    entries.push({
-      href: `/organisation#${department.slug}`,
-      title: department.name,
-      description: department.tagline ?? department.description ?? "",
-      kind: "Département",
-    });
-  }
-
-  for (const publication of publications) {
-    const kind =
-      publication.category === "ENSEIGNEMENT"
-        ? "Enseignement"
-        : publication.category === "RESSOURCE"
-          ? "Ressource"
-          : publication.category === "MEDIA"
-            ? "Média"
-            : "Actualité";
-
-    entries.push({
-      href: `/publications/${publication.slug}`,
-      title: publication.title,
-      description: publication.description ?? "",
-      kind,
-    });
-  }
-
   return entries;
 }
 
-export default function RecherchePage() {
-  const entries = buildIndex();
+export default async function RecherchePage() {
+  /*
+   * Index construit au rendu serveur à partir des données réelles de l'API
+   * (publications, événements, départements). Chaque lecture est évaluée
+   * séparément : une source injoignable n'efface pas les autres, mais elle est
+   * **signalée** — un index amputé présenté comme complet ferait croire à
+   * l'absence de contenus qui existent.
+   */
+  const [publicationsRead, eventsRead, departmentsRead] = await Promise.all([
+    readOrUnavailable((options) => getPublications({ limit: 100 }, options)),
+    readOrUnavailable((options) => getEvents({ limit: 100 }, options)),
+    readOrUnavailable((options) => getDepartments(options)),
+  ]);
+
+  const entries = navigationEntries();
+  const unavailableSources: string[] = [];
+
+  if (publicationsRead.status === "ok") {
+    for (const publication of publicationsRead.data) {
+      const kind =
+        publication.category === "ENSEIGNEMENT"
+          ? "Enseignement"
+          : publication.category === "RESSOURCE"
+            ? "Ressource"
+            : publication.category === "MEDIA"
+              ? "Média"
+              : "Actualité";
+
+      entries.push({
+        href: `/publications/${publication.slug}`,
+        title: publication.title,
+        description: publication.description ?? "",
+        kind,
+      });
+    }
+  } else {
+    unavailableSources.push("les publications");
+  }
+
+  if (eventsRead.status === "ok") {
+    for (const event of eventsRead.data) {
+      entries.push({
+        href: `/vie-de-leglise/evenements/${event.slug}`,
+        title: event.title,
+        description: event.excerpt ?? event.description ?? "",
+        kind: "Événement",
+      });
+    }
+  } else {
+    unavailableSources.push("les événements");
+  }
+
+  if (departmentsRead.status === "ok") {
+    for (const department of departmentsRead.data) {
+      entries.push({
+        href: `/organisation#${department.slug}`,
+        title: department.name,
+        description: department.tagline ?? department.description ?? "",
+        kind: "Département",
+      });
+    }
+  } else {
+    unavailableSources.push("les départements");
+  }
+
+  const indexIsPartial = unavailableSources.length > 0;
 
   return (
     <InformationPage
@@ -96,7 +128,9 @@ export default function RecherchePage() {
           facts={[
             {
               label: "Contenus indexés",
-              value: `${entries.length} entrées`,
+              value: indexIsPartial
+                ? `${entries.length} entrées (index partiel)`
+                : `${entries.length} entrées`,
             },
             {
               label: "Types de contenu",
@@ -140,7 +174,18 @@ export default function RecherchePage() {
         </div>
       }
       factsTitle="Rechercher sur le site"
-      facts={<SearchClient entries={entries} />}
+      facts={
+        <>
+          {indexIsPartial && (
+            <ContentUnavailable
+              className="mb-10"
+              resource={`Une partie de l'index (${unavailableSources.join(", ")})`}
+              description="Ces contenus ne sont pas indexés pour l'instant : la recherche porte sur le reste du site. Rechargez la page dans quelques instants pour reconstituer l'index complet."
+            />
+          )}
+          <SearchClient entries={entries} />
+        </>
+      }
       related={
         <CrossLinks
           variant="list"

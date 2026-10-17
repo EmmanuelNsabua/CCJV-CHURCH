@@ -12,10 +12,9 @@ export interface LeaderDto {
   id: string;
   name: string;
   role: string;
-  scope: string | null;
-  bio: string | null;
   /** URL publique du portrait (`photoUrl` côté domaine). */
   photo: string | null;
+  photoMediaId: string | null;
   departmentId: string | null;
   position: number;
 }
@@ -25,9 +24,8 @@ export function toLeaderDto(leader: Leader): LeaderDto {
     id: leader.id,
     name: leader.name,
     role: leader.role,
-    scope: leader.scope,
-    bio: leader.bio,
     photo: leader.photoUrl,
+    photoMediaId: leader.photoMediaId,
     departmentId: leader.departmentId,
     position: leader.position,
   };

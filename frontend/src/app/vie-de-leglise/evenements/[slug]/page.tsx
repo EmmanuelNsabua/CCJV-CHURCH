@@ -1,16 +1,54 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { HeroPhoto } from "@/components/composition/HeroPhoto";
+import { HeroCompact } from "@/components/composition/HeroCompact";
 import { EventPage } from "@/components/archetypes/EventPage";
 import { Prose } from "@/components/editorial/Prose";
 import { KeyFacts } from "@/components/editorial/KeyFacts";
 import { PhotoGallery } from "@/components/editorial/PhotoGallery";
 import { Badge } from "@/components/ui/Badge";
+import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
 import { EventRow } from "@/features/events/EventRow";
-import { getDepartments, getEvent, getEvents } from "@/lib/api";
-import { site } from "@/data/mock/site";
+import { site } from "@/data/site";
+import {
+  getDepartments,
+  getEvent,
+  getEvents,
+  readOrUnavailable,
+} from "@/lib/api/endpoints";
+import type { Event } from "@/lib/api/types";
 import { formatLongDate, formatTime } from "@/lib/utils";
 import { pageMetadata } from "@/lib/seo";
+
+/**
+ * Résultat d'une lecture unitaire, où **absent** et **illisible** sont deux
+ * états distincts.
+ *
+ * `getEvent` ne lève jamais : elle renvoie `null` aussi bien pour un slug
+ * inconnu (HTTP 404) que pour une API injoignable. Seul le statut porté par
+ * l'`ApiError` permet de trancher — « introuvable » se termine en `notFound()`,
+ * une panne en `ContentUnavailable`.
+ */
+type EventRead =
+  | { status: "ok"; data: Event }
+  | { status: "missing" }
+  | { status: "unreachable" };
+
+async function readEvent(slug: string): Promise<EventRead> {
+  const failures: Array<{ status: number | null }> = [];
+
+  const event = await getEvent(slug, {
+    onFailure: (error) => {
+      failures.push({ status: error.status });
+    },
+  });
+
+  if (event !== null) return { status: "ok", data: event };
+
+  return failures.some((failure) => failure.status === 404)
+    ? { status: "missing" }
+    : { status: "unreachable" };
+}
 
 /**
  * Pré-génère une fiche par événement publié.
@@ -22,17 +60,13 @@ import { pageMetadata } from "@/lib/seo";
  * build suivant.
  */
 export async function generateStaticParams() {
-  try {
-    const events = await getEvents({ limit: 100 });
-    return events.map((event) => ({ slug: event.slug }));
-  } catch (error) {
-    // `getEvents` ne lève pas : ce filet couvre toute erreur imprévue.
-    console.warn(
-      "[evenements] generateStaticParams : API indisponible, repli sur une liste vide",
-      error,
-    );
-    return [];
-  }
+  const result = await readOrUnavailable((options) =>
+    getEvents({ limit: 100 }, options),
+  );
+
+  if (result.status === "unreachable") return [];
+
+  return result.data.map((event) => ({ slug: event.slug }));
 }
 
 export async function generateMetadata({
@@ -41,8 +75,12 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const event = await getEvent(slug);
-  if (!event) return {};
+  const read = await readEvent(slug);
+
+  /* Aucune métadonnée n'est affirmée sur un contenu qu'on n'a pas pu lire. */
+  if (read.status !== "ok") return {};
+
+  const event = read.data;
 
   return pageMetadata({
     title: event.title,
@@ -60,15 +98,34 @@ export default async function EventDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const event = await getEvent(slug);
-  if (!event) notFound();
+  const read = await readEvent(slug);
 
-  const [departments, upcomingEvents] = await Promise.all([
-    getDepartments(),
-    getEvents({ status: "UPCOMING", limit: 4 }),
+  if (read.status === "unreachable") {
+    return (
+      <div className="container py-[clamp(3rem,7vw,6rem)]">
+        <ContentUnavailable resource="Cet événement" />
+      </div>
+    );
+  }
+
+  if (read.status === "missing") notFound();
+
+  const event = read.data;
+
+  const [departmentsRead, upcomingRead] = await Promise.all([
+    readOrUnavailable((options) => getDepartments(options)),
+    /*
+     * `status: "UPCOMING"` plutôt que `view: "UPCOMING"` : le filtre déployé est
+     * strict et refuse `view` (400), alors que `status` porte exactement la même
+     * sémantique, calculée par l'API depuis la date de l'événement.
+     */
+    readOrUnavailable((options) =>
+      getEvents({ status: "UPCOMING", limit: 4 }, options),
+    ),
   ]);
 
   /** Les événements de l'API référencent les départements par identifiant. */
+  const departments = departmentsRead.status === "ok" ? departmentsRead.data : [];
   const departmentNames = Object.fromEntries(
     departments.map((dept) => [dept.id, dept.name]),
   );
@@ -79,25 +136,41 @@ export default async function EventDetailPage({
   /** `status` est calculé par l'API : le frontend ne le recalcule jamais. */
   const isUpcoming = event.status === "UPCOMING";
 
-  const related = upcomingEvents
-    .filter((item) => item.id !== event.id)
-    .slice(0, 3);
+  const related =
+    upcomingRead.status === "ok"
+      ? upcomingRead.data.filter((item) => item.id !== event.id).slice(0, 3)
+      : [];
+
+  /** Photographie réelle de l'événement — aucune image d'emprunt à défaut. */
+  const heroImage = event.bannerImage ?? event.imageUrl;
+
+  const metaLine = [formatLongDate(event.eventDate), event.location]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <EventPage
       hero={
-        <HeroPhoto
-          overline={departmentName ?? "Vie de l'Église"}
-          title={event.title}
-          image={event.bannerImage ?? event.imageUrl ?? "/media/ccjv-08.jpeg"}
-          caption={[
-            formatLongDate(event.eventDate),
-            event.location,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-          height="tall"
-        />
+        heroImage ? (
+          <HeroPhoto
+            overline={departmentName ?? "Vie de l'Église"}
+            title={event.title}
+            image={heroImage}
+            caption={metaLine}
+            height="tall"
+          />
+        ) : (
+          /* Sans photographie fournie, l'ouverture reste typographique. */
+          <HeroCompact
+            overline={departmentName ?? "Vie de l'Église"}
+            title={event.title}
+            aside={
+              <p className="font-sans text-[0.8rem] text-ccjv-ink-secondary">
+                {metaLine}
+              </p>
+            }
+          />
+        )
       }
       summary={
         <div className="grid grid-cols-1 items-end gap-10 lg:grid-cols-12 lg:gap-16">
@@ -177,7 +250,9 @@ export default async function EventDetailPage({
                   label: "Heure",
                   value: formatTime(event.eventTime) || "Horaire à confirmer",
                 },
-                { label: "Lieu", value: event.location ?? "Lubumbashi" },
+                ...(event.location
+                  ? [{ label: "Lieu", value: event.location }]
+                  : []),
                 {
                   label: "Entrée",
                   value: "Libre et ouverte à tous",
@@ -220,7 +295,9 @@ export default async function EventDetailPage({
         ) : undefined
       }
       related={
-        related.length > 0 ? (
+        upcomingRead.status === "unreachable" ? (
+          <ContentUnavailable resource="Les autres rendez-vous à venir" />
+        ) : related.length > 0 ? (
           <>
             <h2 className="mb-8 font-sans text-[0.72rem] font-semibold tracking-[0.2em] text-ccjv-green uppercase">
               Autres rendez-vous à venir

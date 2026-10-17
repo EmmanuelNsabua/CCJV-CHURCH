@@ -1,20 +1,17 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import Link from "next/link";
-import { Plus, Search, Trash2, Edit2, MapPin, Clock } from "lucide-react";
+import { Plus } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/layout/AdminPageHeader";
-import { DataTable, type ColumnDef } from "@/components/admin/tables/DataTable";
+import { AdminEntityGrid, AdminEntityCard } from "@/components/admin/cards";
 import { Pagination } from "@/components/admin/tables/Pagination";
 import { ConfirmModal } from "@/components/admin/feedback/ConfirmModal";
 import { useToast } from "@/components/admin/feedback/ToastContext";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/admin/forms/Input";
 import { Select } from "@/components/admin/forms/Select";
 import { listAdminEvents, deleteAdminEvent } from "@/lib/api/endpoints";
 import type { Event } from "@/lib/api/types";
-import { formatLongDate, formatTime } from "@/lib/utils";
+import { formatLongDate } from "@/lib/utils";
 
 export default function EventsListPage() {
   const toast = useToast();
@@ -23,8 +20,7 @@ export default function EventsListPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filtres
-  const [search, setSearch] = useState("");
+  // Filtre (sans barre de recherche)
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
 
   // Pagination
@@ -39,7 +35,7 @@ export default function EventsListPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await listAdminEvents({ page, limit: 100 });
+      const res = await listAdminEvents({ page: 1, limit: 100 });
       setEvents(res.data || []);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Impossible de charger les événements.";
@@ -48,7 +44,7 @@ export default function EventsListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, toast]);
+  }, [toast]);
 
   useEffect(() => {
     fetchEvents();
@@ -70,20 +66,15 @@ export default function EventsListPage() {
     }
   };
 
-
   const filteredData = useMemo(() => {
     return events.filter((item) => {
-      const matchSearch =
-        !search ||
-        item.title.toLowerCase().includes(search.toLowerCase()) ||
-        item.description?.toLowerCase().includes(search.toLowerCase()) ||
-        item.location?.toLowerCase().includes(search.toLowerCase());
-
-      const matchStatus = selectedStatus === "ALL" || item.status === selectedStatus;
-
-      return matchSearch && matchStatus;
+      if (selectedStatus === "ALL") return true;
+      if (selectedStatus === "PUBLISHED") return item.status === "PUBLISHED" || item.lifecycleStatus === "PUBLISHED";
+      if (selectedStatus === "DRAFT") return item.status === "DRAFT" || item.lifecycleStatus === "DRAFT";
+      if (selectedStatus === "CANCELLED") return item.status === "CANCELLED" || item.lifecycleStatus === "CANCELLED";
+      return item.status === selectedStatus;
     });
-  }, [events, search, selectedStatus]);
+  }, [events, selectedStatus]);
 
   const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
   const paginatedData = useMemo(() => {
@@ -91,81 +82,11 @@ export default function EventsListPage() {
     return filteredData.slice(start, start + pageSize);
   }, [filteredData, page, pageSize]);
 
-  const columns: ColumnDef<Event>[] = [
-    {
-      header: "Événement & Lieu",
-      cell: (item) => (
-        <div className="space-y-0.5">
-          <Link
-            href={`/admin/agenda/${item.id}`}
-            className="font-semibold text-ccjv-ink hover:text-ccjv-green transition-colors block text-xs"
-          >
-            {item.title}
-          </Link>
-          <div className="text-[11px] text-ccjv-ink-secondary flex items-center gap-1.5">
-            <MapPin className="h-3 w-3" />
-            <span>{item.location || "Temple Principal CCJV"}</span>
-          </div>
-        </div>
-      ),
-    },
-    {
-      header: "Date & Horaire",
-      cell: (item) => (
-        <div className="text-xs text-ccjv-ink space-y-0.5">
-          <div className="font-medium">{formatLongDate(item.eventDate)}</div>
-          {item.eventTime && (
-            <div className="text-[11px] text-ccjv-ink-secondary flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              <span>{formatTime(item.eventTime)}</span>
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      header: "Statut",
-      cell: (item) => (
-        <Badge
-          variant={item.status === "UPCOMING" ? "success" : "neutral"}
-          className="text-[10px]"
-        >
-          {item.status === "UPCOMING" ? "À venir" : "Archivé"}
-        </Badge>
-      ),
-    },
-    {
-      header: "Actions",
-      align: "right",
-      cell: (item) => (
-        <div className="flex items-center justify-end gap-1.5">
-          <Link
-            href={`/admin/agenda/${item.id}`}
-            className="p-1.5 text-ccjv-ink-secondary hover:text-ccjv-green hover:bg-[#fafaf7] transition-colors"
-            title="Modifier"
-            aria-label={`Modifier ${item.title}`}
-          >
-            <Edit2 className="h-4 w-4" />
-          </Link>
-          <button
-            type="button"
-            onClick={() => setItemToDelete(item)}
-            className="p-1.5 text-ccjv-ink-secondary hover:text-[#b91c1c] hover:bg-[#fef2f2] transition-colors"
-            title="Supprimer"
-            aria-label={`Supprimer ${item.title}`}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-      ),
-    },
-  ];
-
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
       <AdminPageHeader
         title="Agenda & Événements"
-        description="Gérez les cultes, réunions de prière, conférences, séminaires et activités communautaires du CCJV."
+        description="Gérez les cultes, réunions, séminaires et temps forts de la communauté."
         actions={
           <Button
             href="/admin/agenda/new"
@@ -174,63 +95,95 @@ export default function EventsListPage() {
             className="font-semibold"
           >
             <Plus className="h-4 w-4" />
-            Programmer un événement
+            Nouvel événement
           </Button>
         }
       />
 
-      {/* Barre de recherche */}
-      <div className="p-4 bg-white border border-ccjv-line rounded-none flex flex-col md:flex-row gap-3">
-        <div className="relative flex-1">
-          <Input
-            type="search"
-            placeholder="Rechercher par titre, lieu ou description..."
-            value={search}
+      {/* Barre de filtre épurée (sans barre de recherche) */}
+      <div className="p-4 bg-white border border-ccjv-line rounded-none flex items-center gap-3">
+        <div className="w-full sm:w-56">
+          <Select
+            value={selectedStatus}
             onChange={(e) => {
-              setSearch(e.target.value);
+              setSelectedStatus(e.target.value);
               setPage(1);
             }}
-            className="pl-9"
+            options={[
+              { label: "Tous les statuts", value: "ALL" },
+              { label: "Publiés", value: "PUBLISHED" },
+              { label: "Brouillons", value: "DRAFT" },
+              { label: "Annulés", value: "CANCELLED" },
+            ]}
           />
-          <Search className="absolute left-3 top-3 h-4 w-4 text-ccjv-ink-secondary pointer-events-none" />
         </div>
-
-        <Select
-          value={selectedStatus}
-          onChange={(e) => {
-            setSelectedStatus(e.target.value);
-            setPage(1);
-          }}
-          className="w-full sm:w-44"
-          options={[
-            { label: "Tous les statuts", value: "ALL" },
-            { label: "À venir", value: "UPCOMING" },
-            { label: "Archivés / Passés", value: "ARCHIVED" },
-          ]}
-        />
       </div>
 
-      <DataTable
-        columns={columns}
-        data={paginatedData}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-800 text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* Grille 2 × x des événements */}
+      <AdminEntityGrid
+        items={paginatedData}
         keyExtractor={(item) => item.id}
         isLoading={isLoading}
-        error={error}
+        emptyTitle="Aucun événement trouvé"
+        emptyDescription="Aucun événement ne correspond aux critères sélectionnés."
+        emptyAction={
+          <Button href="/admin/agenda/new" size="sm" variant="primary">
+            <Plus className="h-4 w-4" />
+            Ajouter un événement
+          </Button>
+        }
+        renderItem={(item) => {
+          const isCancelled = item.status === "CANCELLED" || item.lifecycleStatus === "CANCELLED";
+          const isPublished = item.status === "PUBLISHED" || item.lifecycleStatus === "PUBLISHED";
+          const resolvedImage = item.imageUrl || item.bannerImage || null;
+
+          return (
+            <AdminEntityCard
+              id={item.id}
+              title={item.title}
+              detailHref={`/admin/agenda/${item.id}`}
+              imageUrl={resolvedImage}
+              subtitle={item.location ? `Lieu : ${item.location}` : undefined}
+              description={item.excerpt || item.description}
+              statusBadge={{
+                label: isCancelled ? "Annulé" : isPublished ? "Publié" : "Brouillon",
+                variant: isCancelled ? "error" : isPublished ? "success" : "neutral",
+              }}
+              dateLabel={
+                item.eventDate
+                  ? `Date : ${formatLongDate(item.eventDate)}${item.eventTime ? ` · ${item.eventTime}` : ""}`
+                  : undefined
+              }
+              onDelete={() => setItemToDelete(item)}
+              deleteTitle="Supprimer cet événement"
+              deleteAriaLabel={`Supprimer ${item.title}`}
+              viewLabel="Voir plus"
+            />
+          );
+        }}
       />
 
-      <Pagination
-        currentPage={page}
-        totalPages={totalPages}
-        totalItems={filteredData.length}
-        pageSize={pageSize}
-        onPageChange={(newPage) => setPage(newPage)}
-      />
+      {/* Pagination */}
+      {!isLoading && filteredData.length > pageSize && (
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
+      )}
 
+      {/* Confirmation de suppression */}
       <ConfirmModal
         isOpen={Boolean(itemToDelete)}
         title="Supprimer l'événement ?"
-        message={`Êtes-vous sûr de vouloir supprimer définitivement l'événement "${itemToDelete?.title}" ?`}
-        confirmLabel="Supprimer"
+        message={`Êtes-vous certain de vouloir supprimer l'événement "${itemToDelete?.title}" ? Cette action est irréversible.`}
+        confirmLabel="Supprimer définitivement"
         cancelLabel="Annuler"
         variant="danger"
         isLoading={isDeleting}

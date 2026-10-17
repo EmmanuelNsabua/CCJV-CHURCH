@@ -188,11 +188,36 @@ export interface MediaAccess extends MediaAccessRights {
 /*  Départements et événements                                                */
 /* -------------------------------------------------------------------------- */
 
+export interface DepartmentActivity {
+  id: string;
+  departmentId: string;
+  title: string;
+  description: string | null;
+  imageMediaId: string | null;
+  imageUrl?: string | null;
+  position: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DepartmentArchive {
+  id: string;
+  originalDepartmentId: string;
+  name: string;
+  slug: string;
+  snapshot: Record<string, unknown>;
+  archivedBy: string | null;
+  archivedAt: Date;
+  reason: string | null;
+}
+
 export interface Department {
   id: string;
   name: string;
   slug: string;
   description: string | null;
+  mission: string | null;
+  history: string | null;
   responsibleName: string | null;
   tagline: string | null;
   meetingSchedule: string | null;
@@ -201,10 +226,20 @@ export interface Department {
   /** URL publique résolue, exposée par l'API (le frontend attend `bannerImage`). */
   bannerImageUrl: string | null;
   galleryUrls: string[];
+  activities?: DepartmentActivity[];
+  leaders?: Leader[];
   position: number;
   createdAt: Date;
   updatedAt: Date;
 }
+
+/**
+ * Statut éditorial d'un événement (Envent) :
+ * - DRAFT : en préparation, privé
+ * - PUBLISHED : publié publiquement
+ * - CANCELLED : annulé (reste visible dans l'agenda avec mention "Annulé")
+ */
+export type EventLifecycleStatus = "DRAFT" | "PUBLISHED" | "CANCELLED";
 
 export interface Event {
   id: string;
@@ -212,23 +247,43 @@ export interface Event {
   slug: string;
   description: string | null;
   excerpt: string | null;
-  /** Date ISO `YYYY-MM-DD` — jamais un objet `Date` (pas de décalage de fuseau). */
+  /** Date de début ISO `YYYY-MM-DD`. Rétrocompatible avec `eventDate`. */
+  startDate: string;
   eventDate: string;
-  /** Heure `HH:MM:SS` ou `HH:MM`. */
+  /** Date de fin ISO `YYYY-MM-DD`. Obligatoire, ne peut pas précéder la date de début. */
+  endDate: string;
+  /** Heure de début `HH:MM` ou `HH:MM:SS`. Rétrocompatible avec `eventTime`. */
+  startTime: string | null;
   eventTime: string | null;
+  /** Heure de fin facultative et indépendante. */
+  endTime: string | null;
   location: string | null;
   imageMediaId: string | null;
   bannerMediaId: string | null;
   imageUrl: string | null;
   bannerImageUrl: string | null;
   galleryUrls: string[];
-  /** Département **responsable** : non nul (D-26, XD-15). */
-  departmentId: string;
-  /** **Qui est concerné** — distinct du département responsable (D-26). */
+  /** Département facultatif (aucun département organisateur n'est requis). */
+  departmentId: string | null;
+  /** Portée publique. */
   visibilityScope: EventVisibilityScope;
   practicalInfo: string[] | null;
-  /** Calculé, jamais stocké. */
-  status: EventStatus;
+  /** Statut éditorial persistant : DRAFT, PUBLISHED, CANCELLED. */
+  status: EventLifecycleStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Ressources documentaires (PDF)                                            */
+/* -------------------------------------------------------------------------- */
+
+export interface Resource {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  file: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -245,6 +300,8 @@ export interface Publication {
   category: PublicationCategory;
   status: PublicationStatus;
   contentUrl: string | null;
+  /** Identifiant du média de couverture lié (si présent). */
+  coverMediaId: string | null;
   /** URL du média de couverture résolue, si un média est associé. */
   coverImageUrl: string | null;
   description: string | null;
@@ -267,8 +324,6 @@ export interface Leader {
   id: string;
   name: string;
   role: string;
-  scope: string | null;
-  bio: string | null;
   photoMediaId: string | null;
   photoUrl: string | null;
   departmentId: string | null;
@@ -277,13 +332,24 @@ export interface Leader {
   updatedAt: Date;
 }
 
+export type TestimonyStatus = "PENDING" | "PUBLISHED" | "REJECTED" | "ARCHIVED";
+
 export interface Testimony {
   id: string;
-  quote: string;
-  personName: string;
-  personRole: string | null;
+  content: string;
+  quote?: string;
+  authorName: string | null;
+  personName?: string;
+  isAnonymous: boolean;
+  status: TestimonyStatus;
+  isFeatured: boolean;
   photoMediaId: string | null;
   photoUrl: string | null;
+  consentedAt: Date | null;
+  publishedAt: Date | null;
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+  adminNotes: string | null;
   position: number;
   createdAt: Date;
   updatedAt: Date;

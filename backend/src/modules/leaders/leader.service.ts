@@ -21,6 +21,10 @@ export class LeaderService {
     return this.leaders.list(options);
   }
 
+  listByDepartment(departmentId: string): Promise<Leader[]> {
+    return this.leaders.listByDepartment(departmentId);
+  }
+
   async get(id: string): Promise<Leader> {
     const leader = await this.leaders.findById(id);
     if (!leader) {

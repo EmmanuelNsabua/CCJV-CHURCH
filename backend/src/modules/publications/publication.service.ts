@@ -70,13 +70,49 @@ export class PublicationService {
     return created;
   }
 
+  /** Les 3 publications publiées les plus récentes (mises en avant). */
+  async listFeatured(limit: number = 3): Promise<Publication[]> {
+    return this.publications.listFeatured(limit);
+  }
+
+  /** Archives des publications publiées. */
+  async listArchives(query: PublicationListQuery): Promise<ListResult<Publication>> {
+    return this.publications.listArchives({
+      limit: query.limit,
+      offset: toOffset(query.page, query.limit),
+    });
+  }
+
+  /**
+   * Repasse une publication publiée en brouillon pour autoriser sa modification (règle §3.3).
+   */
+  async revertToDraft(idOrSlug: string): Promise<Publication> {
+    const existing = await this.require(idOrSlug, true);
+    const updated = await this.publications.revertToDraft(existing.id);
+    if (!updated) {
+      throw notFound(idOrSlug);
+    }
+    return updated;
+  }
+
+  /**
+   * Publie une publication (brouillon ou republiée) en actualisant sa date effective.
+   */
+  async publish(idOrSlug: string, publishedAt?: string): Promise<Publication> {
+    const existing = await this.require(idOrSlug, true);
+    const updated = await this.publications.publish(existing.id, publishedAt);
+    if (!updated) {
+      throw notFound(idOrSlug);
+    }
+    return updated;
+  }
+
   /**
    * Mise à jour partielle.
    *
-   * La cohérence type ↔ contenu est vérifiée sur la **ressource fusionnée** :
-   * un `PATCH` qui vide le `contentUrl` d'une VIDEO, ou qui bascule un TEXTE en
-   * VIDEO sans lui donner de lien, doit échouer même si le corps transmis est
-   * partiel.
+   * Règle §3.3 : Toute modification d'une publication déjà publiée exige un retour
+   * explicite au brouillon. Si la ressource est PUBLISHED et que l'appel ne demande pas
+   * explicitement status: "DRAFT", la modification directe est refusée.
    */
   async update(
     idOrSlug: string,
@@ -84,12 +120,16 @@ export class PublicationService {
   ): Promise<Publication> {
     const existing = await this.require(idOrSlug, true);
 
+    if (existing.status === "PUBLISHED" && data.status !== "DRAFT") {
+      throw new ValidationError(
+        "Une publication déjà publiée ne peut pas être modifiée directement. Veuillez d'abord la repasser en brouillon.",
+      );
+    }
+
     assertContentCoherence({
       type: data.type ?? existing.type,
       contentUrl:
         data.contentUrl !== undefined ? data.contentUrl : existing.contentUrl,
-      // Un `coverMediaId` explicitement `null` retire la couverture ; sinon on
-      // se fie à celle que le repository a déjà résolue pour la ressource.
       hasCover:
         data.coverMediaId !== undefined
           ? data.coverMediaId !== null
@@ -100,26 +140,6 @@ export class PublicationService {
     const updated = await this.publications.update(existing.id, data);
     if (updated === null) {
       throw notFound(idOrSlug);
-    }
-
-    /**
-     * **Passage à `PUBLISHED` d'une publication existante** : le quota décide.
-     *
-     * La transition est détectée sur l'état **résultant** (`existing` → `updated`),
-     * et non sur la seule présence de `status` dans le corps : un `PATCH` qui
-     * n'envoie que le titre d'une publication déjà en ligne ne consomme aucune
-     * place, et ne doit donc pas archiver la plus ancienne pour rien. C'est la
-     * même précaution que `planPublication` prend côté domaine.
-     *
-     * L'archivage qui en résulte est **irréversible** (D-18) : c'est la
-     * conséquence assumée de la règle globale, et elle est tracée par
-     * `archived_at`.
-     */
-    const devientPubliee = updated.status === "PUBLISHED" && existing.status !== "PUBLISHED";
-    if (devientPubliee) {
-      return (
-        (await this.publications.publishWithQuota(updated.id, updated.publishedAt)) ?? updated
-      );
     }
 
     return updated;

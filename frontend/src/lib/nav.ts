@@ -173,13 +173,32 @@ export interface Crumb {
   href?: string;
 }
 
-import { departments } from "@/data/mock/departments";
+/**
+ * Département minimal nécessaire au fil d'Ariane.
+ *
+ * Le catalogue n'est **plus** importé d'un fichier de démonstration : il est
+ * fourni par l'appelant, qui le tient de l'API (`getDepartments`). Le fil
+ * d'Ariane nommait auparavant les fiches département à partir d'une liste figée
+ * dans `src/data/mock/departments.ts` — une copie qui ne pouvait que diverger de
+ * la base de référence.
+ */
+export interface DepartmentCrumb {
+  slug: string;
+  name: string;
+}
 
 /**
  * Construit le fil d'Ariane d'une route à partir de `mainNav`.
  * Retourne [] si la route n'appartient à aucune section.
+ *
+ * @param catalogueDépartements Départements réels, quand la page les connaît.
+ *        Sans eux, une route `/{slug}` n'a pas de libellé : la page fournit
+ *        alors ses propres miettes.
  */
-export function getBreadcrumbs(pathname: string): Crumb[] {
+export function getBreadcrumbs(
+  pathname: string,
+  catalogueDépartements: readonly DepartmentCrumb[] = [],
+): Crumb[] {
   if (pathname === "/") return [];
 
   // Route directe /organisation
@@ -189,7 +208,7 @@ export function getBreadcrumbs(pathname: string): Crumb[] {
 
   // Routes dynamiques de département /[slug]
   const currentSlug = pathname.replace(/^\//, "");
-  const deptMatch = departments.find((d) => d.slug === currentSlug);
+  const deptMatch = catalogueDépartements.find((d) => d.slug === currentSlug);
   if (deptMatch) {
     return [
       { href: "/organisation", label: "Organisation" },

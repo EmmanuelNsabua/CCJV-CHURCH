@@ -7,9 +7,10 @@ import { MediaFeature } from "@/components/editorial/MediaFeature";
 import { PhotoGallery } from "@/components/editorial/PhotoGallery";
 import { CrossLinks } from "@/components/editorial/CrossLinks";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { getPublications } from "@/lib/api";
-import { images, photoPool } from "@/data/mock/images";
-import { formatLongDate } from "@/lib/utils";
+import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
+import { getPublications, readOrUnavailable } from "@/lib/api/endpoints";
+import { images } from "@/data/images";
+import { formatLongDate, getYouTubeId } from "@/lib/utils";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
@@ -20,35 +21,55 @@ export const metadata = pageMetadata({
 });
 
 export default async function MediathequePage() {
-  const [media, teachings] = await Promise.all([
-    getPublications({ category: "MEDIA", limit: 50 }),
-    getPublications({ category: "ENSEIGNEMENT", limit: 1 }),
+  /*
+   * Les albums et la vidéo mise en avant sont **les publications réelles** de
+   * l'API : un album est une publication de type PHOTO accompagnée de son
+   * média, la vidéo est la dernière publication vidéo d'enseignement. Aucune
+   * image n'est empruntée à un autre contenu pour combler un média manquant.
+   */
+  const [photosRead, videosRead] = await Promise.all([
+    readOrUnavailable((options) =>
+      getPublications({ type: "PHOTO", limit: 50 }, options),
+    ),
+    readOrUnavailable((options) =>
+      getPublications({ type: "VIDEO", category: "ENSEIGNEMENT", limit: 10 }, options),
+    ),
   ]);
 
-  /** Albums publiés : les entrées de la rubrique média accompagnées d'une image. */
-  const albums = media.flatMap((publication) => {
-    /* L'API peut renvoyer la photo en `coverImage` plutôt qu'en `contentUrl`. */
-    const image = publication.contentUrl ?? publication.coverImage;
-    if (!image) return [];
+  /** Albums publiés : les publications photo accompagnées d'un média réel. */
+  const albums =
+    photosRead.status === "ok"
+      ? photosRead.data.flatMap((publication) => {
+          /* L'API peut renvoyer la photo en `coverImage` plutôt qu'en `contentUrl`. */
+          const image = publication.coverImage ?? publication.contentUrl;
+          if (!image) return [];
 
-    return [
-      {
-        id: publication.id,
-        title: publication.title,
-        slug: publication.slug,
-        description: publication.description,
-        publishedAt: publication.publishedAt,
-        image,
-      },
-    ];
-  });
+          return [
+            {
+              id: publication.id,
+              title: publication.title,
+              slug: publication.slug,
+              description: publication.description,
+              publishedAt: publication.publishedAt,
+              image,
+            },
+          ];
+        })
+      : [];
 
-  /** Vidéo mise en avant : le message le plus récent publié sur YouTube. */
-  const latestVideo = teachings[0];
-  const videoUrl =
-    latestVideo?.type === "VIDEO" && latestVideo.contentUrl
-      ? latestVideo.contentUrl
+  /** Vidéo mise en avant : le message vidéo publié le plus récent. */
+  const latestVideo =
+    videosRead.status === "ok"
+      ? videosRead.data.find((publication) => Boolean(publication.contentUrl))
       : undefined;
+  const videoUrl = latestVideo?.contentUrl;
+
+  /*
+   * `MediaFeature` annonce une vidéo « à regarder sur YouTube » : elle n'est
+   * employée que si le média publié est réellement un lien YouTube. Une vidéo
+   * hébergée ailleurs est présentée par sa fiche.
+   */
+  const videoOnYouTube = videoUrl ? Boolean(getYouTubeId(videoUrl)) : false;
 
   return (
     <MediaPage
@@ -73,7 +94,9 @@ export default async function MediathequePage() {
             </p>
           </Prose>
 
-          {latestVideo && videoUrl ? (
+          {videosRead.status === "unreachable" ? (
+            <ContentUnavailable resource="La vidéo à la une" />
+          ) : latestVideo && videoUrl && videoOnYouTube ? (
             <MediaFeature
               variant="hero"
               href={videoUrl}
@@ -82,6 +105,40 @@ export default async function MediathequePage() {
               author={latestVideo.author}
               date={formatLongDate(latestVideo.publishedAt)}
             />
+          ) : latestVideo ? (
+            /* Vidéo réelle non hébergée sur YouTube : présentée par sa fiche. */
+            <div className="border-t border-ccjv-line pt-10">
+              <p className="font-sans text-[0.7rem] font-semibold tracking-[0.2em] text-ccjv-green uppercase">
+                Dernier enseignement
+              </p>
+              <Link
+                href={`/publications/${latestVideo.slug}`}
+                className="group mt-5 block"
+              >
+                <h3 className="max-w-[30ch] font-serif text-[clamp(1.7rem,1rem+1.9vw,2.6rem)] leading-[1.12] transition-colors duration-[250ms] group-hover:text-ccjv-green">
+                  {latestVideo.title}
+                </h3>
+              </Link>
+              {latestVideo.description && (
+                <p className="mt-6 max-w-[60ch] text-[1.02rem] leading-[1.7] text-ccjv-ink-secondary">
+                  {latestVideo.description}
+                </p>
+              )}
+              <p className="mt-6 font-sans text-[0.88rem] text-ccjv-ink-secondary">
+                {[latestVideo.author, formatLongDate(latestVideo.publishedAt)]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              <Link
+                href={`/publications/${latestVideo.slug}`}
+                className="group mt-8 inline-flex items-center gap-3 border border-ccjv-ink px-6 py-3 font-sans text-[0.9rem] font-medium transition-colors duration-[250ms] hover:border-ccjv-green hover:text-ccjv-green"
+              >
+                Voir la vidéo
+                <span aria-hidden="true" className="transition-transform duration-[250ms] group-hover:translate-x-1">
+                  →
+                </span>
+              </Link>
+            </div>
           ) : (
             <EmptyState
               title="Aucune vidéo pour le moment"
@@ -91,19 +148,36 @@ export default async function MediathequePage() {
         </>
       }
       galleryTitle="Galerie"
+      /*
+       * La bande « Galerie » ne montre que des médias réels (couvertures des
+       * albums). Quand il n'y en a aucun, elle est simplement omise : les états
+       * « vide » et « injoignable » sont portés une seule fois, par la section
+       * des albums, pour ne pas annoncer deux fois la même chose.
+       */
       gallery={
-        <>
-          <PhotoGallery variant="mosaic" images={photoPool.slice(0, 5)} />
-          <PhotoGallery
-            variant="columns"
-            className="mt-16 lg:mt-20"
-            images={photoPool.slice(5, 11)}
-          />
-        </>
+        albums.length > 0 ? (
+          <>
+            <PhotoGallery
+              variant="mosaic"
+              images={albums.slice(0, 5).map((album) => album.image)}
+              captions={albums.slice(0, 5).map((album) => album.title)}
+            />
+            {albums.length > 5 && (
+              <PhotoGallery
+                variant="columns"
+                className="mt-16 lg:mt-20"
+                images={albums.slice(5, 11).map((album) => album.image)}
+                captions={albums.slice(5, 11).map((album) => album.title)}
+              />
+            )}
+          </>
+        ) : undefined
       }
       collectionsTitle="Albums publiés"
       collections={
-        albums.length > 0 ? (
+        photosRead.status === "unreachable" ? (
+          <ContentUnavailable resource="Les albums photo" />
+        ) : albums.length > 0 ? (
           <ul className="border-t border-ccjv-line">
             {albums.map((album) => (
               <li key={album.id} className="border-b border-ccjv-line">

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { CrossMark } from "./CrossMark";
-import type { CommunityFace } from "@/data/mock/community";
+import type { CommunityFace } from "@/lib/api";
 
 /**
  * Section « Communauté » — scrollytelling.

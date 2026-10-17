@@ -60,6 +60,24 @@ export function createEventController(service: EventService) {
       sendItem(res, toEventDto(await service.update(idOrSlug, body)));
     },
 
+    /** `POST /:idOrSlug/publish` — administration : publication avec validations strictes. */
+    async publish(req: Request, res: Response): Promise<void> {
+      const { idOrSlug } = validatedParams<EventIdOrSlugParams>(req);
+      sendItem(res, toEventDto(await service.publish(idOrSlug)));
+    },
+
+    /** `POST /:idOrSlug/revert-to-draft` — administration : repasse en brouillon avant modification. */
+    async revertToDraft(req: Request, res: Response): Promise<void> {
+      const { idOrSlug } = validatedParams<EventIdOrSlugParams>(req);
+      sendItem(res, toEventDto(await service.revertToDraft(idOrSlug)));
+    },
+
+    /** `POST /:idOrSlug/cancel` — administration : annulation d'un événement. */
+    async cancel(req: Request, res: Response): Promise<void> {
+      const { idOrSlug } = validatedParams<EventIdOrSlugParams>(req);
+      sendItem(res, toEventDto(await service.cancel(idOrSlug)));
+    },
+
     /** `DELETE /:idOrSlug` — administration : suppression. */
     async remove(req: Request, res: Response): Promise<void> {
       const { idOrSlug } = validatedParams<EventIdOrSlugParams>(req);

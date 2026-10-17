@@ -65,20 +65,42 @@ export class DepartmentService {
   }
 
   /**
-   * Supprime le département, **pas** ses événements : la clé étrangère
-   * `events.department_id` est `onDelete: "set null"`, les événements
-   * redeviennent donc généraux (docs/006 §4, IMPLEMENTATION_SPEC §Règles 4).
+   * Archivage préalable obligatoire puis suppression de l'entité active.
+   * Garantit la préservation des données sans suppression physique des médias.
+   */
+  async archive(
+    idOrSlug: string,
+    options: { archivedBy?: string | null; reason?: string | null },
+  ) {
+    const existing = await this.require(idOrSlug);
+    return this.departments.archiveAndDelete(existing.id, options);
+  }
+
+  /**
+   * Supprime le département directement.
    */
   async remove(idOrSlug: string): Promise<void> {
     const existing = await this.require(idOrSlug);
-
     const removed = await this.departments.remove(existing.id);
     if (!removed) {
       throw new NotFoundError(
         "DEPARTMENT_NOT_FOUND",
-        `Aucun département ne correspond à « ${idOrSlug} »`,
+        `Le département « ${idOrSlug} » a disparu avant d'être supprimé`,
       );
     }
+  }
+
+  async listActivities(idOrSlug: string) {
+    const existing = await this.require(idOrSlug);
+    return this.departments.listActivities(existing.id);
+  }
+
+  async saveActivities(
+    idOrSlug: string,
+    activities: { title: string; description?: string | null; imageMediaId?: string | null; position?: number }[],
+  ) {
+    const existing = await this.require(idOrSlug);
+    return this.departments.saveActivities(existing.id, activities);
   }
 
   private async require(idOrSlug: string): Promise<Department> {

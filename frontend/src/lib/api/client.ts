@@ -51,6 +51,16 @@ export interface ApiFetchOptions extends Omit<RequestInit, "body" | "signal"> {
   timeoutMs?: number;
   /** Jeton d'authentification Bearer explicite (optionnel si le provider global est configuré). */
   token?: string | null;
+  /**
+   * Appelé quand la requête échoue **sans lever** (comportement de `apiFetch`).
+   *
+   * Raison d'être : `apiFetch` renvoie `null` aussi bien pour « l'API ne répond
+   * pas » que pour « aucune donnée ». Les pages publiques doivent **distinguer**
+   * les deux : une erreur d'API ne peut pas se présenter comme un état vide, et
+   * encore moins déclencher un repli sur des données de démonstration. Ce rappel
+   * permet à l'appelant de le savoir sans changer le contrat de retour.
+   */
+  onFailure?: (error: ApiError) => void;
 }
 
 /** Valeurs acceptées dans une chaîne de requête ; `null`/`undefined` sont omis. */
@@ -262,9 +272,18 @@ function handleFailure(
   message: string,
   error?: unknown,
   details?: unknown,
+  onFailure?: (error: ApiError) => void,
 ): null {
   if (propagate) throw new ApiError(message, status, code, details);
   logApiIssue(message, error);
+  // Le rappel ne doit jamais faire échouer la lecture : il informe, il n'arbitre pas.
+  if (onFailure) {
+    try {
+      onFailure(new ApiError(message, status, code, details));
+    } catch {
+      // un rappel fautif ne remplace pas l'incident d'origine dans les logs
+    }
+  }
   return null;
 }
 
@@ -280,6 +299,7 @@ async function request<T>(
     headers,
     body,
     token,
+    onFailure,
     ...rest
   } = options;
 
@@ -332,6 +352,8 @@ async function request<T>(
       "NETWORK_ERROR",
       `échec de l'appel à ${path} (${getApiBaseUrl()})`,
       error,
+      undefined,
+      onFailure,
     );
   }
 
@@ -344,6 +366,7 @@ async function request<T>(
       errResult.message,
       undefined,
       errResult.details,
+      onFailure,
     );
   }
 
@@ -360,6 +383,8 @@ async function request<T>(
       "INVALID_JSON",
       `réponse JSON illisible sur ${path}`,
       error,
+      undefined,
+      onFailure,
     );
   }
 }

@@ -1,6 +1,11 @@
 import { and, asc, count, eq, inArray, ne } from "drizzle-orm";
-import type { Department } from "@/domain/entities";
 import type {
+  Department,
+  DepartmentActivity,
+  DepartmentArchive,
+} from "@/domain/entities";
+import type {
+  DepartmentActivityInput,
   DepartmentInput,
   DepartmentRepository,
   ListOptions,
@@ -8,8 +13,11 @@ import type {
 } from "@/domain/repositories";
 import type { Database } from "@/infrastructure/database/client";
 import {
+  departmentActivities,
+  departmentArchives,
   departmentMedia,
   departments,
+  leaders,
   media,
 } from "@/infrastructure/database/schema";
 import { InternalError } from "@/shared/errors/app-error";
@@ -87,7 +95,7 @@ export class DrizzleDepartmentRepository implements DepartmentRepository {
       .limit(1);
 
     const [department] = await this.hydrate(rows);
-    return department ?? null;
+    return this.enrichWithRelations(department ?? null);
   }
 
   async findByIdOrSlug(value: string): Promise<Department | null> {
@@ -100,7 +108,41 @@ export class DrizzleDepartmentRepository implements DepartmentRepository {
       .limit(1);
 
     const [department] = await this.hydrate(rows);
-    return department ?? null;
+    return this.enrichWithRelations(department ?? null);
+  }
+
+  private async enrichWithRelations(
+    dept: Department | null,
+  ): Promise<Department | null> {
+    if (!dept) return null;
+    const activities = await this.listActivities(dept.id);
+    const leaderRows = await this.db
+      .select({
+        leader: leaders,
+        photoUrl: media.publicUrl,
+      })
+      .from(leaders)
+      .leftJoin(media, eq(leaders.photoMediaId, media.id))
+      .where(eq(leaders.departmentId, dept.id))
+      .orderBy(asc(leaders.position), asc(leaders.createdAt));
+
+    const enrichedLeaders = leaderRows.map((r) => ({
+      id: r.leader.id,
+      name: r.leader.name,
+      role: r.leader.role,
+      photoMediaId: r.leader.photoMediaId,
+      photoUrl: r.photoUrl,
+      departmentId: r.leader.departmentId,
+      position: r.leader.position,
+      createdAt: r.leader.createdAt,
+      updatedAt: r.leader.updatedAt,
+    }));
+
+    return {
+      ...dept,
+      activities,
+      leaders: enrichedLeaders,
+    };
   }
 
   async slugExists(slug: string, exceptId?: string): Promise<boolean> {
@@ -137,6 +179,8 @@ export class DrizzleDepartmentRepository implements DepartmentRepository {
         name: data.name,
         slug,
         description: data.description ?? null,
+        mission: data.mission ?? null,
+        history: data.history ?? null,
         responsibleName: data.responsibleName ?? null,
         tagline: data.tagline ?? null,
         meetingSchedule: data.meetingSchedule ?? null,
@@ -151,6 +195,10 @@ export class DrizzleDepartmentRepository implements DepartmentRepository {
     }
 
     await this.replaceGallery(row.id, data.galleryMediaIds);
+
+    if (data.activities !== undefined) {
+      await this.saveActivities(row.id, data.activities);
+    }
 
     const created = await this.findById(row.id);
     if (created === null) {
@@ -171,6 +219,8 @@ export class DrizzleDepartmentRepository implements DepartmentRepository {
     const patch: DepartmentPatch = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.description !== undefined) patch.description = data.description;
+    if (data.mission !== undefined) patch.mission = data.mission;
+    if (data.history !== undefined) patch.history = data.history;
     if (data.responsibleName !== undefined) {
       patch.responsibleName = data.responsibleName;
     }
@@ -190,14 +240,170 @@ export class DrizzleDepartmentRepository implements DepartmentRepository {
 
     await this.replaceGallery(id, data.galleryMediaIds);
 
+    if (data.activities !== undefined) {
+      await this.saveActivities(id, data.activities);
+    }
+
     return this.findById(id);
   }
 
+  async listActivities(departmentId: string): Promise<DepartmentActivity[]> {
+    if (!isUuid(departmentId)) return [];
+
+    const rows = await this.db
+      .select({
+        activity: departmentActivities,
+        imageUrl: media.publicUrl,
+      })
+      .from(departmentActivities)
+      .leftJoin(media, eq(departmentActivities.imageMediaId, media.id))
+      .where(eq(departmentActivities.departmentId, departmentId))
+      .orderBy(asc(departmentActivities.position), asc(departmentActivities.createdAt));
+
+    return rows.map((r) => ({
+      ...r.activity,
+      imageUrl: r.imageUrl,
+    }));
+  }
+
+  async saveActivities(
+    departmentId: string,
+    activities: DepartmentActivityInput[],
+  ): Promise<DepartmentActivity[]> {
+    if (!isUuid(departmentId)) return [];
+
+    await this.db.transaction(async (tx) => {
+      await tx
+        .delete(departmentActivities)
+        .where(eq(departmentActivities.departmentId, departmentId));
+
+      if (activities.length > 0) {
+        await tx.insert(departmentActivities).values(
+          activities.map((act, index) => ({
+            departmentId,
+            title: act.title,
+            description: act.description ?? null,
+            imageMediaId: act.imageMediaId ?? null,
+            position: act.position ?? index,
+          })),
+        );
+      }
+    });
+
+    return this.listActivities(departmentId);
+  }
+
   /**
-   * Suppression du département **seul** : la clé étrangère `department_id` des
-   * événements est `onDelete: "set null"`, un événement rattaché redevient donc
-   * général au lieu de disparaître (docs/006 §4). Ce comportement est porté par
-   * le schéma, jamais court-circuité ici.
+   * Archivage préalable complet et sécurisé avant suppression de l'entité active.
+   * Conserve un snapshot JSON des données, activités, galerie et responsables.
+   * Ne supprime jamais les fichiers physiques de la bibliothèque média.
+   */
+  async archiveAndDelete(
+    id: string,
+    options: { archivedBy?: string | null; reason?: string | null },
+  ): Promise<DepartmentArchive> {
+    if (!isUuid(id)) {
+      throw new InternalError("Identifiant de département invalide");
+    }
+
+    const dept = await this.findById(id);
+    if (!dept) {
+      throw new InternalError("Département introuvable pour archivage");
+    }
+
+    const currentActivities = await this.listActivities(id);
+    const galleryLinks = await this.db
+      .select()
+      .from(departmentMedia)
+      .where(eq(departmentMedia.departmentId, id));
+
+    const currentLeaders = await this.db
+      .select()
+      .from(leaders)
+      .where(eq(leaders.departmentId, id));
+
+    const snapshot = {
+      department: {
+        id: dept.id,
+        name: dept.name,
+        slug: dept.slug,
+        description: dept.description,
+        mission: dept.mission,
+        history: dept.history,
+        responsibleName: dept.responsibleName,
+        tagline: dept.tagline,
+        meetingSchedule: dept.meetingSchedule,
+        keyPoints: dept.keyPoints,
+        bannerMediaId: dept.bannerMediaId,
+        position: dept.position,
+        createdAt: dept.createdAt,
+        updatedAt: dept.updatedAt,
+      },
+      activities: currentActivities,
+      galleryMediaIds: galleryLinks.map((g) => g.mediaId),
+      leaders: currentLeaders,
+    };
+
+    let archiveRow: typeof departmentArchives.$inferSelect | undefined;
+
+    await this.db.transaction(async (tx) => {
+      // 1. Sauvegarde sûre dans les archives
+      const [insertedArchive] = await tx
+        .insert(departmentArchives)
+        .values({
+          originalDepartmentId: id,
+          name: dept.name,
+          slug: dept.slug,
+          snapshot,
+          archivedBy: options.archivedBy ?? null,
+          reason: options.reason ?? null,
+        })
+        .returning();
+
+      if (!insertedArchive) {
+        throw new InternalError(
+          "Impossible de créer l'archive préalable du département",
+        );
+      }
+      archiveRow = insertedArchive;
+
+      // 2. Nettoyage des activités et galerie
+      await tx
+        .delete(departmentActivities)
+        .where(eq(departmentActivities.departmentId, id));
+
+      await tx
+        .delete(departmentMedia)
+        .where(eq(departmentMedia.departmentId, id));
+
+      // 3. Détachement explicite des responsables (sans supprimer les personnes)
+      await tx
+        .update(leaders)
+        .set({ departmentId: null })
+        .where(eq(leaders.departmentId, id));
+
+      // 4. Suppression de l'entité active
+      await tx.delete(departments).where(eq(departments.id, id));
+    });
+
+    if (!archiveRow) {
+      throw new InternalError("Échec de l'archivage du département");
+    }
+
+    return {
+      id: archiveRow.id,
+      originalDepartmentId: archiveRow.originalDepartmentId,
+      name: archiveRow.name,
+      slug: archiveRow.slug,
+      snapshot: archiveRow.snapshot as Record<string, unknown>,
+      archivedBy: archiveRow.archivedBy,
+      archivedAt: archiveRow.archivedAt,
+      reason: archiveRow.reason,
+    };
+  }
+
+  /**
+   * Suppression simple du département (alternative sans archive si appelé directement).
    */
   async remove(id: string): Promise<boolean> {
     if (!isUuid(id)) return false;
@@ -284,6 +490,8 @@ export class DrizzleDepartmentRepository implements DepartmentRepository {
       name: row.name,
       slug: row.slug,
       description: row.description,
+      mission: row.mission,
+      history: row.history,
       responsibleName: row.responsibleName,
       tagline: row.tagline,
       meetingSchedule: row.meetingSchedule,

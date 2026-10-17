@@ -48,6 +48,27 @@ export function createEventRouter(deps: EventRouterDeps): Router {
     validate({ body: createEventSchema }),
     controller.create,
   );
+  router.post(
+    "/:idOrSlug/publish",
+    ...admin,
+    authorize(EventPolicy, "UPDATE"),
+    validate({ params: eventIdOrSlugSchema }),
+    controller.publish,
+  );
+  router.post(
+    "/:idOrSlug/revert-to-draft",
+    ...admin,
+    authorize(EventPolicy, "UPDATE"),
+    validate({ params: eventIdOrSlugSchema }),
+    controller.revertToDraft,
+  );
+  router.post(
+    "/:idOrSlug/cancel",
+    ...admin,
+    authorize(EventPolicy, "UPDATE"),
+    validate({ params: eventIdOrSlugSchema }),
+    controller.cancel,
+  );
   router.patch(
     "/:idOrSlug",
     ...admin,

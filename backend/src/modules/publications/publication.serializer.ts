@@ -36,6 +36,8 @@ export interface PublicationDto {
   /** Corps éditorial des publications TEXTE. */
   body?: string[];
   status: PublicationStatus;
+  /** Identifiant du média de couverture. */
+  coverMediaId?: string;
   /** Ex-`coverImageUrl` : média de couverture résolu. */
   coverImage?: string;
 }
@@ -53,6 +55,7 @@ export function toPublicationDto(publication: Publication): PublicationDto {
     author: publication.author ?? undefined,
     body: publication.body ?? undefined,
     status: publication.status,
+    coverMediaId: publication.coverMediaId ?? undefined,
     coverImage: publication.coverImageUrl ?? undefined,
   };
 }

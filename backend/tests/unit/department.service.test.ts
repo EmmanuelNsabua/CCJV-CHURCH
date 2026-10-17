@@ -33,6 +33,8 @@ function departmentFixture(overrides: Partial<Department> = {}): Department {
     name: "Chorale",
     slug: "chorale",
     description: null,
+    mission: null,
+    history: null,
     responsibleName: null,
     tagline: null,
     meetingSchedule: null,
@@ -40,6 +42,8 @@ function departmentFixture(overrides: Partial<Department> = {}): Department {
     bannerMediaId: null,
     bannerImageUrl: null,
     galleryUrls: [],
+    activities: [],
+    leaders: [],
     position: 0,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     updatedAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -88,6 +92,8 @@ function fakeDepartmentRepository(seed: readonly Department[] = []) {
         name: data.name,
         slug,
         description: data.description ?? null,
+        mission: data.mission ?? null,
+        history: data.history ?? null,
         responsibleName: data.responsibleName ?? null,
         tagline: data.tagline ?? null,
         meetingSchedule: data.meetingSchedule ?? null,
@@ -111,12 +117,39 @@ function fakeDepartmentRepository(seed: readonly Department[] = []) {
         ...(data.description !== undefined
           ? { description: data.description }
           : {}),
+        ...(data.mission !== undefined ? { mission: data.mission } : {}),
+        ...(data.history !== undefined ? { history: data.history } : {}),
         ...(data.position !== undefined ? { position: data.position } : {}),
         updatedAt: new Date("2026-02-01T00:00:00.000Z"),
       };
 
       store.set(id, updated);
       return updated;
+    },
+
+    async archiveAndDelete(id, options) {
+      const existing = store.get(id);
+      if (!existing) throw new Error("Not found");
+      store.delete(id);
+      slugs.delete(existing.slug);
+      return {
+        id: "archive-id",
+        originalDepartmentId: id,
+        name: existing.name,
+        slug: existing.slug,
+        snapshot: { ...existing },
+        archivedBy: options.archivedBy ?? null,
+        archivedAt: new Date(),
+        reason: options.reason ?? null,
+      };
+    },
+
+    async listActivities() {
+      return [];
+    },
+
+    async saveActivities() {
+      return [];
     },
 
     async remove(id) {

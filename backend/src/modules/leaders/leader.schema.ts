@@ -23,14 +23,16 @@ export const leaderIdParamSchema = z.object({
  * (`ListOptions`) ne porte aucune colonne de tri. `?sort=…` — comme tout autre
  * paramètre non reconnu — est refusé en `VALIDATION_ERROR`.
  */
-export const listQuerySchema = paginationQuerySchema;
+export const listQuerySchema = paginationQuerySchema.extend({
+  departmentId: z.string().uuid("Identifiant de département invalide").optional(),
+});
+
+export type LeaderListQuery = z.infer<typeof listQuerySchema>;
 
 export const createLeaderSchema = z.object({
   name: z.string().trim().min(1, "Le nom est requis").max(120),
-  role: z.string().trim().min(1, "La fonction est requise").max(120),
-  scope: z.string().trim().max(120).nullish(),
-  bio: z.string().trim().max(5000).nullish(),
-  /** Référence `media` : le portrait est un média téléversé, pas une URL libre. */
+  role: z.string().trim().max(120).default("Responsable"),
+  /** Référence `media` issue de la bibliothèque centrale. */
   photoMediaId: z.uuid("Identifiant de média invalide").nullish(),
   departmentId: z.uuid("Identifiant de département invalide").nullish(),
   position: z.coerce.number().int().min(0).max(9999).optional(),

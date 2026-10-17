@@ -228,7 +228,7 @@ export default function AdminDashboardPage() {
             </p>
           </div>
           <Link
-            href="/admin/publications?type=GUIDE_ETUDE"
+            href="/admin/ressources"
             className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-ccjv-green hover:underline"
           >
             Consulter les ressources <ArrowRight className="h-3 w-3" />

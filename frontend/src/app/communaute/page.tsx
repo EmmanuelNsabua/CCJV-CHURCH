@@ -1,21 +1,23 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
 import { pageMetadata } from "@/lib/seo";
-import { site } from "@/data/mock/site";
-import { houseGroups } from "@/data/mock/community";
-import { testimonies } from "@/data/mock/testimonies";
-import { images } from "@/data/mock/images";
+import { getTestimonies } from "@/lib/api";
+import { readOrUnavailable } from "@/lib/api/endpoints";
+import { site } from "@/data/site";
+import { images } from "@/data/images";
 import { Button } from "@/components/ui/Button";
+import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 import { CrossMark } from "@/components/shared/CrossMark";
 import { VerseSection } from "@/components/shared/VerseSection";
 import { PhotoDuo } from "@/components/editorial/PhotoDuo";
+import { PublicTestimonyForm } from "@/components/forms/PublicTestimonyForm";
 
 export const metadata: Metadata = pageMetadata({
   title: "Notre Communauté — Centre Chrétien Jésus ma Vie",
   description:
-    "Découvrez la vie communautaire au Centre Chrétien Jésus ma Vie à Lubumbashi : fraternité sincère, groupes de maison de quartier, prière partagée et témoignages vivants.",
+    "Découvrez la vie communautaire au Centre Chrétien Jésus ma Vie à Lubumbashi : fraternité sincère, prière partagée et témoignages vivants.",
   path: "/communaute",
 });
 
@@ -24,9 +26,19 @@ export const metadata: Metadata = pageMetadata({
  * - Raconte comment la foi est vécue au quotidien entre frères et sœurs
  * - Moins de texte, plus de présence humaine et photographique
  * - Aucun funnel administratif ni numérotation décorative
- * - Regroupe la fraternité, les groupes de maison, la prière, le parcours nouveau et les témoignages
+ * - Regroupe la fraternité, la prière, le parcours nouveau et les témoignages
+ *
+ * Les témoignages viennent de l'API (`/testimonies`) : une réponse vide donne
+ * un état vide explicite, une lecture impossible un état d'indisponibilité.
+ * Aucun témoignage de démonstration ne s'y substitue.
  */
-export default function CommunautePage() {
+export default async function CommunautePage() {
+  const testimoniesRead = await readOrUnavailable((options) =>
+    getTestimonies(options),
+  );
+  const testimonies =
+    testimoniesRead.status === "ok" ? testimoniesRead.data : [];
+
   return (
     <main className="bg-ccjv-offwhite text-ccjv-ink selection:bg-ccjv-green selection:text-white">
       {/* =========================================================================
@@ -125,8 +137,8 @@ export default function CommunautePage() {
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4">
-                <Button variant="outline" href="#groupes-de-maison">
-                  Les groupes de maison →
+                <Button variant="outline" href="#priere">
+                  La prière & l&apos;intercession →
                 </Button>
               </div>
             </div>
@@ -135,74 +147,7 @@ export default function CommunautePage() {
       </section>
 
       {/* =========================================================================
-          03. GROUPES DE MAISON : LA PROXIMITÉ DANS LES QUARTIERS
-          ========================================================================= */}
-      <section
-        id="groupes-de-maison"
-        className="border-b border-ccjv-line bg-ccjv-cream px-6 py-20 sm:px-12 lg:px-20 lg:py-28"
-        aria-labelledby="groupes-titre"
-      >
-        <div className="mx-auto max-w-7xl">
-          <div className="max-w-2xl">
-            <span className="font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-green uppercase">
-              La proximité en semaine
-            </span>
-            <h2
-              id="groupes-titre"
-              className="mt-3 font-serif text-[clamp(1.9rem,1.3rem+2vw,3rem)] leading-[1.12] text-ccjv-ink"
-            >
-              La communauté au cœur des quartiers.
-            </h2>
-            <p className="mt-4 font-sans text-[1.05rem] leading-[1.7] text-ccjv-ink-secondary">
-              Chaque semaine, nos cellules de maison se réunissent pour prier, méditer la Parole
-              et veiller les uns sur les autres en toute simplicité.
-            </p>
-          </div>
-
-          {/* Grille éditoriale des cellules de maison */}
-          <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {houseGroups.map((group) => (
-              <div
-                key={group.id}
-                className="flex flex-col justify-between border border-ccjv-line bg-white p-6 sm:p-7 transition-colors hover:border-ccjv-green/40"
-              >
-                <div>
-                  <span className="font-sans text-[0.72rem] font-semibold tracking-[0.14em] text-ccjv-green uppercase">
-                    {group.quarter}
-                  </span>
-
-                  <h3 className="mt-2 font-serif text-xl text-ccjv-ink">
-                    {group.name}
-                  </h3>
-
-                  <p className="mt-3 font-sans text-xs font-medium text-ccjv-ink-secondary">
-                    {group.schedule}
-                  </p>
-
-                  <p className="mt-4 font-sans text-sm leading-[1.65] text-ccjv-ink-secondary">
-                    {group.description}
-                  </p>
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-ccjv-line">
-                  <span className="font-sans text-xs text-ccjv-ink-secondary">
-                    {group.host}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-12 text-center">
-            <Button variant="primary" href={site.whatsappHref} external>
-              Rejoindre un groupe de maison près de chez vous
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* =========================================================================
-          04. PREMIÈRE RESPIRATION BIBLIQUE : LA COMMUNION FRATERNELLE
+          03. PREMIÈRE RESPIRATION BIBLIQUE : LA COMMUNION FRATERNELLE
           ========================================================================= */}
       <VerseSection
         text="Voici, oh ! qu'il est agréable, qu'il est doux pour des frères de demeurer ensemble !"
@@ -212,7 +157,7 @@ export default function CommunautePage() {
       />
 
       {/* =========================================================================
-          05. LA PRIÈRE & L'INTERCESSION : PORTER LES FARDEAUX ENSEMBLE
+          04. LA PRIÈRE & L'INTERCESSION : PORTER LES FARDEAUX ENSEMBLE
           ========================================================================= */}
       <section
         id="priere"
@@ -264,7 +209,7 @@ export default function CommunautePage() {
       </section>
 
       {/* =========================================================================
-          06. PARCOURS NOUVEAU : UNE NOUVELLE ÉTAPE OUVERTE ET HUMAINE
+          05. PARCOURS NOUVEAU : UNE NOUVELLE ÉTAPE OUVERTE ET HUMAINE
           ========================================================================= */}
       <section
         id="parcours-nouveau"
@@ -315,27 +260,35 @@ export default function CommunautePage() {
       </section>
 
       {/* =========================================================================
-          07. TÉMOIGNAGES : DES VOIX RÉELLES
+          06. TÉMOIGNAGES : DES VOIX RÉELLES
           ========================================================================= */}
-      {testimonies.length > 0 && (
-        <section
-          id="temoignages"
-          className="border-b border-ccjv-line bg-ccjv-offwhite px-6 py-20 sm:px-12 lg:px-20 lg:py-28"
-          aria-labelledby="temoignages-titre"
-        >
-          <div className="mx-auto max-w-7xl">
-            <div className="max-w-2xl">
-              <span className="font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-green uppercase">
-                Témoignages
-              </span>
-              <h2
-                id="temoignages-titre"
-                className="mt-3 font-serif text-[clamp(1.9rem,1.3rem+2vw,3rem)] leading-[1.12] text-ccjv-ink"
-              >
-                Ce que nous vivons ici.
-              </h2>
-            </div>
+      <section
+        id="temoignages"
+        className="border-b border-ccjv-line bg-ccjv-offwhite px-6 py-20 sm:px-12 lg:px-20 lg:py-28"
+        aria-labelledby="temoignages-titre"
+      >
+        <div className="mx-auto max-w-7xl">
+          <div className="max-w-2xl">
+            <span className="font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-green uppercase">
+              Témoignages
+            </span>
+            <h2
+              id="temoignages-titre"
+              className="mt-3 font-serif text-[clamp(1.9rem,1.3rem+2vw,3rem)] leading-[1.12] text-ccjv-ink"
+            >
+              Ce que nous vivons ici.
+            </h2>
+          </div>
 
+          {testimoniesRead.status === "unreachable" ? (
+            <ContentUnavailable className="mt-14" resource="Les témoignages" />
+          ) : testimonies.length === 0 ? (
+            <EmptyState
+              className="mt-14"
+              title="Aucun témoignage publié pour le moment"
+              description="Les témoignages publiés depuis le back-office apparaîtront ici."
+            />
+          ) : (
             <div className="mt-14 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
               {testimonies.map((tem) => (
                 <div
@@ -362,19 +315,26 @@ export default function CommunautePage() {
                     <p className="font-sans text-sm font-semibold text-ccjv-ink">
                       {tem.name}
                     </p>
-                    <p className="font-sans text-xs text-ccjv-ink-secondary">
-                      {tem.role}
-                    </p>
+                    {tem.role && (
+                      <p className="font-sans text-xs text-ccjv-ink-secondary">
+                        {tem.role}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
+          )}
+
+          {/* Dépôt de témoignage par un fidèle */}
+          <div className="mt-16 max-w-2xl mx-auto">
+            <PublicTestimonyForm />
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
       {/* =========================================================================
-          08. DEUXIÈME RESPIRATION BIBLIQUE : L'AMOUR FRATERNEL
+          07. DEUXIÈME RESPIRATION BIBLIQUE : L'AMOUR FRATERNEL
           ========================================================================= */}
       <VerseSection
         text="À ceci tous connaîtront que vous êtes mes disciples, si vous avez de l'amour les uns pour les autres."
@@ -384,7 +344,7 @@ export default function CommunautePage() {
       />
 
       {/* =========================================================================
-          09. CONCLUSION & INVITATION : TROUVER SA PLACE
+          08. CONCLUSION & INVITATION : TROUVER SA PLACE
           ========================================================================= */}
       <section
         id="rejoindre"

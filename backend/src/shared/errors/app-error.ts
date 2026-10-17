@@ -32,6 +32,7 @@ export type ErrorCode =
   | "SETTING_NOT_FOUND"
   | "NOTIFICATION_NOT_FOUND"
   | "PROFILE_NOT_FOUND"
+  | "RESOURCE_NOT_FOUND"
   // Conflits
   | "DUPLICATE_SLUG"
   /**

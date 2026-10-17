@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { CrossMark } from "@/components/shared/CrossMark";
-import { images } from "@/data/mock/images";
+import { images } from "@/data/images";
 
 /**
  * 01 — L'INVITATION (Hero V3).
@@ -9,7 +9,19 @@ import { images } from "@/data/mock/images";
  * localisation, motif chrétien visible et information pratique. Les CTA ouvrent
  * directement le parcours « venir ».
  */
-export function Hero() {
+import type { Testimony } from "@/lib/api/types";
+
+export interface HeroProps {
+  featuredTestimony?: Testimony | null;
+}
+
+/**
+ * 01 — L'INVITATION (Hero V3).
+ * Premier moment d'identité : photographie, typographie éditoriale, identité,
+ * localisation, motif chrétien visible et information pratique. Les CTA ouvrent
+ * directement le parcours « venir ».
+ */
+export function Hero({ featuredTestimony }: HeroProps = {}) {
   return (
     <section
       className="relative grid min-h-svh grid-cols-1 overflow-hidden min-[900px]:grid-cols-2"
@@ -69,6 +81,17 @@ export function Hero() {
               Voir les horaires
             </Button>
           </div>
+
+          {featuredTestimony && (
+            <div className="mt-8 border-l-2 border-ccjv-green bg-white/5 backdrop-blur-xs p-3.5 text-xs text-white/90">
+              <p className="italic font-serif text-[13px] leading-relaxed">
+                « {featuredTestimony.quote || (featuredTestimony as unknown as { content: string }).content} »
+              </p>
+              <p className="mt-1.5 font-sans font-semibold text-ccjv-cream text-[11px] tracking-wide">
+                — {featuredTestimony.name || "Témoignage de l'assemblée"}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </section>

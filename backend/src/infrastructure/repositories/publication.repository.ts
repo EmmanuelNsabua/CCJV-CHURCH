@@ -312,6 +312,85 @@ export class DrizzlePublicationRepository implements PublicationRepository {
     });
   }
 
+  async publish(id: string, publishedAt?: string): Promise<Publication | null> {
+    if (!isUuid(id)) return null;
+
+    const dateToSet = publishedAt ?? new Date().toISOString().slice(0, 10);
+
+    const [updated] = await this.db
+      .update(publications)
+      .set({
+        status: "PUBLISHED",
+        publishedAt: dateToSet,
+        updatedAt: new Date(),
+      })
+      .where(eq(publications.id, id))
+      .returning();
+
+    return updated ? this.findById(id) : null;
+  }
+
+  async revertToDraft(id: string): Promise<Publication | null> {
+    if (!isUuid(id)) return null;
+
+    const [updated] = await this.db
+      .update(publications)
+      .set({
+        status: "DRAFT",
+        updatedAt: new Date(),
+      })
+      .where(eq(publications.id, id))
+      .returning();
+
+    return updated ? this.findById(id) : null;
+  }
+
+  /**
+   * Les 3 publications publiées les plus récentes (mise en avant).
+   * Tri déterministe par publishedAt DESC, id DESC.
+   */
+  async listFeatured(limit: number = 3): Promise<Publication[]> {
+    const rows = await this.db
+      .select()
+      .from(publications)
+      .where(eq(publications.status, "PUBLISHED"))
+      .orderBy(desc(publications.publishedAt), desc(publications.id))
+      .limit(limit);
+
+    return this.hydrate(rows);
+  }
+
+  /**
+   * Archives des publications (toutes les publications publiées après les 3 premières).
+   */
+  async listArchives(options: ListOptions): Promise<ListResult<Publication>> {
+    const where = eq(publications.status, "PUBLISHED");
+
+    // Décalage de 3 pour les archives publiques si offset = 0
+    const effectiveOffset = (options.offset ?? 0) + 3;
+
+    const rows = await this.db
+      .select()
+      .from(publications)
+      .where(where)
+      .orderBy(desc(publications.publishedAt), desc(publications.id))
+      .limit(options.limit)
+      .offset(effectiveOffset);
+
+    const [totals] = await this.db
+      .select({ value: count() })
+      .from(publications)
+      .where(where);
+
+    const rawTotal = totals?.value ?? 0;
+    const archiveTotal = Math.max(0, rawTotal - 3);
+
+    return {
+      items: await this.hydrate(rows),
+      total: archiveTotal,
+    };
+  }
+
   async remove(id: string): Promise<boolean> {
     if (!isUuid(id)) return false;
 
@@ -373,6 +452,7 @@ export class DrizzlePublicationRepository implements PublicationRepository {
       category: row.category,
       status: row.status,
       contentUrl: row.contentUrl,
+      coverMediaId: row.coverMediaId,
       coverImageUrl:
         row.coverMediaId === null
           ? null

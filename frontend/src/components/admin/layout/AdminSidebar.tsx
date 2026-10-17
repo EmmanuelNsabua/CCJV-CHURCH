@@ -52,7 +52,6 @@ export const adminNavSections: NavSection[] = [
         label: "Publications",
         href: "/admin/publications",
         icon: BookOpen,
-        exact: true,
       },
       {
         label: "Enseignements",
@@ -70,10 +69,9 @@ export const adminNavSections: NavSection[] = [
         icon: ImageIcon,
       },
       {
-        label: "Guides d'études",
-        href: "/admin/publications?type=GUIDE_ETUDE",
+        label: "Ressources",
+        href: "/admin/ressources",
         icon: FileText,
-        typeParam: "GUIDE_ETUDE",
       },
     ],
   },
@@ -134,12 +132,9 @@ export function AdminSidebar({ onCloseMobile, className }: AdminSidebarProps) {
       return pathname.startsWith("/admin/publications") && currentType === item.typeParam;
     }
     if (item.exact) {
-      if (item.href === "/admin/publications") {
-        return pathname === "/admin/publications" && !currentType;
-      }
       return pathname === item.href;
     }
-    return pathname.startsWith(item.href);
+    return pathname === item.href || pathname.startsWith(`${item.href}/`);
   };
 
   return (

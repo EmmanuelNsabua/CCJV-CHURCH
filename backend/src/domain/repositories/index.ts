@@ -3,6 +3,8 @@ import type {
   AdminScope,
   CommunityFace,
   Department,
+  DepartmentActivity,
+  DepartmentArchive,
   Event,
   EventStatus,
   Leader,
@@ -24,11 +26,14 @@ import type {
   SocialLink,
   StaticPage,
   Testimony,
+  TestimonyStatus,
   Teaching,
   BiblicalReference,
   TeachingMedia,
   TeachingStatus,
   TeachingMediaRole,
+  EventLifecycleStatus,
+  Resource,
 } from "@/domain/entities";
 import type { DepartmentCapability, EventVisibilityScope } from "@/domain/departments/capabilities";
 
@@ -58,15 +63,26 @@ export interface ListResult<T> {
 /*  Entrées de création et de mise à jour                                     */
 /* -------------------------------------------------------------------------- */
 
+export interface DepartmentActivityInput {
+  id?: string;
+  title: string;
+  description?: string | null;
+  imageMediaId?: string | null;
+  position?: number;
+}
+
 export interface DepartmentInput {
   name: string;
   description?: string | null;
+  mission?: string | null;
+  history?: string | null;
   responsibleName?: string | null;
   tagline?: string | null;
   meetingSchedule?: string | null;
   keyPoints?: string[] | null;
   bannerMediaId?: string | null;
   galleryMediaIds?: string[];
+  activities?: DepartmentActivityInput[];
   position?: number;
 }
 
@@ -74,28 +90,36 @@ export interface EventInput {
   title: string;
   description?: string | null;
   excerpt?: string | null;
+  /** Date de début (alias eventDate). */
+  startDate?: string;
   eventDate: string;
+  /** Date de fin obligatoire, >= startDate. */
+  endDate?: string;
+  /** Heure de début facultative (alias eventTime). */
+  startTime?: string | null;
   eventTime?: string | null;
+  /** Heure de fin facultative et indépendante. */
+  endTime?: string | null;
   location?: string | null;
   imageMediaId?: string | null;
   bannerMediaId?: string | null;
-  /** Département **responsable**, obligatoire (D-26, XD-15). */
-  departmentId: string;
-  /**
-   * Portée publique (D-26), **distincte** du département responsable. Omise, elle
-   * vaut `DEPARTMENT` — la plus restreinte, pour qu'une omission ne publie jamais à
-   * l'échelle de l'église.
-   */
+  /** Statut éditorial (DRAFT, PUBLISHED, CANCELLED). */
+  status?: EventLifecycleStatus;
+  /** Département facultatif (aucun département organisateur requis). */
+  departmentId?: string | null;
   visibilityScope?: EventVisibilityScope;
   practicalInfo?: string[] | null;
   galleryMediaIds?: string[];
 }
 
 export interface EventFilters {
-  status?: EventStatus;
+  status?: EventStatus | EventLifecycleStatus;
+  lifecycleStatus?: EventLifecycleStatus;
   departmentId?: string;
   /** Borne de comparaison pour le statut, injectable pour les tests. */
   today?: string;
+  /** Vues calculées : 'UPCOMING' (fin >= today) ou 'ARCHIVED' (fin < today). */
+  view?: "UPCOMING" | "ARCHIVED" | "ALL";
 }
 
 export type EventSortColumn = "event_date" | "created_at";
@@ -141,18 +165,25 @@ export type PublicationSortColumn = "published_at" | "created_at";
 export interface LeaderInput {
   name: string;
   role: string;
-  scope?: string | null;
-  bio?: string | null;
   photoMediaId?: string | null;
   departmentId?: string | null;
   position?: number;
 }
 
 export interface TestimonyInput {
-  quote: string;
-  personName: string;
-  personRole?: string | null;
+  content?: string;
+  quote?: string;
+  authorName?: string | null;
+  personName?: string;
+  isAnonymous?: boolean;
+  status?: TestimonyStatus;
+  isFeatured?: boolean;
   photoMediaId?: string | null;
+  consentedAt?: Date | null;
+  publishedAt?: Date | null;
+  reviewedBy?: string | null;
+  reviewedAt?: Date | null;
+  adminNotes?: string | null;
   position?: number;
 }
 
@@ -222,7 +253,16 @@ export interface DepartmentRepository {
   exists(id: string): Promise<boolean>;
   create(data: DepartmentInput, slug: string): Promise<Department>;
   update(id: string, data: Partial<DepartmentInput>): Promise<Department | null>;
+  archiveAndDelete(
+    id: string,
+    options: { archivedBy?: string | null; reason?: string | null },
+  ): Promise<DepartmentArchive>;
   remove(id: string): Promise<boolean>;
+  listActivities(departmentId: string): Promise<DepartmentActivity[]>;
+  saveActivities(
+    departmentId: string,
+    activities: DepartmentActivityInput[],
+  ): Promise<DepartmentActivity[]>;
 }
 
 /**
@@ -285,6 +325,9 @@ export interface EventRepository {
   slugExists(slug: string, exceptId?: string): Promise<boolean>;
   create(data: EventInput, slug: string): Promise<Event>;
   update(id: string, data: Partial<EventInput>): Promise<Event | null>;
+  publish(id: string): Promise<Event | null>;
+  revertToDraft(id: string): Promise<Event | null>;
+  cancel(id: string): Promise<Event | null>;
   remove(id: string): Promise<boolean>;
 }
 
@@ -299,51 +342,71 @@ export interface PublicationRepository {
   slugExists(slug: string, exceptId?: string): Promise<boolean>;
   create(data: PublicationInput, slug: string): Promise<Publication>;
   update(id: string, data: Partial<PublicationInput>): Promise<Publication | null>;
+  publish(id: string, publishedAt?: string): Promise<Publication | null>;
+  revertToDraft(id: string): Promise<Publication | null>;
   remove(id: string): Promise<boolean>;
+  listFeatured(limit?: number): Promise<Publication[]>;
+  listArchives(options: ListOptions): Promise<ListResult<Publication>>;
   /** Publie ou archive : une écriture **en attente**, jamais saisie par un client. */
   applyLifecycle(
     id: string,
     change: { status: "PUBLISHED" | "ARCHIVED"; at: Date },
   ): Promise<Publication | null>;
-
-  /**
-   * Publie une publication **en appliquant la règle globale des 3** (`docs/035`).
-   *
-   * C'est la seule opération du domaine qui doive être **transactionnelle et sûre
-   * en concurrence**, et c'est pourquoi elle vit dans le repository plutôt que dans
-   * le service :
-   *
-   * 1. la transaction garantit qu'aucun état intermédiaire n'est visible — une
-   *    publication n'est jamais publiée sans que la place ait été libérée ;
-   * 2. le **verrou d'avis** (`pg_advisory_xact_lock`) sérialise les publications
-   *    concurrentes. Sans lui, deux publications simultanées liraient le même
-   *    compte de `PUBLISHED`, concluraient chacune qu'il reste une place, et le
-   *    site se retrouverait avec quatre publications en ligne — exactement ce que
-   *    la règle interdit. Un verrou de ligne ne suffirait pas : il protege une
-   *    ligne, or la règle porte sur l'**ensemble** de la table ;
-   * 3. le **plan** (qui archiver, combien de places restent) vient du domaine
-   *    (`planPublication`), qui est pur et éprouvé cas par cas. Le repository
-   *    exécute, il ne décide pas.
-   *
-   * Le verrou est libéré à la fin de la transaction, quel qu'en soit l'issue : un
-   * échec ne laisse pas le quota verrouillé.
-   */
   publishWithQuota(id: string, publishedAt: string): Promise<Publication | null>;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Ressources                                                                */
+/* -------------------------------------------------------------------------- */
+
+export interface ResourceInput {
+  name: string;
+  description?: string | null;
+  file: string;
+}
+
+export interface ResourceFilters {
+  search?: string;
+}
+
+export interface ResourceRepository {
+  list(options: ListOptions, filters?: ResourceFilters): Promise<ListResult<Resource>>;
+  findById(id: string): Promise<Resource | null>;
+  findBySlug(slug: string): Promise<Resource | null>;
+  slugExists(slug: string, exceptId?: string): Promise<boolean>;
+  create(data: ResourceInput, slug: string): Promise<Resource>;
+  update(id: string, data: Partial<ResourceInput>): Promise<Resource | null>;
+  replaceFile(id: string, file: string): Promise<Resource | null>;
+  remove(id: string): Promise<boolean>;
 }
 
 export interface LeaderRepository {
   list(options: ListOptions): Promise<ListResult<Leader>>;
+  listByDepartment(departmentId: string): Promise<Leader[]>;
   findById(id: string): Promise<Leader | null>;
   create(data: LeaderInput): Promise<Leader>;
   update(id: string, data: Partial<LeaderInput>): Promise<Leader | null>;
   remove(id: string): Promise<boolean>;
 }
 
+export interface TestimonyFilters {
+  status?: TestimonyStatus;
+  isFeatured?: boolean;
+}
+
 export interface TestimonyRepository {
-  list(options: ListOptions): Promise<ListResult<Testimony>>;
+  list(options: ListOptions, filters?: TestimonyFilters): Promise<ListResult<Testimony>>;
+  listPublic(options: ListOptions): Promise<ListResult<Testimony>>;
+  listHeroFeatured(limit?: number): Promise<Testimony[]>;
   findById(id: string): Promise<Testimony | null>;
   create(data: TestimonyInput): Promise<Testimony>;
   update(id: string, data: Partial<TestimonyInput>): Promise<Testimony | null>;
+  updateStatus(
+    id: string,
+    status: TestimonyStatus,
+    meta?: { reviewedBy?: string | null; reviewedAt?: Date; adminNotes?: string | null },
+  ): Promise<Testimony | null>;
+  setFeatured(id: string, isFeatured: boolean): Promise<Testimony | null>;
   remove(id: string): Promise<boolean>;
 }
 

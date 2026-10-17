@@ -1,11 +1,9 @@
 "use client";
 
 import React, { useEffect, useState, use } from "react";
-import { AdminPageHeader } from "@/components/admin/layout/AdminPageHeader";
 import { PublicationForm } from "@/components/admin/forms/PublicationForm";
 import { getAdminPublication, updateAdminPublication } from "@/lib/api/endpoints";
 import type { PublicationRecord, CreatePublicationPayload } from "@/lib/api/types";
-import { Badge } from "@/components/ui/Badge";
 import { useToast } from "@/components/admin/feedback/ToastContext";
 
 interface PageProps {
@@ -77,15 +75,6 @@ export default function EditPublicationPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
-      <AdminPageHeader
-        title={`Modifier : ${publication.title}`}
-        description="Mettez à jour le contenu, les métadonnées et le statut de cette publication."
-        badge={
-          <Badge variant={publication.status === "PUBLISHED" ? "success" : "neutral"}>
-            {publication.status === "PUBLISHED" ? "En ligne" : "Brouillon"}
-          </Badge>
-        }
-      />
       <PublicationForm
         initialData={publication}
         onSubmit={handleUpdate}

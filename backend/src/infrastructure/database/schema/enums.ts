@@ -160,3 +160,17 @@ export const teachingMediaRoleEnum = pgEnum("teaching_media_role", [
   "THUMBNAIL",
 ]);
 
+/**
+ * Statut de modération des témoignages.
+ * PENDING: Reçu du public, en attente d'examen.
+ * PUBLISHED: Validé et visible publiquement.
+ * REJECTED: Rejeté par la modération (invisible publiquement).
+ * ARCHIVED: Archivé (retiré du public).
+ */
+export const testimonyStatusEnum = pgEnum("testimony_status", [
+  "PENDING",
+  "PUBLISHED",
+  "REJECTED",
+  "ARCHIVED",
+]);
+

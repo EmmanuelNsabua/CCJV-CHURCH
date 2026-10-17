@@ -5,8 +5,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { site } from "@/data/mock/site";
+import { site } from "@/data/site";
 import { FullscreenMenu } from "./FullscreenMenu";
+import type { SocialLink } from "@/lib/api";
 
 /** Routes connues disposant d'un Hero sombre immersif au sommet */
 const darkHeroRoutes = [
@@ -24,7 +25,7 @@ const darkHeroRoutes = [
  * - Devient solide (`bg-ccjv-offwhite` + bordure fine) dès que l'on scrolle (> 24px)
  * - Comportement fluide et unifié sur l'ensemble des pages du site.
  */
-export function Header() {
+export function Header({ socialLinks }: { socialLinks: SocialLink[] }) {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [isDarkHero, setIsDarkHero] = useState(true);
@@ -131,7 +132,11 @@ export function Header() {
         </div>
       </header>
 
-      <FullscreenMenu open={menuOpen} onClose={closeMenu} />
+      <FullscreenMenu
+        open={menuOpen}
+        onClose={closeMenu}
+        socialLinks={socialLinks}
+      />
     </>
   );
 }

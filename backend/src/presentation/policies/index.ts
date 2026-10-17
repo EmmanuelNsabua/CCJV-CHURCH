@@ -60,7 +60,7 @@ export {
   type DepartmentScopedResource,
   type DepartmentScopeFilter,
   type PolicyTable,
-  type ResourcePolicy,
+  type ResourcePolicy as PolicyKitResourcePolicy,
 } from "./policy-kit";
 
 export {
@@ -118,6 +118,11 @@ export {
   SiteSettingsPolicy,
 } from "./pending-arbitration.policy";
 
+export {
+  ResourcePolicy,
+  type ResourcePolicyResource,
+} from "./resource.policy";
+
 import { AuditPolicy, EditorialEntityPolicy, SchedulePolicy, ScripturePolicy, SiteSettingsPolicy } from "./pending-arbitration.policy";
 import { DepartmentPolicy } from "./department.policy";
 import { EventPolicy } from "./event.policy";
@@ -129,6 +134,7 @@ import { PrayerPolicy } from "./prayer.policy";
 import { PublicationPolicy } from "./publication.policy";
 import { UserPolicy } from "./user.policy";
 import { TeachingPolicy } from "./teaching.policy";
+import { ResourcePolicy } from "./resource.policy";
 
 /**
  * Le catalogue, dans l'ordre de `docs/029` §4.1 et §4.6.
@@ -157,4 +163,5 @@ export const POLICY_CATALOGUE = [
   SchedulePolicy,
   SiteSettingsPolicy,
   TeachingPolicy,
+  ResourcePolicy,
 ] as const;

@@ -5,9 +5,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { primaryNav, type NavItem } from "@/lib/nav";
-import { socials, site } from "@/data/mock/site";
-import { images } from "@/data/mock/images";
+import { site } from "@/data/site";
+import { images } from "@/data/images";
 import { CrossMark } from "@/components/shared/CrossMark";
+import type { SocialLink } from "@/lib/api";
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -15,6 +16,11 @@ const FOCUSABLE =
 export interface FullscreenMenuProps {
   open: boolean;
   onClose: () => void;
+  /**
+   * Liens sociaux institutionnels fournis par `src/app/layout.tsx`
+   * (`getSettings().socialLinks`). Ce composant est client : il ne lit pas l'API.
+   */
+  socialLinks: SocialLink[];
 }
 
 /** Images associées à chaque pôle pour le volet droit */
@@ -50,7 +56,11 @@ const pillarVisuals: Record<string, { image: string; tag: string }> = {
  * - Desktop : Piliers à gauche, volet dynamique animé à droite pour les sous-menus.
  * - Mobile : Navigation fluide par glissement de panneaux (liste → sous-menu avec retour).
  */
-export function FullscreenMenu({ open, onClose }: FullscreenMenuProps) {
+export function FullscreenMenu({
+  open,
+  onClose,
+  socialLinks,
+}: FullscreenMenuProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -520,9 +530,9 @@ export function FullscreenMenu({ open, onClose }: FullscreenMenuProps) {
             ========================================================================= */}
         <div className="mx-auto mt-8 flex w-full max-w-[1320px] flex-wrap items-center justify-between gap-6 border-t border-white/12 pt-6">
           <div className="flex flex-wrap items-center gap-6">
-            {socials.map((social) => (
+            {socialLinks.map((social) => (
               <a
-                key={social.label}
+                key={`${social.label}-${social.href}`}
                 href={social.href}
                 target="_blank"
                 rel="noopener noreferrer"

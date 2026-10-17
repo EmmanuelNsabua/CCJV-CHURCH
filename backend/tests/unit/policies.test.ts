@@ -592,9 +592,9 @@ describe("Notifications — D-10 ferme la voie indirecte", () => {
 
 describe("Catalogue — exhaustivité et invariants statiques (docs/029 §5, §6.1)", () => {
   it("les 14 policies de docs/029 §4.1 et §4.6 sont présentes", () => {
-    expect(POLICY_CATALOGUE).toHaveLength(14);
+    expect(POLICY_CATALOGUE).toHaveLength(16);
     const names = POLICY_CATALOGUE.map((p) => p.name);
-    expect(new Set(names).size).toBe(14);
+    expect(new Set(names).size).toBe(16);
     for (const expected of [
       "PublicationPolicy",
       "MediaPolicy",
@@ -610,6 +610,8 @@ describe("Catalogue — exhaustivité et invariants statiques (docs/029 §5, §6
       "ScripturePolicy",
       "SchedulePolicy",
       "SiteSettingsPolicy",
+      "TeachingPolicy",
+      "ResourcePolicy",
     ]) {
       expect(names).toContain(expected);
     }

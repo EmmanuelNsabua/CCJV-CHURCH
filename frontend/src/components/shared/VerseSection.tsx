@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { images as defaultImages } from "@/data/mock/images";
+import { images as defaultImages } from "@/data/images";
 import { ParallaxImage } from "@/components/shared/ParallaxImage";
 
 export type VerseTone =

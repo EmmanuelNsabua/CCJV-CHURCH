@@ -4,8 +4,11 @@ import { CrossMark } from "@/components/shared/CrossMark";
 import { VerseSection } from "@/components/shared/VerseSection";
 import { Reveal } from "@/components/shared/Reveal";
 import { ParallaxImage } from "@/components/shared/ParallaxImage";
-import { site, weeklyRhythm } from "@/data/mock/site";
-import { images } from "@/data/mock/images";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
+import { site } from "@/data/site";
+import { getSchedule, readOrUnavailable } from "@/lib/api/endpoints";
+import { images } from "@/data/images";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
@@ -19,7 +22,15 @@ const itineraryHref = `https://www.google.com/maps/search/?api=1&query=${encodeU
   site.address,
 )}`;
 
-export default function OuNousTrouverPage() {
+export default async function OuNousTrouverPage() {
+  /*
+   * Les horaires affichés sont ceux de `getSchedule()` : aucune heure n'est
+   * codée en dur sur cette page, et l'API dit elle-même si un horaire est
+   * confirmé ou provisoire.
+   */
+  const scheduleRead = await readOrUnavailable((options) => getSchedule(options));
+  const schedule = scheduleRead.status === "ok" ? scheduleRead.data : [];
+
   const firstVisitPoints = [
     {
       title: "Venez comme vous êtes",
@@ -133,70 +144,42 @@ export default function OuNousTrouverPage() {
                 </p>
 
                 <div className="mt-6 divide-y divide-ccjv-line">
-                  {/* Culte Dominical */}
-                  <div className="py-4 first:pt-0">
-                    <div className="flex items-baseline justify-between gap-4">
-                      <span className="font-serif text-lg font-bold text-ccjv-ink">
-                        Culte Dominical
-                      </span>
-                      <span className="font-sans text-xs font-bold tracking-[0.14em] text-ccjv-green uppercase">
-                        Dimanche · 09:00
-                      </span>
-                    </div>
-                    <p className="mt-1 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
-                      Le grand culte de toute l&apos;assemblée, suivi de moments fraternels.
-                    </p>
-                  </div>
-
-                  {/* Ecodim */}
-                  <div className="py-4">
-                    <div className="flex items-baseline justify-between gap-4">
-                      <span className="font-serif text-lg font-bold text-ccjv-ink">
-                        Enfants · Ecodim
-                      </span>
-                      <span className="font-sans text-xs font-bold tracking-[0.14em] text-ccjv-green uppercase">
-                        Dimanche · 09:00
-                      </span>
-                    </div>
-                    <p className="mt-1 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
-                      Temps dédié aux enfants pendant le culte des adultes.
-                    </p>
-                  </div>
-
-                  {/* Prière & Étude */}
-                  <div className="py-4">
-                    <div className="flex items-baseline justify-between gap-4">
-                      <span className="font-serif text-lg font-bold text-ccjv-ink">
-                        Prière & Enseignement
-                      </span>
-                      <span className="font-sans text-xs font-bold tracking-[0.14em] text-ccjv-green uppercase">
-                        Mercredi · 17:00
-                      </span>
-                    </div>
-                    <p className="mt-1 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
-                      Méditation de la Parole et temps d&apos;intercession communautaire.
-                    </p>
-                  </div>
-
-                  {/* Chorale */}
-                  <div className="py-4 last:pb-0">
-                    <div className="flex items-baseline justify-between gap-4">
-                      <span className="font-serif text-lg font-bold text-ccjv-ink">
-                        Répétition de la Chorale
-                      </span>
-                      <span className="font-sans text-xs font-bold tracking-[0.14em] text-ccjv-green uppercase">
-                        Lundi & Samedi · 16:30
-                      </span>
-                    </div>
-                    <p className="mt-1 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
-                      Préparation spirituelle, musicale et vocale pour la louange.
-                    </p>
-                  </div>
+                  {scheduleRead.status === "unreachable" ? (
+                    <ContentUnavailable resource="Les rendez-vous réguliers" />
+                  ) : schedule.length > 0 ? (
+                    schedule.map((entry) => (
+                      <div key={entry.id} className="py-4 first:pt-0 last:pb-0">
+                        <div className="flex items-baseline justify-between gap-4">
+                          <span className="font-serif text-lg font-bold text-ccjv-ink">
+                            {entry.title}
+                          </span>
+                          <span className="font-sans text-xs font-bold tracking-[0.14em] text-ccjv-green uppercase">
+                            {entry.day} · {entry.timeLabel}
+                          </span>
+                        </div>
+                        {entry.audience && (
+                          <p className="mt-1 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
+                            {entry.audience}
+                          </p>
+                        )}
+                        {!entry.isConfirmed && (
+                          <p className="mt-1 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
+                            Horaire à confirmer.
+                          </p>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <EmptyState
+                      title="Aucun horaire publié"
+                      description="Les temps de rassemblement de la semaine apparaîtront ici dès leur publication."
+                    />
+                  )}
                 </div>
               </div>
 
               <div className="mt-8 border-t border-ccjv-line pt-5 font-sans text-xs text-ccjv-ink-secondary">
-                <span>Aucune réservation nécessaire. L&apos;accueil commence 30 minutes avant chaque service.</span>
+                <span>Aucune réservation nécessaire : présentez-vous simplement à l&apos;heure du rendez-vous.</span>
               </div>
             </div>
 
@@ -223,11 +206,12 @@ export default function OuNousTrouverPage() {
                       <h4 className="font-serif text-lg font-bold text-ccjv-ink">
                         Centre Chrétien Jésus ma Vie
                       </h4>
+                      {/* Adresse institutionnelle : `site.addressLines`, source unique. */}
                       <p className="mt-1 font-sans text-sm text-ccjv-ink leading-relaxed">
-                        Avenue Djoloko, Quartier Hewa Bora
+                        {site.addressLines.slice(0, 2).join(", ")}
                       </p>
                       <p className="font-sans text-xs text-ccjv-ink-secondary">
-                        Lubumbashi, République démocratique du Congo
+                        {site.addressLines[2]}
                       </p>
                     </div>
                   </div>

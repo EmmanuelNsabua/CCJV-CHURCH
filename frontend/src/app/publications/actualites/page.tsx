@@ -5,9 +5,10 @@ import { ListingPage } from "@/components/archetypes/ListingPage";
 import { CrossLinks } from "@/components/editorial/CrossLinks";
 import { FeatureImage } from "@/components/editorial/FeatureImage";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { getPublications } from "@/lib/api";
-import { images } from "@/data/mock/images";
-import { formatLongDate } from "@/lib/utils";
+import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
+import { getPublications, readOrUnavailable } from "@/lib/api/endpoints";
+import { images } from "@/data/images";
+import { formatLongDate, formatRelativeTime } from "@/lib/utils";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
@@ -23,18 +24,27 @@ export default async function ActualitesPage() {
    * actualités) et l'ensemble des publications, dont on tire ce qui a paru dans
    * les autres rubriques. L'API ne sait pas exclure une rubrique, le filtrage
    * se fait donc ici, côté serveur.
+   *
+   * Chacune est évaluée séparément : « l'API n'a pas répondu » n'est pas
+   * « il n'y a rien à afficher », et les deux ne se présentent pas pareil.
    */
-  const [items, allPublications] = await Promise.all([
-    getPublications({ category: "ACTUALITE", limit: 50 }),
-    getPublications({ limit: 50 }),
+  const [itemsRead, allRead] = await Promise.all([
+    readOrUnavailable((options) =>
+      getPublications({ category: "ACTUALITE", limit: 50 }, options),
+    ),
+    readOrUnavailable((options) => getPublications({ limit: 50 }, options)),
   ]);
 
+  const items = itemsRead.status === "ok" ? itemsRead.data : [];
   const [lead, ...others] = items;
 
   /** Ce qui a été publié récemment dans les autres rubriques. */
-  const elsewhere = allPublications
-    .filter((publication) => publication.category !== "ACTUALITE")
-    .slice(0, 4);
+  const elsewhere =
+    allRead.status === "ok"
+      ? allRead.data
+          .filter((publication) => publication.category !== "ACTUALITE")
+          .slice(0, 4)
+      : [];
 
   return (
     <ListingPage
@@ -44,16 +54,24 @@ export default async function ActualitesPage() {
           title="Actualités"
           intro="Les nouvelles de la vie de l'église : annonces, rentrées, informations pratiques. Ce qui change dans les prochaines semaines se trouve ici."
           aside={
-            <p className="font-sans text-[0.8rem] text-ccjv-ink-secondary">
-              {items.length} actualité{items.length > 1 ? "s" : ""} publiée
-              {items.length > 1 ? "s" : ""}
-              {lead ? ` · dernière le ${formatLongDate(lead.publishedAt)}` : ""}
-            </p>
+            itemsRead.status === "unreachable" ? (
+              <p className="font-sans text-[0.8rem] text-ccjv-ink-secondary">
+                Le nombre d&apos;actualités publiées n&apos;a pas pu être lu.
+              </p>
+            ) : (
+              <p className="font-sans text-[0.8rem] text-ccjv-ink-secondary">
+                {items.length} actualité{items.length > 1 ? "s" : ""} publiée
+                {items.length > 1 ? "s" : ""}
+                {lead ? ` · dernière le ${formatLongDate(lead.publishedAt)}` : ""}
+              </p>
+            )
           }
         />
       }
       lead={
-        lead ? (
+        itemsRead.status === "unreachable" ? (
+          <ContentUnavailable resource="Les actualités" />
+        ) : lead ? (
           <div>
             <article>
               <p className="font-sans text-xs font-semibold tracking-[0.2em] text-ccjv-green uppercase">
@@ -68,8 +86,8 @@ export default async function ActualitesPage() {
 
               <div className="mt-8 grid grid-cols-1 gap-8 border-t border-ccjv-line pt-8 lg:grid-cols-12">
                 <p className="font-sans text-[0.8rem] text-ccjv-ink-secondary lg:col-span-3">
-                  <time dateTime={lead.publishedAt}>
-                    {formatLongDate(lead.publishedAt)}
+                  <time dateTime={lead.publishedAt} title={formatLongDate(lead.publishedAt)}>
+                    {formatRelativeTime(lead.publishedAt)}
                   </time>
                 </p>
                 <div className="lg:col-span-8 lg:col-start-5">
@@ -106,7 +124,9 @@ export default async function ActualitesPage() {
       }
       listTitle="Autres actualités"
       list={
-        others.length > 0 ? (
+        itemsRead.status === "unreachable" ? (
+          <ContentUnavailable resource="Les autres actualités" />
+        ) : others.length > 0 ? (
           <ul className="border-t border-ccjv-line">
             {others.map((publication) => (
               <li key={publication.id} className="border-b border-ccjv-line">
@@ -116,9 +136,10 @@ export default async function ActualitesPage() {
                 >
                   <time
                     dateTime={publication.publishedAt}
+                    title={formatLongDate(publication.publishedAt)}
                     className="font-sans text-[0.78rem] text-ccjv-ink-secondary sm:col-span-3"
                   >
-                    {formatLongDate(publication.publishedAt)}
+                    {formatRelativeTime(publication.publishedAt)}
                   </time>
                   <span className="font-serif text-[1.4rem] leading-snug transition-colors duration-[250ms] group-hover:text-ccjv-green sm:col-span-6">
                     {publication.title}
@@ -142,55 +163,63 @@ export default async function ActualitesPage() {
       }
       archivesTitle="Également publié sur le site"
       archives={
-        <ul className="grid grid-cols-1 gap-x-12 sm:grid-cols-2">
-          {elsewhere.map((publication) => {
-            /* L'API peut renvoyer la photo en `coverImage` plutôt qu'en `contentUrl`. */
-            const thumbnail = publication.contentUrl ?? publication.coverImage;
+        allRead.status === "unreachable" ? (
+          <ContentUnavailable resource="Les autres rubriques" />
+        ) : elsewhere.length > 0 ? (
+          <ul className="grid grid-cols-1 gap-x-12 sm:grid-cols-2">
+            {elsewhere.map((publication) => {
+              /* L'API peut renvoyer la photo en `coverImage` plutôt qu'en `contentUrl`. */
+              const thumbnail = publication.contentUrl ?? publication.coverImage;
 
-            return (
-              <li
-                key={publication.id}
-                className="border-t border-ccjv-line py-6 first:border-t-0 sm:[&:nth-child(2)]:border-t-0"
-              >
-                <Link
-                  href={`/publications/${publication.slug}`}
-                  className="group flex items-start gap-5"
+              return (
+                <li
+                  key={publication.id}
+                  className="border-t border-ccjv-line py-6 first:border-t-0 sm:[&:nth-child(2)]:border-t-0"
                 >
-                  {publication.type === "PHOTO" && thumbnail ? (
-                    <span className="relative h-20 w-28 shrink-0 overflow-hidden bg-ccjv-line">
-                      <Image
-                        src={thumbnail}
-                        alt=""
-                        fill
-                        sizes="112px"
-                        className="object-cover transition-transform duration-[550ms] ease-ccjv group-hover:scale-[1.04]"
-                      />
-                    </span>
-                  ) : null}
+                  <Link
+                    href={`/publications/${publication.slug}`}
+                    className="group flex items-start gap-5"
+                  >
+                    {publication.type === "PHOTO" && thumbnail ? (
+                      <span className="relative h-20 w-28 shrink-0 overflow-hidden bg-ccjv-line">
+                        <Image
+                          src={thumbnail}
+                          alt=""
+                          fill
+                          sizes="112px"
+                          className="object-cover transition-transform duration-[550ms] ease-ccjv group-hover:scale-[1.04]"
+                        />
+                      </span>
+                    ) : null}
 
-                  <span className="flex flex-col">
-                    <span className="font-sans text-[0.7rem] font-semibold tracking-[0.16em] text-ccjv-green uppercase">
-                      {publication.category === "ENSEIGNEMENT"
-                        ? "Enseignement"
-                        : publication.category === "MEDIA"
-                          ? "Média"
-                          : "Ressource"}
+                    <span className="flex flex-col">
+                      <span className="font-sans text-[0.7rem] font-semibold tracking-[0.16em] text-ccjv-green uppercase">
+                        {publication.category === "ENSEIGNEMENT"
+                          ? "Enseignement"
+                          : publication.category === "MEDIA"
+                            ? "Média"
+                            : "Ressource"}
+                      </span>
+                      <span className="mt-2 font-serif text-[1.2rem] leading-snug transition-colors duration-[250ms] group-hover:text-ccjv-green">
+                        {publication.title}
+                      </span>
+                      <time
+                        dateTime={publication.publishedAt}
+                        className="mt-2 font-sans text-[0.78rem] text-ccjv-ink-secondary"
+                      >
+                        {formatLongDate(publication.publishedAt)}
+                      </time>
                     </span>
-                    <span className="mt-2 font-serif text-[1.2rem] leading-snug transition-colors duration-[250ms] group-hover:text-ccjv-green">
-                      {publication.title}
-                    </span>
-                    <time
-                      dateTime={publication.publishedAt}
-                      className="mt-2 font-sans text-[0.78rem] text-ccjv-ink-secondary"
-                    >
-                      {formatLongDate(publication.publishedAt)}
-                    </time>
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="border-t border-ccjv-line pt-7 text-ccjv-ink-secondary">
+            Aucune publication dans les autres rubriques pour l&apos;instant.
+          </p>
+        )
       }
       related={
         <CrossLinks

@@ -27,7 +27,17 @@ interface LeaderJoinedRow {
 }
 
 function toLeader(row: LeaderJoinedRow): Leader {
-  return { ...row.leader, photoUrl: row.photoUrl };
+  return {
+    id: row.leader.id,
+    name: row.leader.name,
+    role: row.leader.role,
+    photoMediaId: row.leader.photoMediaId,
+    photoUrl: row.photoUrl,
+    departmentId: row.leader.departmentId,
+    position: row.leader.position,
+    createdAt: row.leader.createdAt,
+    updatedAt: row.leader.updatedAt,
+  };
 }
 
 /**
@@ -39,8 +49,6 @@ function toPatch(data: Partial<LeaderInput>): Partial<typeof leaders.$inferInser
   const patch: Partial<typeof leaders.$inferInsert> = {};
   if (data.name !== undefined) patch.name = data.name;
   if (data.role !== undefined) patch.role = data.role;
-  if (data.scope !== undefined) patch.scope = data.scope;
-  if (data.bio !== undefined) patch.bio = data.bio;
   if (data.photoMediaId !== undefined) patch.photoMediaId = data.photoMediaId;
   if (data.departmentId !== undefined) patch.departmentId = data.departmentId;
   if (data.position !== undefined) patch.position = data.position;
@@ -51,8 +59,6 @@ export class DrizzleLeaderRepository implements LeaderRepository {
   constructor(private readonly db: Database) {}
 
   async list(options: ListOptions): Promise<ListResult<Leader>> {
-    // Une seule requête pour la page, une seule pour le total : aucune boucle,
-    // donc aucun N+1.
     const rows = await this.db
       .select({ leader: leaders, photoUrl: media.publicUrl })
       .from(leaders)
@@ -64,6 +70,17 @@ export class DrizzleLeaderRepository implements LeaderRepository {
     const [totals] = await this.db.select({ total: count() }).from(leaders);
 
     return { items: rows.map(toLeader), total: totals?.total ?? 0 };
+  }
+
+  async listByDepartment(departmentId: string): Promise<Leader[]> {
+    const rows = await this.db
+      .select({ leader: leaders, photoUrl: media.publicUrl })
+      .from(leaders)
+      .leftJoin(media, eq(leaders.photoMediaId, media.id))
+      .where(eq(leaders.departmentId, departmentId))
+      .orderBy(asc(leaders.position), asc(leaders.createdAt));
+
+    return rows.map(toLeader);
   }
 
   async findById(id: string): Promise<Leader | null> {
@@ -83,9 +100,7 @@ export class DrizzleLeaderRepository implements LeaderRepository {
       .insert(leaders)
       .values({
         name: data.name,
-        role: data.role,
-        scope: data.scope ?? null,
-        bio: data.bio ?? null,
+        role: data.role || "Responsable",
         photoMediaId: data.photoMediaId ?? null,
         departmentId: data.departmentId ?? null,
         position: data.position ?? 0,

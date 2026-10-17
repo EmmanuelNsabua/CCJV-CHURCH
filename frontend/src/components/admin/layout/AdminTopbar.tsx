@@ -17,6 +17,9 @@ import {
   Calendar,
   Layers,
   Users,
+  FileText,
+  GraduationCap,
+  Image as ImageIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { Badge } from "@/components/ui/Badge";
@@ -108,7 +111,10 @@ export function AdminTopbar({ className }: AdminTopbarProps) {
   // Liste des raccourcis de recherche rapide
   const searchResults = [
     { title: "Publications", href: "/admin/publications", icon: BookOpen, cat: "Contenu" },
+    { title: "Enseignements", href: "/admin/enseignements", icon: GraduationCap, cat: "Contenu" },
     { title: "Agenda & Cultes", href: "/admin/agenda", icon: Calendar, cat: "Contenu" },
+    { title: "Médiathèque", href: "/admin/media", icon: ImageIcon, cat: "Contenu" },
+    { title: "Ressources", href: "/admin/ressources", icon: FileText, cat: "Contenu" },
     { title: "Éditeur de pages", href: "/admin/pages", icon: Layers, cat: "Configuration" },
     { title: "Départements", href: "/admin/departments", icon: Users, cat: "Communauté" },
     { title: "Paramètres & Profil", href: "/admin/settings", icon: Settings, cat: "Système" },

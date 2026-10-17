@@ -14,20 +14,28 @@
 
 import type {
   Department,
+  DepartmentActivityItem,
   Event,
+  EventLifecycleStatus,
   EventStatus,
   PageKey,
   Publication,
+  PublicationAuthor,
   PublicationType,
+  Resource,
 } from "@/types";
 
 export type {
   Department,
+  DepartmentActivityItem,
   Event,
+  EventLifecycleStatus,
   EventStatus,
   PageKey,
   Publication,
+  PublicationAuthor,
   PublicationType,
+  Resource,
 };
 
 /** Rubrique éditoriale d'une publication (actualité, enseignement, média, ressource). */
@@ -79,6 +87,7 @@ export interface ApiErrorBody {
 export interface PublicationRecord extends Publication {
   status: PublicationStatus;
   coverImage?: string;
+  coverMediaId?: string | null;
   departmentId?: string | null;
   createdAt?: string;
   updatedAt?: string;
@@ -112,9 +121,44 @@ export interface Testimony {
   photo: string;
   quote: string;
   name: string;
-  role: string | null;
+  role?: string | null;
   position?: number;
 }
+
+export type TestimonyStatus = "PENDING" | "PUBLISHED" | "REJECTED" | "ARCHIVED";
+
+export interface AdminTestimony {
+  id: string;
+  content: string;
+  quote?: string;
+  authorName: string | null;
+  name?: string | null;
+  isAnonymous: boolean;
+  status: TestimonyStatus;
+  isFeatured: boolean;
+  photo: string | null;
+  photoMediaId?: string | null;
+  consentedAt?: string | null;
+  publishedAt?: string | null;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  adminNotes?: string | null;
+  position?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DepartmentArchive {
+  id: string;
+  originalDepartmentId: string;
+  name: string;
+  slug: string;
+  snapshot: Record<string, unknown>;
+  archivedBy: string | null;
+  archivedAt: string;
+  reason: string | null;
+}
+
 
 /** Visage de la communauté (`GET /community-faces`) — même règle que `Testimony`. */
 export interface CommunityFace {
@@ -214,6 +258,8 @@ export interface CreatePublicationPayload {
   departmentId?: string;
   author?: string;
   description?: string;
+  coverMediaId?: string | null;
+  coverImage?: string | null;
   contentUrl?: string;
   body?: string[];
   status?: PublicationStatus;
@@ -307,4 +353,61 @@ export interface TeachingMediaInputPayload {
   isPrimary?: boolean;
   position?: number;
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Événements & Ressources (Payloads)                                        */
+/* -------------------------------------------------------------------------- */
+
+export interface CreateEventPayload extends Record<string, unknown> {
+  title: string;
+  slug?: string;
+  description?: string | null;
+  excerpt?: string | null;
+  startDate: string;
+  endDate: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  location: string;
+  imageMediaId?: string | null;
+  bannerMediaId?: string | null;
+  status?: EventLifecycleStatus;
+  departmentId?: string | null;
+  visibilityScope?: "DEPARTMENT" | "GLOBAL";
+  practicalInfo?: string[] | null;
+  galleryMediaIds?: string[];
+}
+
+export interface UpdateEventPayload extends Record<string, unknown> {
+  title?: string;
+  slug?: string;
+  description?: string | null;
+  excerpt?: string | null;
+  startDate?: string;
+  endDate?: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  location?: string;
+  imageMediaId?: string | null;
+  bannerMediaId?: string | null;
+  status?: EventLifecycleStatus;
+  departmentId?: string | null;
+  visibilityScope?: "DEPARTMENT" | "GLOBAL";
+  practicalInfo?: string[] | null;
+  galleryMediaIds?: string[];
+}
+
+export interface CreateResourcePayload extends Record<string, unknown> {
+  name: string;
+  slug?: string;
+  description?: string | null;
+  file: string; // URL directe ou référence stable au PDF Supabase Storage
+}
+
+export interface UpdateResourcePayload extends Record<string, unknown> {
+  name?: string;
+  slug?: string;
+  description?: string | null;
+  file?: string;
+}
+
 

@@ -1,11 +1,9 @@
 "use client";
 
 import React, { useEffect, useState, use } from "react";
-import { AdminPageHeader } from "@/components/admin/layout/AdminPageHeader";
 import { EventForm } from "@/components/admin/forms/EventForm";
 import { getEvent, updateAdminEvent } from "@/lib/api/endpoints";
 import type { Event } from "@/lib/api/types";
-import { Badge } from "@/components/ui/Badge";
 import { useToast } from "@/components/admin/feedback/ToastContext";
 
 interface PageProps {
@@ -77,15 +75,6 @@ export default function EditEventPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
-      <AdminPageHeader
-        title={`Modifier : ${event.title}`}
-        description="Mettez à jour les horaires, le lieu et les informations de ce rassemblement."
-        badge={
-          <Badge variant={event.status === "UPCOMING" ? "success" : "neutral"}>
-            {event.status === "UPCOMING" ? "À venir" : "Passé"}
-          </Badge>
-        }
-      />
       <EventForm
         initialData={event}
         onSubmit={handleUpdate}

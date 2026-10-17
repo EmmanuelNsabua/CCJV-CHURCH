@@ -5,10 +5,12 @@ import { CrossMark } from "@/components/shared/CrossMark";
 import { Reveal } from "@/components/shared/Reveal";
 import { VerseSection } from "@/components/shared/VerseSection";
 import { ParallaxImage } from "@/components/shared/ParallaxImage";
-import { images } from "@/data/mock/images";
-import { site } from "@/data/mock/site";
-import { verses } from "@/data/mock/verses";
-import { communityFaces } from "@/data/mock/community";
+import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { getCommunityFaces, getScriptures } from "@/lib/api";
+import { readOrUnavailable } from "@/lib/api/endpoints";
+import { images } from "@/data/images";
+import { site } from "@/data/site";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
@@ -22,8 +24,30 @@ export const metadata: Metadata = pageMetadata({
  * 🏛️ Page Narrative Majeure : QUI SOMMES-NOUS (Notre Histoire & Notre Foi)
  * Récit fluide et épuré : tous les surtitres/numérotations ont été retirés
  * pour une immersion pure dans l'histoire, la foi et la vie de la communauté.
+ *
+ * Les deux respirations bibliques et les visages de la communauté viennent de
+ * l'API (`/scriptures`, `/community-faces`) : aucun texte de démonstration ne
+ * s'y substitue. Un verset non configuré est simplement absent de la page — il
+ * n'y a rien à dire —, alors qu'une API injoignable est signalée comme telle.
  */
-export default function QuiSommesNousPage() {
+export default async function QuiSommesNousPage() {
+  /*
+   * Une seule lecture pour les deux respirations : elles puisent dans le même
+   * recueil de versets, et une panne les rend donc indisponibles ensemble.
+   */
+  const [scripturesRead, facesRead] = await Promise.all([
+    readOrUnavailable((options) => getScriptures(options)),
+    readOrUnavailable((options) => getCommunityFaces(options)),
+  ]);
+
+  const scriptures = scripturesRead.status === "ok" ? scripturesRead.data : [];
+  const scripture = (key: string) =>
+    scriptures.find((entry) => entry.key === key);
+  const parole = scripture("parole");
+  const ouvrage = scripture("ouvrage");
+
+  const communityFaces = facesRead.status === "ok" ? facesRead.data : [];
+
   return (
     <div className="relative w-full overflow-hidden bg-ccjv-offwhite text-ccjv-ink selection:bg-ccjv-green selection:text-white">
       {/* =========================================================================
@@ -149,12 +173,20 @@ export default function QuiSommesNousPage() {
       {/* =========================================================================
           RESPIRATION BIBLIQUE I : « La Parole comme boussole »
           ========================================================================= */}
-      <VerseSection
-        variant="center"
-        tone="cream"
-        text={verses.parole.text}
-        reference={verses.parole.reference}
-      />
+      {scripturesRead.status === "unreachable" ? (
+        <div className="container py-16 lg:py-24">
+          <ContentUnavailable resource="Les versets de cette page" />
+        </div>
+      ) : (
+        parole && (
+          <VerseSection
+            variant="center"
+            tone="cream"
+            text={parole.text}
+            reference={parole.reference}
+          />
+        )
+      )}
 
       {/* =========================================================================
           L'HISTOIRE CONTINUE : Jalons et Naissance de l'Ecodim
@@ -449,15 +481,18 @@ export default function QuiSommesNousPage() {
 
       {/* =========================================================================
           DEUXIÈME RESPIRATION BIBLIQUE : Monumentale & Immersive
+          (même lecture que la première : une panne a déjà été signalée plus haut)
           ========================================================================= */}
-      <VerseSection
-        variant="both"
-        tone="dark"
-        text={verses.ouvrage.text}
-        reference={verses.ouvrage.reference}
-        leftPhoto={images.identite}
-        rightPhoto={images.assemblee}
-      />
+      {ouvrage && (
+        <VerseSection
+          variant="both"
+          tone="dark"
+          text={ouvrage.text}
+          reference={ouvrage.reference}
+          leftPhoto={images.identite}
+          rightPhoto={images.assemblee}
+        />
+      )}
 
       {/* =========================================================================
           CCJV AUJOURD'HUI : Retour au présent
@@ -528,30 +563,43 @@ export default function QuiSommesNousPage() {
             </p>
           </div>
 
-          <div className="mt-14 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            {communityFaces.map((face) => (
-              <div
-                key={face.id}
-                className="group relative overflow-hidden bg-white border border-ccjv-line p-3 text-center transition-all duration-300 hover:shadow-md"
-              >
-                <div className="relative aspect-[3/4] w-full overflow-hidden bg-ccjv-line">
-                  <Image
-                    src={face.photo}
-                    alt={face.name}
-                    fill
-                    sizes="(max-width: 640px) 50vw, 20vw"
-                    className="object-cover"
-                  />
+          {facesRead.status === "unreachable" ? (
+            <ContentUnavailable
+              className="mt-14"
+              resource="Les visages de la communauté"
+            />
+          ) : communityFaces.length > 0 ? (
+            <div className="mt-14 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+              {communityFaces.map((face) => (
+                <div
+                  key={face.id}
+                  className="group relative overflow-hidden bg-white border border-ccjv-line p-3 text-center transition-all duration-300 hover:shadow-md"
+                >
+                  <div className="relative aspect-[3/4] w-full overflow-hidden bg-ccjv-line">
+                    <Image
+                      src={face.photo}
+                      alt={face.name}
+                      fill
+                      sizes="(max-width: 640px) 50vw, 20vw"
+                      className="object-cover"
+                    />
+                  </div>
+                  <h3 className="mt-3 font-serif text-base font-semibold text-ccjv-ink">
+                    {face.name}
+                  </h3>
+                  <p className="mt-1 font-sans text-xs text-ccjv-ink-secondary line-clamp-2">
+                    {face.caption}
+                  </p>
                 </div>
-                <h3 className="mt-3 font-serif text-base font-semibold text-ccjv-ink">
-                  {face.name}
-                </h3>
-                <p className="mt-1 font-sans text-xs text-ccjv-ink-secondary line-clamp-2">
-                  {face.caption}
-                </p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              className="mt-14"
+              title="Aucun portrait publié pour le moment"
+              description="Les visages publiés depuis le back-office apparaîtront ici."
+            />
+          )}
 
           <div className="mt-12 text-center">
             <Link

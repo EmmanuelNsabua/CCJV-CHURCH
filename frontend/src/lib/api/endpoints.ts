@@ -10,6 +10,7 @@
  */
 
 import { apiFetch, apiFetchOrThrow, logApiIssue, withQuery } from "./client";
+import type { ApiFetchOptions } from "./client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type {
   AdminMediaItem,
@@ -19,16 +20,26 @@ import type {
   Department,
   EditablePage,
   Event,
+  EventLifecycleStatus,
   EventStatus,
   Leader,
   PublicationCategory,
   PublicationRecord,
   PublicationType,
+  Resource,
+  CreateEventPayload,
+  UpdateEventPayload,
+  CreateResourcePayload,
+  UpdateResourcePayload,
   ScheduleEntry,
   Scripture,
   SiteSettings,
   SocialLink,
   Testimony,
+  DepartmentActivityItem,
+  DepartmentArchive,
+  AdminTestimony,
+  TestimonyStatus,
   BiblicalReferenceInputPayload,
   BiblicalReferenceRecord,
   CreateTeachingPayload,
@@ -41,7 +52,8 @@ import type {
 
 /** Filtres de `GET /events`. */
 export interface EventsQuery {
-  status?: EventStatus;
+  status?: EventStatus | EventLifecycleStatus;
+  view?: "UPCOMING" | "ARCHIVED" | "ALL";
   departmentId?: string;
   page?: number;
   limit?: number;
@@ -65,6 +77,62 @@ export interface PublicationsQuery {
  * façon trop petits pour justifier une pagination côté site public.
  */
 const REFERENCE_LIMIT = 100;
+
+/* -------------------------------------------------------------------------- */
+/*  État d'une lecture publique : « vide » et « en panne » sont distincts      */
+/* -------------------------------------------------------------------------- */
+
+/** Options communes à toutes les lectures publiques de ce module. */
+export interface PublicReadOptions {
+  /**
+   * Appelé quand la lecture échoue **sans lever** : API injoignable, statut
+   * non-2xx, délai dépassé, corps illisible.
+   *
+   * Sans ce rappel, un échec et une absence de contenu seraient indiscernables :
+   * `apiFetch` renvoie la même collection vide dans les deux cas. Une page qui
+   * afficherait « aucun contenu » après une panne présenterait une erreur comme
+   * un fait éditorial — et c'est exactement ce que la règle « aucune substitution
+   * silencieuse » interdit.
+   */
+  onFailure?: ApiFetchOptions["onFailure"];
+}
+
+/**
+ * Résultat d'une lecture publique.
+ *
+ * `unreachable` ne veut pas dire « rien à afficher » : cela veut dire « on n'a
+ * pas pu savoir ». Les deux états mènent à deux présentations différentes.
+ */
+export type ReadResult<T> =
+  | { status: "ok"; data: T }
+  | { status: "unreachable" };
+
+/**
+ * Exécute une lecture publique en **distinguant** l'échec de l'absence.
+ *
+ * ```ts
+ * const resultat = await readOrUnavailable((o) => getPublications({ limit: 3 }, o));
+ * if (resultat.status === "unreachable") return <ContentUnavailable />;
+ * const items = resultat.data;   // éventuellement vide — et c'est légitime
+ * ```
+ *
+ * La lecture reste **tolérante** (elle ne lève pas) : c'est la seule façon de
+ * garantir qu'une panne d'API ne produise jamais une page en erreur 500. Ce qui
+ * change, c'est que la page **sait** laquelle des deux situations elle présente.
+ */
+export async function readOrUnavailable<T>(
+  lire: (options: PublicReadOptions) => Promise<T>,
+): Promise<ReadResult<T>> {
+  let echec = false;
+
+  const data = await lire({
+    onFailure: () => {
+      echec = true;
+    },
+  });
+
+  return echec ? { status: "unreachable" } : { status: "ok", data };
+}
 
 /* -------------------------------------------------------------------------- */
 /* Utilitaires internes                                                       */
@@ -123,17 +191,25 @@ function keepWithPortrait<T extends { id: string; photo: string | null }>(
 /* -------------------------------------------------------------------------- */
 
 /** Départements et ministères de l'église, dans l'ordre de l'API. */
-export async function getDepartments(): Promise<Department[]> {
+export async function getDepartments(
+  options: PublicReadOptions = {},
+): Promise<Department[]> {
   const payload = await apiFetch<
     CollectionResponse<Department> | Department[]
-  >(withQuery("/departments", { limit: REFERENCE_LIMIT }));
+  >(withQuery("/departments", { limit: REFERENCE_LIMIT }), options);
 
   return readCollection(payload);
 }
 
 /** Fiche d'un département, résolue par slug (ou par UUID). */
-export async function getDepartment(slug: string): Promise<Department | null> {
-  return apiFetch<Department>(`/departments/${encodeURIComponent(slug)}`);
+export async function getDepartment(
+  slug: string,
+  options: PublicReadOptions = {},
+): Promise<Department | null> {
+  return apiFetch<Department>(
+    `/departments/${encodeURIComponent(slug)}`,
+    options,
+  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -146,23 +222,31 @@ export async function getDepartment(slug: string): Promise<Department | null> {
  * `status` est **calculé par l'API** depuis `eventDate` : le frontend ne
  * recalcule jamais l'état d'un événement reçu de l'API.
  */
-export async function getEvents(query: EventsQuery = {}): Promise<Event[]> {
+export async function getEvents(
+  query: EventsQuery = {},
+  options: PublicReadOptions = {},
+): Promise<Event[]> {
   const payload = await apiFetch<CollectionResponse<Event> | Event[]>(
     withQuery("/events", {
       status: query.status,
+      view: query.view,
       departmentId: query.departmentId,
       page: query.page,
       limit: query.limit,
       sort: query.sort,
     }),
+    options,
   );
 
   return readCollection(payload);
 }
 
 /** Fiche d'un événement, résolue par slug (ou par UUID). */
-export async function getEvent(slug: string): Promise<Event | null> {
-  return apiFetch<Event>(`/events/${encodeURIComponent(slug)}`);
+export async function getEvent(
+  slug: string,
+  options: PublicReadOptions = {},
+): Promise<Event | null> {
+  return apiFetch<Event>(`/events/${encodeURIComponent(slug)}`, options);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -172,6 +256,7 @@ export async function getEvent(slug: string): Promise<Event | null> {
 /** Publications publiées, filtrées par type et/ou rubrique éditoriale. */
 export async function getPublications(
   query: PublicationsQuery = {},
+  options: PublicReadOptions = {},
 ): Promise<PublicationRecord[]> {
   const payload = await apiFetch<
     CollectionResponse<PublicationRecord> | PublicationRecord[]
@@ -183,6 +268,7 @@ export async function getPublications(
       limit: query.limit,
       sort: query.sort,
     }),
+    options,
   );
 
   return readCollection(payload);
@@ -191,10 +277,56 @@ export async function getPublications(
 /** Fiche d'une publication, résolue par slug (ou par UUID). */
 export async function getPublication(
   slug: string,
+  options: PublicReadOptions = {},
 ): Promise<PublicationRecord | null> {
   return apiFetch<PublicationRecord>(
     `/publications/${encodeURIComponent(slug)}`,
+    options,
   );
+}
+
+/**
+ * Trois publications les plus récentes publiées mises en avant (`GET /publications/featured`).
+ * Règle CCJV : Seules les 3 publications les plus récentes publiées sont affichées en vedette.
+ */
+export async function getFeaturedPublications(
+  options: PublicReadOptions = {},
+): Promise<PublicationRecord[]> {
+  try {
+    const payload = await apiFetch<{ data: PublicationRecord[] } | PublicationRecord[]>(
+      "/publications/featured",
+      options,
+    );
+    if (payload === null) return [];
+    if (Array.isArray(payload)) return payload;
+    return Array.isArray(payload.data) ? payload.data : [];
+  } catch {
+    return getPublications({ limit: 3 }, options);
+  }
+}
+
+/**
+ * Archives des publications publiées au-delà des 3 mises en avant (`GET /publications/archives`).
+ * Toutes les autres publications restent publiées et consultables dans les archives publiques.
+ */
+export async function getArchivePublications(
+  page: number = 1,
+  limit: number = 20,
+): Promise<CollectionResponse<PublicationRecord>> {
+  try {
+    const payload = await apiFetch<CollectionResponse<PublicationRecord>>(
+      withQuery("/publications/archives", { page, limit }),
+    );
+    if (payload && Array.isArray(payload.data)) {
+      return payload;
+    }
+  } catch {
+    // repli
+  }
+  return {
+    data: [],
+    meta: { page, limit, total: 0, totalPages: 0 },
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -202,9 +334,12 @@ export async function getPublication(
 /* -------------------------------------------------------------------------- */
 
 /** Responsables et serviteurs, dans l'ordre défini par le back-office. */
-export async function getLeaders(): Promise<Leader[]> {
+export async function getLeaders(
+  options: PublicReadOptions = {},
+): Promise<Leader[]> {
   const payload = await apiFetch<CollectionResponse<Leader> | Leader[]>(
     withQuery("/leaders", { limit: REFERENCE_LIMIT }),
+    options,
   );
 
   return readCollection(payload);
@@ -213,10 +348,12 @@ export async function getLeaders(): Promise<Leader[]> {
 type TestimonyPayload = Omit<Testimony, "photo"> & { photo: string | null };
 
 /** Témoignages publiés (les entrées sans portrait sont écartées). */
-export async function getTestimonies(): Promise<Testimony[]> {
+export async function getTestimonies(
+  options: PublicReadOptions = {},
+): Promise<Testimony[]> {
   const payload = await apiFetch<
     CollectionResponse<TestimonyPayload> | TestimonyPayload[]
-  >(withQuery("/testimonies", { limit: REFERENCE_LIMIT }));
+  >(withQuery("/testimonies", { limit: REFERENCE_LIMIT }), options);
 
   return keepWithPortrait(readCollection(payload), "témoignage");
 }
@@ -226,10 +363,12 @@ type CommunityFacePayload = Omit<CommunityFace, "photo"> & {
 };
 
 /** Visages de la communauté (les entrées sans portrait sont écartées). */
-export async function getCommunityFaces(): Promise<CommunityFace[]> {
+export async function getCommunityFaces(
+  options: PublicReadOptions = {},
+): Promise<CommunityFace[]> {
   const payload = await apiFetch<
     CollectionResponse<CommunityFacePayload> | CommunityFacePayload[]
-  >(withQuery("/community-faces", { limit: REFERENCE_LIMIT }));
+  >(withQuery("/community-faces", { limit: REFERENCE_LIMIT }), options);
 
   return keepWithPortrait(readCollection(payload), "visage de la communauté");
 }
@@ -246,10 +385,12 @@ export async function getCommunityFaces(): Promise<CommunityFace[]> {
  * strict, donc `?limit=…` — auparavant accepté puis ignoré — est désormais
  * refusé en `400 VALIDATION_ERROR`.
  */
-export async function getSchedule(): Promise<ScheduleEntry[]> {
+export async function getSchedule(
+  options: PublicReadOptions = {},
+): Promise<ScheduleEntry[]> {
   const payload = await apiFetch<
     CollectionResponse<ScheduleEntry> | ScheduleEntry[]
-  >("/schedule");
+  >("/schedule", options);
 
   return readCollection(payload);
 }
@@ -260,17 +401,26 @@ export async function getSchedule(): Promise<ScheduleEntry[]> {
  * Comme `getSchedule` : `GET /scriptures` ne reconnaît **aucun** paramètre, un
  * `?limit=…` y produirait un `400`.
  */
-export async function getScriptures(): Promise<Scripture[]> {
+export async function getScriptures(
+  options: PublicReadOptions = {},
+): Promise<Scripture[]> {
   const payload = await apiFetch<CollectionResponse<Scripture> | Scripture[]>(
     "/scriptures",
+    options,
   );
 
   return readCollection(payload);
 }
 
 /** Verset identifié par sa clé éditoriale (`rassemblement`, `parole`…). */
-export async function getScripture(key: string): Promise<Scripture | null> {
-  return apiFetch<Scripture>(`/scriptures/${encodeURIComponent(key)}`);
+export async function getScripture(
+  key: string,
+  options: PublicReadOptions = {},
+): Promise<Scripture | null> {
+  return apiFetch<Scripture>(
+    `/scriptures/${encodeURIComponent(key)}`,
+    options,
+  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -283,8 +433,10 @@ export async function getScripture(key: string): Promise<Scripture | null> {
  * La forme est revérifiée avant d'être rendue : un objet vide reste exploitable
  * par les pages, une charge inattendue ne les fait pas planter.
  */
-export async function getSettings(): Promise<SiteSettings | null> {
-  const payload = await apiFetch<SiteSettings>("/settings");
+export async function getSettings(
+  options: PublicReadOptions = {},
+): Promise<SiteSettings | null> {
+  const payload = await apiFetch<SiteSettings>("/settings", options);
   if (!isRecord(payload)) return null;
 
   const rawSettings = isRecord(payload.settings) ? payload.settings : {};
@@ -312,9 +464,13 @@ export async function getSettings(): Promise<SiteSettings | null> {
  * `content` est un objet de champs textuels nommés ; il est normalisé en objet
  * vide s'il est absent, pour que les appelants n'aient jamais à le tester.
  */
-export async function getPage(pageKey: string): Promise<EditablePage | null> {
+export async function getPage(
+  pageKey: string,
+  options: PublicReadOptions = {},
+): Promise<EditablePage | null> {
   const payload = await apiFetch<EditablePage | null>(
     `/pages/${encodeURIComponent(pageKey)}`,
+    options,
   );
   if (!isRecord(payload)) return null;
 
@@ -360,7 +516,9 @@ export async function listAdminPublications(
 ): Promise<CollectionResponse<PublicationRecord>> {
   const path = withQuery("/publications", query);
   try {
-    return await apiFetchOrThrow<CollectionResponse<PublicationRecord>>(path);
+    return await apiFetchOrThrow<CollectionResponse<PublicationRecord>>(path, {
+      timeoutMs: 15_000,
+    });
   } catch (apiErr) {
     try {
       const supabase = getSupabaseClient();
@@ -592,7 +750,9 @@ export async function listAdminEvents(
 ): Promise<CollectionResponse<Event>> {
   const path = withQuery("/events", query);
   try {
-    return await apiFetchOrThrow<CollectionResponse<Event>>(path);
+    return await apiFetchOrThrow<CollectionResponse<Event>>(path, {
+      timeoutMs: 15_000,
+    });
   } catch (apiErr) {
     try {
       const supabase = getSupabaseClient();
@@ -773,7 +933,9 @@ export async function listAdminMedia(query: {
 } = {}): Promise<CollectionResponse<AdminMediaItem>> {
   const path = withQuery("/media", query);
   try {
-    return await apiFetchOrThrow<CollectionResponse<AdminMediaItem>>(path);
+    return await apiFetchOrThrow<CollectionResponse<AdminMediaItem>>(path, {
+      timeoutMs: 15_000,
+    });
   } catch (apiErr) {
     try {
       const supabase = getSupabaseClient();
@@ -1023,4 +1185,438 @@ export async function deleteEnseignement(id: string): Promise<void> {
     method: "DELETE",
   });
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Publications — Actions de cycle de vie                                    */
+/* -------------------------------------------------------------------------- */
+
+/** Publie une publication (`POST /publications/:idOrSlug/publish`). */
+export async function publishPublication(
+  idOrSlug: string,
+  publishedAt?: string,
+): Promise<PublicationRecord> {
+  const res = await apiFetchOrThrow<{ data: PublicationRecord } | PublicationRecord>(
+    `/publications/${encodeURIComponent(idOrSlug)}/publish`,
+    {
+      method: "POST",
+      body: publishedAt ? { publishedAt } : {},
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as PublicationRecord;
+  }
+  return res as PublicationRecord;
+}
+
+/** Repasse une publication en brouillon (`POST /publications/:idOrSlug/revert-to-draft`). */
+export async function revertPublicationToDraft(
+  idOrSlug: string,
+): Promise<PublicationRecord> {
+  const res = await apiFetchOrThrow<{ data: PublicationRecord } | PublicationRecord>(
+    `/publications/${encodeURIComponent(idOrSlug)}/revert-to-draft`,
+    {
+      method: "POST",
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as PublicationRecord;
+  }
+  return res as PublicationRecord;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Événements — Actions de cycle de vie et suppression                       */
+/* -------------------------------------------------------------------------- */
+
+/** Publie un événement (`POST /events/:idOrSlug/publish`). */
+export async function publishEvent(idOrSlug: string): Promise<Event> {
+  const res = await apiFetchOrThrow<{ data: Event } | Event>(
+    `/events/${encodeURIComponent(idOrSlug)}/publish`,
+    {
+      method: "POST",
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as Event;
+  }
+  return res as Event;
+}
+
+/** Repasse un événement en brouillon (`POST /events/:idOrSlug/revert-to-draft`). */
+export async function revertEventToDraft(idOrSlug: string): Promise<Event> {
+  const res = await apiFetchOrThrow<{ data: Event } | Event>(
+    `/events/${encodeURIComponent(idOrSlug)}/revert-to-draft`,
+    {
+      method: "POST",
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as Event;
+  }
+  return res as Event;
+}
+
+/** Annule un événement (`POST /events/:idOrSlug/cancel`). */
+export async function cancelEvent(idOrSlug: string): Promise<Event> {
+  const res = await apiFetchOrThrow<{ data: Event } | Event>(
+    `/events/${encodeURIComponent(idOrSlug)}/cancel`,
+    {
+      method: "POST",
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as Event;
+  }
+  return res as Event;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Ressources (Documents PDF téléchargeables)                                */
+/* -------------------------------------------------------------------------- */
+
+export interface ResourceListQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
+/** Liste des ressources publiques (`GET /resources`). */
+export async function getResources(
+  query: ResourceListQuery = {},
+  options: PublicReadOptions = {},
+): Promise<CollectionResponse<Resource>> {
+  const payload = await apiFetch<CollectionResponse<Resource>>(
+    withQuery("/resources", {
+      page: query.page,
+      limit: query.limit,
+      search: query.search,
+    }),
+    options,
+  );
+  if (payload && Array.isArray(payload.data)) {
+    return payload;
+  }
+  return {
+    data: [],
+    meta: { page: query.page ?? 1, limit: query.limit ?? 20, total: 0, totalPages: 0 },
+  };
+}
+
+/** Fiche d'une ressource (`GET /resources/:idOrSlug`). */
+export async function getResource(
+  idOrSlug: string,
+  options: PublicReadOptions = {},
+): Promise<Resource | null> {
+  return apiFetch<Resource>(
+    `/resources/${encodeURIComponent(idOrSlug)}`,
+    options,
+  );
+}
+
+/** Crée une nouvelle ressource (`POST /resources`). */
+export async function createResource(
+  payload: CreateResourcePayload,
+): Promise<Resource> {
+  const res = await apiFetchOrThrow<{ data: Resource } | Resource>("/resources", {
+    method: "POST",
+    body: payload,
+  });
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as Resource;
+  }
+  return res as Resource;
+}
+
+/** Modifie métadonnées d'une ressource (`PATCH /resources/:id`). */
+export async function updateResource(
+  id: string,
+  payload: UpdateResourcePayload,
+): Promise<Resource> {
+  const res = await apiFetchOrThrow<{ data: Resource } | Resource>(
+    `/resources/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: payload,
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as Resource;
+  }
+  return res as Resource;
+}
+
+/** Remplacement direct du fichier PDF (`PUT /resources/:id/file`). */
+export async function replaceResourceFile(
+  id: string,
+  fileUrl: string,
+): Promise<Resource> {
+  const res = await apiFetchOrThrow<{ data: Resource } | Resource>(
+    `/resources/${encodeURIComponent(id)}/file`,
+    {
+      method: "PUT",
+      body: { file: fileUrl },
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as Resource;
+  }
+  return res as Resource;
+}
+
+/** Supprime une ressource (`DELETE /resources/:id`). */
+export async function deleteResource(id: string): Promise<void> {
+  await apiFetchOrThrow(`/resources/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Départements & Activités (Administration & Enrichissement)                */
+/* -------------------------------------------------------------------------- */
+
+export interface CreateDepartmentPayload {
+  name: string;
+  slug?: string;
+  description?: string | null;
+  mission?: string | null;
+  history?: string | null;
+  responsibleName?: string | null;
+  tagline?: string | null;
+  meetingSchedule?: string | null;
+  keyPoints?: string[];
+  bannerMediaId?: string | null;
+  galleryMediaIds?: string[];
+  position?: number;
+}
+
+export type UpdateDepartmentPayload = Partial<CreateDepartmentPayload>;
+
+export interface DepartmentActivityPayload {
+  title: string;
+  description?: string | null;
+  imageMediaId?: string | null;
+  position?: number;
+}
+
+/** Crée un département (`POST /departments`). */
+export async function createDepartment(
+  payload: CreateDepartmentPayload,
+): Promise<Department> {
+  const res = await apiFetchOrThrow<{ data: Department } | Department>(
+    "/departments",
+    {
+      method: "POST",
+      body: payload as unknown as Record<string, unknown>,
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as Department;
+  }
+  return res as Department;
+}
+
+/** Met à jour un département (`PATCH /departments/:idOrSlug`). */
+export async function updateDepartment(
+  idOrSlug: string,
+  payload: UpdateDepartmentPayload,
+): Promise<Department> {
+  const res = await apiFetchOrThrow<{ data: Department } | Department>(
+    `/departments/${encodeURIComponent(idOrSlug)}`,
+    {
+      method: "PATCH",
+      body: payload as unknown as Record<string, unknown>,
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as Department;
+  }
+  return res as Department;
+}
+
+/** Archive explicitement un département (`POST /departments/:idOrSlug/archive`). */
+export async function archiveDepartment(
+  idOrSlug: string,
+  reason?: string | null,
+): Promise<DepartmentArchive> {
+  const res = await apiFetchOrThrow<{ data: DepartmentArchive } | DepartmentArchive>(
+    `/departments/${encodeURIComponent(idOrSlug)}/archive`,
+    {
+      method: "POST",
+      body: { reason: reason ?? "Archivage administratif" },
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as DepartmentArchive;
+  }
+  return res as DepartmentArchive;
+}
+
+/** Supprime un département avec archivage préalable obligatoire (`DELETE /departments/:idOrSlug`). */
+export async function deleteDepartment(
+  idOrSlug: string,
+  reason?: string | null,
+): Promise<void> {
+  await apiFetchOrThrow(`/departments/${encodeURIComponent(idOrSlug)}`, {
+    method: "DELETE",
+    body: { reason: reason ?? "Suppression administrative avec archivage préalable" },
+  });
+}
+
+/** Liste les archives de départements (`GET /departments/archives`). */
+export async function getDepartmentArchives(): Promise<DepartmentArchive[]> {
+  const res = await apiFetchOrThrow<{ data: DepartmentArchive[] } | DepartmentArchive[]>(
+    "/departments/archives",
+  );
+  if (isRecord(res) && "data" in res && Array.isArray(res.data)) {
+    return res.data as DepartmentArchive[];
+  }
+  return Array.isArray(res) ? (res as DepartmentArchive[]) : [];
+}
+
+/** Enregistre les activités d'un département (`PUT /departments/:idOrSlug/activities`). */
+export async function saveDepartmentActivities(
+  idOrSlug: string,
+  activities: DepartmentActivityPayload[],
+): Promise<DepartmentActivityItem[]> {
+  const res = await apiFetchOrThrow<{ data: DepartmentActivityItem[] } | DepartmentActivityItem[]>(
+    `/departments/${encodeURIComponent(idOrSlug)}/activities`,
+    {
+      method: "PUT",
+      body: { activities },
+    },
+  );
+  if (isRecord(res) && "data" in res && Array.isArray(res.data)) {
+    return res.data as DepartmentActivityItem[];
+  }
+  return Array.isArray(res) ? (res as DepartmentActivityItem[]) : [];
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Témoignages (Administration, Workflow de modération & Hero)              */
+/* -------------------------------------------------------------------------- */
+
+export interface TestimonyListQuery {
+  page?: number;
+  limit?: number;
+  status?: TestimonyStatus;
+  isFeatured?: boolean;
+}
+
+/** Boîte de réception des témoignages pour le back-office (`GET /testimonies`). */
+export async function getAdminTestimonies(
+  query: TestimonyListQuery = {},
+): Promise<CollectionResponse<AdminTestimony>> {
+  const url = withQuery("/testimonies", {
+    page: query.page,
+    limit: query.limit,
+    status: query.status,
+    isFeatured: query.isFeatured,
+  });
+  const res = await apiFetchOrThrow<CollectionResponse<AdminTestimony>>(url);
+  if (res && Array.isArray(res.data)) {
+    return res;
+  }
+  return {
+    data: [],
+    meta: { page: query.page ?? 1, limit: query.limit ?? 20, total: 0, totalPages: 0 },
+  };
+}
+
+/** Témoignages mis en avant pour la Hero section (`GET /testimonies/hero`). */
+export async function getHeroTestimonies(
+  options: PublicReadOptions = {},
+): Promise<Testimony[]> {
+  const payload = await apiFetch<CollectionResponse<TestimonyPayload> | TestimonyPayload[]>(
+    "/testimonies/hero",
+    options,
+  );
+  return readCollection(payload) as unknown as Testimony[];
+}
+
+/** Soumission publique d'un témoignage (`POST /testimonies/submit`). */
+export interface SubmitTestimonyPayload {
+  authorName?: string | null;
+  content: string;
+  isAnonymous?: boolean;
+  photoMediaId?: string | null;
+  consent: boolean;
+}
+
+export async function submitPublicTestimony(
+  payload: SubmitTestimonyPayload,
+): Promise<{ id: string }> {
+  return apiFetchOrThrow<{ id: string }>("/testimonies/submit", {
+    method: "POST",
+    body: payload as unknown as Record<string, unknown>,
+  });
+}
+
+/** Mise à jour du statut d'un témoignage (`POST /testimonies/:id/status`). */
+export async function updateTestimonyStatus(
+  id: string,
+  status: TestimonyStatus,
+  adminNotes?: string | null,
+): Promise<AdminTestimony> {
+  const res = await apiFetchOrThrow<{ data: AdminTestimony } | AdminTestimony>(
+    `/testimonies/${encodeURIComponent(id)}/status`,
+    {
+      method: "POST",
+      body: { status, adminNotes },
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as AdminTestimony;
+  }
+  return res as AdminTestimony;
+}
+
+/** Bascule la sélection Hero (`POST /testimonies/:id/hero`). */
+export async function setTestimonyFeatured(
+  id: string,
+  isFeatured: boolean,
+): Promise<AdminTestimony> {
+  const res = await apiFetchOrThrow<{ data: AdminTestimony } | AdminTestimony>(
+    `/testimonies/${encodeURIComponent(id)}/hero`,
+    {
+      method: "POST",
+      body: { isFeatured },
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as AdminTestimony;
+  }
+  return res as AdminTestimony;
+}
+
+/** Correction éditoriale d'un témoignage (`PATCH /testimonies/:id`). */
+export async function updateTestimony(
+  id: string,
+  payload: {
+    content?: string;
+    authorName?: string | null;
+    isAnonymous?: boolean;
+    adminNotes?: string | null;
+  },
+): Promise<AdminTestimony> {
+  const res = await apiFetchOrThrow<{ data: AdminTestimony } | AdminTestimony>(
+    `/testimonies/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: payload,
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as AdminTestimony;
+  }
+  return res as AdminTestimony;
+}
+
+/** Supprime un témoignage (`DELETE /testimonies/:id`). */
+export async function deleteTestimony(id: string): Promise<void> {
+  await apiFetchOrThrow(`/testimonies/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+
 

@@ -36,24 +36,20 @@ export const events = pgTable(
     /** Accroche éditoriale des listes (frontend : `Event.excerpt`). */
     excerpt: text("excerpt"),
     eventDate: date("event_date").notNull(),
+    endDate: date("end_date"),
     eventTime: time("event_time"),
+    endTime: time("end_time"),
     location: varchar("location", { length: 150 }),
+    status: varchar("status", { length: 20 }).notNull().default("PUBLISHED"),
     imageMediaId: uuid("image_media_id").references(() => media.id, {
       onDelete: "set null",
     }),
     bannerMediaId: uuid("banner_media_id").references(() => media.id, {
       onDelete: "set null",
     }),
-    /**
-     * Département **responsable** : `NOT NULL` (D-26, XD-15).
-     *
-     * « Un événement global au sens d'un `department_id = NULL` **n'existe pas** ».
-     * `RESTRICT` plutôt que `SET NULL` : sans département, l'événement perdrait son
-     * responsable — exactement l'état que XD-15 interdit.
-     */
-    departmentId: uuid("department_id")
-      .notNull()
-      .references(() => departments.id, { onDelete: "restrict" }),
+    departmentId: uuid("department_id").references(() => departments.id, {
+      onDelete: "restrict",
+    }),
     /**
      * **Qui est concerné** par l'événement (`docs/028` D-26).
      *

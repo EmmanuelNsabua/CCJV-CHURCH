@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { site } from "@/data/mock/site";
+import { site } from "@/data/site";
 
 /**
  * URL publique du site. À définir en production via `NEXT_PUBLIC_SITE_URL`.

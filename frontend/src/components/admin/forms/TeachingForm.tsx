@@ -39,6 +39,7 @@ import {
 } from "@/lib/api/endpoints";
 import type {
   EnseignementRecord,
+  BiblicalReferenceRecord,
   BiblicalReferenceInputPayload,
   TeachingMediaInputPayload,
   AdminMediaItem,
@@ -171,8 +172,12 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
   const [status, setStatus] = useState(initialData?.status || "DRAFT");
 
   // Références bibliques (avec champ texte unique pour les versets)
-  const [references, setReferences] = useState<BiblicalRefDraft[]>(
-    initialData?.references?.map((r, idx) => ({
+  const resolveReferences = (data?: EnseignementRecord): BiblicalRefDraft[] => {
+    const rawRefs =
+      data?.references ||
+      (data as unknown as { biblicalReferences?: BiblicalReferenceRecord[] })?.biblicalReferences ||
+      [];
+    return rawRefs.map((r, idx) => ({
       id: r.id,
       book: r.book,
       verseText: formatVerseString(r),
@@ -181,57 +186,103 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
       endChapter: r.endChapter,
       endVerse: r.endVerse,
       position: r.position ?? idx,
-    })) || [],
-  );
+    }));
+  };
+
+  const resolveVideoSlot = (data?: EnseignementRecord): MediaSlot | null => {
+    const v = data?.medias?.find((m) => {
+      const mime = m.media?.mimeType || (m as unknown as { mimeType?: string }).mimeType;
+      return m.role === "VIDEO" || mime?.startsWith("video/");
+    });
+    if (!v) return null;
+    const url = v.media?.publicUrl || (v as unknown as { url?: string }).url;
+    if (!url) return null;
+    return {
+      mediaId: v.mediaId,
+      title: v.media?.title || (v as unknown as { title?: string }).title || "Vidéo principale",
+      url,
+      mimeType: v.media?.mimeType || (v as unknown as { mimeType?: string }).mimeType || "video/mp4",
+      sizeBytes: v.media?.fileSizeBytes || (v as unknown as { sizeBytes?: number }).sizeBytes,
+    };
+  };
+
+  const resolveImageSlot = (data?: EnseignementRecord): MediaSlot | null => {
+    const img = data?.medias?.find((m) => {
+      const mime = m.media?.mimeType || (m as unknown as { mimeType?: string }).mimeType;
+      return m.role === "THUMBNAIL" || mime?.startsWith("image/");
+    });
+    if (!img) return null;
+    const url = img.media?.publicUrl || (img as unknown as { url?: string }).url;
+    if (!url) return null;
+    return {
+      mediaId: img.mediaId,
+      title: img.media?.title || (img as unknown as { title?: string }).title || "Miniature de couverture",
+      url,
+      mimeType: img.media?.mimeType || (img as unknown as { mimeType?: string }).mimeType || "image/jpeg",
+      sizeBytes: img.media?.fileSizeBytes || (img as unknown as { sizeBytes?: number }).sizeBytes,
+    };
+  };
+
+  const resolveAudioSlot = (data?: EnseignementRecord): MediaSlot | null => {
+    const a = data?.medias?.find((m) => {
+      const mime = m.media?.mimeType || (m as unknown as { mimeType?: string }).mimeType;
+      return m.role === "AUDIO" || mime?.startsWith("audio/");
+    });
+    if (!a) return null;
+    const url = a.media?.publicUrl || (a as unknown as { url?: string }).url;
+    if (!url) return null;
+    return {
+      mediaId: a.mediaId,
+      title: a.media?.title || (a as unknown as { title?: string }).title || "Enregistrement audio",
+      url,
+      mimeType: a.media?.mimeType || (a as unknown as { mimeType?: string }).mimeType || "audio/mpeg",
+      sizeBytes: a.media?.fileSizeBytes || (a as unknown as { sizeBytes?: number }).sizeBytes,
+    };
+  };
+
+  const [references, setReferences] = useState<BiblicalRefDraft[]>(() => resolveReferences(initialData));
 
   // Sous-sections de médias dédiées
   // 1. Vidéo
-  const initialVideo = initialData?.medias?.find(
-    (m) => m.role === "VIDEO" || m.media?.mimeType?.startsWith("video/"),
-  );
-  const [videoSlot, setVideoSlot] = useState<MediaSlot | null>(
-    initialVideo && initialVideo.media
-      ? {
-          mediaId: initialVideo.mediaId,
-          title: initialVideo.media.title || "Vidéo principale",
-          url: initialVideo.media.publicUrl,
-          mimeType: initialVideo.media.mimeType,
-        }
-      : null,
-  );
+  const initialVideo = initialData?.medias?.find((m) => {
+    const mime = m.media?.mimeType || (m as unknown as { mimeType?: string }).mimeType;
+    return m.role === "VIDEO" || mime?.startsWith("video/");
+  });
+  const [videoSlot, setVideoSlot] = useState<MediaSlot | null>(() => resolveVideoSlot(initialData));
   const [useVideoAsThumbnail, setUseVideoAsThumbnail] = useState<boolean>(
     Boolean(initialVideo?.isPrimary && !initialData?.medias?.some((m) => m.role === "THUMBNAIL")),
   );
 
   // 2. Image / Miniature
-  const initialImage = initialData?.medias?.find(
-    (m) => m.role === "THUMBNAIL" || m.media?.mimeType?.startsWith("image/"),
-  );
-  const [imageSlot, setImageSlot] = useState<MediaSlot | null>(
-    initialImage && initialImage.media
-      ? {
-          mediaId: initialImage.mediaId,
-          title: initialImage.media.title || "Miniature de couverture",
-          url: initialImage.media.publicUrl,
-          mimeType: initialImage.media.mimeType,
-        }
-      : null,
-  );
+  const [imageSlot, setImageSlot] = useState<MediaSlot | null>(() => resolveImageSlot(initialData));
 
   // 3. Audio (Optionnel)
-  const initialAudio = initialData?.medias?.find(
-    (m) => m.role === "AUDIO" || m.media?.mimeType?.startsWith("audio/"),
-  );
-  const [audioSlot, setAudioSlot] = useState<MediaSlot | null>(
-    initialAudio && initialAudio.media
-      ? {
-          mediaId: initialAudio.mediaId,
-          title: initialAudio.media.title || "Enregistrement audio",
-          url: initialAudio.media.publicUrl,
-          mimeType: initialAudio.media.mimeType,
-        }
-      : null,
-  );
+  const [audioSlot, setAudioSlot] = useState<MediaSlot | null>(() => resolveAudioSlot(initialData));
+
+  // Synchronisation si initialData arrive ou se met à jour
+  useEffect(() => {
+    if (!initialData) return;
+    setTitle(initialData.title || "");
+    setSlug(initialData.slug || "");
+    setSpeakerName(initialData.speakerName || "");
+    if (initialData.preachedAt) {
+      setPreachedAt(initialData.preachedAt.substring(0, 10));
+    }
+    setSummary(initialData.summary || "");
+    setDescription(initialData.description || "");
+    setStatus(initialData.status || "DRAFT");
+    setReferences(resolveReferences(initialData));
+    setVideoSlot(resolveVideoSlot(initialData));
+    setImageSlot(resolveImageSlot(initialData));
+    setAudioSlot(resolveAudioSlot(initialData));
+    const initVid = initialData.medias?.find((m) => {
+      const mime = m.media?.mimeType || (m as unknown as { mimeType?: string }).mimeType;
+      return m.role === "VIDEO" || mime?.startsWith("video/");
+    });
+    setUseVideoAsThumbnail(
+      Boolean(initVid?.isPrimary && !initialData.medias?.some((m) => m.role === "THUMBNAIL")),
+    );
+  }, [initialData]);
 
   // Bibliothèque centrale pour sélection
   const [centralMediaList, setCentralMediaList] = useState<AdminMediaItem[]>([]);
@@ -634,31 +685,6 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
 
         {/* Actions principales : Enregistrer et Publier débloqués quand toutes les données sont remplies */}
         <div className="flex items-center gap-2">
-          {isEditing && initialData?.status === "PUBLISHED" && (
-            <a
-              href={`/publications/enseignements/${initialData.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-ccjv-ink border border-ccjv-border bg-white hover:bg-ccjv-surface transition-colors"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              <span>Voir sur le site</span>
-            </a>
-          )}
-
-          {isEditing && status !== "ARCHIVED" && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleArchive}
-              disabled={isArchiving || isSaving}
-              className="text-xs text-amber-800 border-amber-300 hover:bg-amber-50"
-            >
-              <Archive className="w-3.5 h-3.5 mr-1" />
-              {isArchiving ? "Archivage..." : "Archiver"}
-            </Button>
-          )}
 
           {/* Bouton Enregistrer : actif dès que les données nécessaires sont complétées */}
           <div
@@ -728,9 +754,9 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
       )}
 
       {/* Grille : Colonne gauche (Informations générales) et Colonne droite (Médias + Références) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Colonne gauche : INFORMATIONS GÉNÉRALES (sans numéro) */}
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* Colonne gauche : INFORMATIONS GÉNÉRALES (sticky à distance idéale sous la topbar) */}
+        <div className="lg:col-span-2 space-y-6 lg:sticky lg:top-0 self-start">
           <div className="bg-white p-5 border border-ccjv-border space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-ccjv-ink border-b border-ccjv-border pb-2">
               INFORMATIONS GÉNÉRALES
@@ -766,21 +792,8 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
             </div>
 
             <FormField
-              label="Résumé court"
-              hint="Bref extrait affiché dans les listes et cartes de présentation"
-            >
-              <Textarea
-                rows={3}
-                value={summary}
-                onChange={(e) => setSummary(e.target.value)}
-                placeholder="Synthèse en deux phrases du sermon..."
-                className="text-sm"
-              />
-            </FormField>
-
-            <FormField
               label="Description éditoriale / Notes de message"
-              hint="Texte complet ou résumé des points principaux abordés"
+              hint=""
             >
               <Textarea
                 rows={7}

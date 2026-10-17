@@ -74,6 +74,20 @@ const refusedCapabilities = z
       "Les capacités d'un département ne se modifient pas par cette route : elles décident la portée publique des événements (docs/028 D-25), et savoir qui peut les éditer n'est pas tranché (docs/029 Q-06).",
   });
 
+export const departmentActivitySchema = z.object({
+  id: z.string().uuid().optional(),
+  title: z
+    .string()
+    .trim()
+    .min(2, "Le titre de l'activité doit contenir au moins 2 caractères")
+    .max(150, "Le titre de l'activité ne peut pas dépasser 150 caractères"),
+  description: z.string().trim().max(3000, "La description est trop longue").nullish(),
+  imageMediaId: z.string().uuid("L'identifiant de média doit être un UUID").nullish(),
+  position: z.coerce.number().int().min(0).default(0),
+});
+
+export type DepartmentActivityInputDto = z.infer<typeof departmentActivitySchema>;
+
 /**
  * Champs communs à la création et à la mise à jour.
  *
@@ -87,7 +101,21 @@ const departmentFields = {
     .trim()
     .min(2, "Le nom doit contenir au moins 2 caractères")
     .max(100, "Le nom ne peut pas dépasser 100 caractères"),
-  description: z.string().trim().max(5000, "La description est trop longue").nullish(),
+  description: z
+    .string()
+    .trim()
+    .max(1000, "La description courte ne peut pas dépasser 1000 caractères")
+    .nullish(),
+  mission: z
+    .string()
+    .trim()
+    .max(10000, "La présentation de la mission est trop longue")
+    .nullish(),
+  history: z
+    .string()
+    .trim()
+    .max(20000, "L'historique est trop long")
+    .nullish(),
   responsibleName: z
     .string()
     .trim()
@@ -105,6 +133,7 @@ const departmentFields = {
     .nullish(),
   bannerMediaId: z.uuid("L'identifiant de média doit être un UUID").nullish(),
   galleryMediaIds: z.array(z.uuid("Identifiant de média invalide")).max(60).optional(),
+  activities: z.array(departmentActivitySchema).max(50).optional(),
   position: z.coerce.number().int().min(0).max(10_000).optional(),
   capabilities: refusedCapabilities,
 };
@@ -127,11 +156,15 @@ export const createDepartmentSchema = z.object({
 /**
  * Mise à jour partielle.
  *
- * `slug` en est volontairement absent : le contrat de repository
- * (`update(id, data: Partial<DepartmentInput>)`) ne permet pas de le modifier,
- * une URL publique ne doit donc pas changer dans le dos des visiteurs.
+ * `slug` en est strictement exclu : le slug est immuable après création,
+ * il ne peut être modifié ni par l'interface ni par l'API.
  */
 export const updateDepartmentSchema = z.object(departmentFields).partial();
 
+export const archiveDepartmentSchema = z.object({
+  reason: z.string().trim().max(500, "Le motif d'archivage est trop long").nullish(),
+});
+
 export type CreateDepartmentBody = z.infer<typeof createDepartmentSchema>;
 export type UpdateDepartmentBody = z.infer<typeof updateDepartmentSchema>;
+export type ArchiveDepartmentBody = z.infer<typeof archiveDepartmentSchema>;

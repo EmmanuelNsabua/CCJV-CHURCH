@@ -5,7 +5,7 @@ import {
   validatedParams,
   validatedQuery,
 } from "@/presentation/middlewares/validate";
-import type { CreateLeaderBody, UpdateLeaderBody } from "./leader.schema";
+import type { CreateLeaderBody, LeaderListQuery, UpdateLeaderBody } from "./leader.schema";
 import type { LeaderDto } from "./leader.serializer";
 import { toLeaderDto } from "./leader.serializer";
 import type { LeaderService } from "./leader.service";
@@ -24,7 +24,12 @@ export interface LeaderIdParams {
 export function createLeaderController(service: LeaderService) {
   return {
     async list(req: Request, res: Response): Promise<void> {
-      const { page, limit } = validatedQuery<PaginationQuery>(req);
+      const { page, limit, departmentId } = validatedQuery<LeaderListQuery>(req);
+      if (departmentId) {
+        const items = await service.listByDepartment(departmentId);
+        sendCollection<LeaderDto>(res, items.map(toLeaderDto), 1, Math.max(items.length, 1), items.length);
+        return;
+      }
       const { items, total } = await service.list({
         limit,
         offset: toOffset(page, limit),

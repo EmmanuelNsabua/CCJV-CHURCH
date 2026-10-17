@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { type Department } from "@/types";
-import { images } from "@/data/mock/images";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 interface OrganisationExplorerProps {
   departments: Department[];
@@ -12,8 +12,22 @@ interface OrganisationExplorerProps {
  * - Alternance visuelle rythmée (Image Gauche / Texte Droite puis inversement)
  * - Densité maîtrisée : Numéro + Titre + Phrase d'accroche + Grande Photographie + CTA
  * - Les détails riches (piliers, horaires, galerie) sont accessibles dans le volet contextuel
+ *
+ * Composant **de présentation** : il ne lit jamais l'API lui-même. La page
+ * serveur lui transmet les départements réels ; chaque bloc n'est rendu que si
+ * le champ correspondant (`tagline`, `description`, `bannerImage`) existe.
  */
 export function OrganisationExplorer({ departments }: OrganisationExplorerProps) {
+  if (departments.length === 0) {
+    return (
+      <EmptyState
+        className="mt-16"
+        title="Aucun département publié pour le moment"
+        description="Les départements et ministères publiés depuis le back-office apparaîtront ici."
+      />
+    );
+  }
+
   return (
     <div className="mt-16 space-y-16 lg:space-y-24">
       {departments.map((dept, idx) => {
@@ -30,26 +44,30 @@ export function OrganisationExplorer({ departments }: OrganisationExplorerProps)
             {dept.slug === "adultes" && <div id="adulte" className="scroll-mt-28" />}
 
             <div className="grid grid-cols-1 items-stretch lg:grid-cols-12">
-              {/* Colonne Image dominante */}
-              <div
-                className={`relative min-h-[280px] sm:min-h-[360px] lg:min-h-[420px] lg:col-span-6 xl:col-span-5 ${
-                  isReversed ? "lg:order-2" : "lg:order-1"
-                } bg-ccjv-line overflow-hidden`}
-              >
-                <Image
-                  src={dept.bannerImage ?? images.communaute}
-                  alt={dept.name}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 45vw"
-                  className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
-                />
-              </div>
+              {/* Colonne Image dominante — absente si l'API ne fournit pas d'image d'en-tête */}
+              {dept.bannerImage && (
+                <div
+                  className={`relative min-h-[280px] sm:min-h-[360px] lg:min-h-[420px] lg:col-span-6 xl:col-span-5 ${
+                    isReversed ? "lg:order-2" : "lg:order-1"
+                  } bg-ccjv-line overflow-hidden`}
+                >
+                  <Image
+                    src={dept.bannerImage}
+                    alt={dept.name}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 45vw"
+                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                  />
+                </div>
+              )}
 
               {/* Colonne Contenu : Ultra-épurée & lisible */}
               <div
-                className={`flex flex-col justify-between p-8 sm:p-12 lg:p-16 lg:col-span-6 xl:col-span-7 ${
-                  isReversed ? "lg:order-1" : "lg:order-2"
-                }`}
+                className={`flex flex-col justify-between p-8 sm:p-12 lg:p-16 ${
+                  dept.bannerImage
+                    ? "lg:col-span-6 xl:col-span-7"
+                    : "lg:col-span-12"
+                } ${isReversed ? "lg:order-1" : "lg:order-2"}`}
               >
                 <div>
                   {/* Numérotation sobre */}
@@ -61,9 +79,11 @@ export function OrganisationExplorer({ departments }: OrganisationExplorerProps)
                     {dept.name}
                   </h3>
 
-                  <p className="mt-4 font-sans text-[1.05rem] leading-[1.7] text-ccjv-ink-secondary max-w-[46ch]">
-                    {dept.tagline || dept.description}
-                  </p>
+                  {(dept.tagline || dept.description) && (
+                    <p className="mt-4 font-sans text-[1.05rem] leading-[1.7] text-ccjv-ink-secondary max-w-[46ch]">
+                      {dept.tagline || dept.description}
+                    </p>
+                  )}
                 </div>
 
                 {/* CTA vers l'expérience dédiée /[slug] */}

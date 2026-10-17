@@ -50,6 +50,7 @@ function publicationFixture(overrides: Partial<Publication> = {}): Publication {
     archivedAt: null,
     createdAt: new Date("2026-05-01T00:00:00.000Z"),
     updatedAt: new Date("2026-05-01T00:00:00.000Z"),
+    coverMediaId: overrides.coverMediaId ?? null,
     ...overrides,
   };
 }
@@ -214,6 +215,47 @@ function fakePublicationRepository(seed: readonly Publication[] = []) {
       const updated: Publication = { ...target, status: "PUBLISHED", publishedAt };
       store.set(id, updated);
       return updated;
+    },
+
+    async publish(id, publishedAt) {
+      const target = store.get(id);
+      if (target === undefined) return null;
+      const updated: Publication = {
+        ...target,
+        status: "PUBLISHED",
+        publishedAt: publishedAt ?? new Date().toISOString(),
+      };
+      store.set(id, updated);
+      return updated;
+    },
+
+    async revertToDraft(id) {
+      const target = store.get(id);
+      if (target === undefined) return null;
+      const updated: Publication = {
+        ...target,
+        status: "DRAFT",
+      };
+      store.set(id, updated);
+      return updated;
+    },
+
+    async listFeatured(limit = 3) {
+      const published = [...store.values()]
+        .filter((item) => item.status === "PUBLISHED")
+        .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+      return published.slice(0, limit);
+    },
+
+    async listArchives(options) {
+      const published = [...store.values()]
+        .filter((item) => item.status === "PUBLISHED")
+        .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+      const archives = published.slice(3);
+      return {
+        items: archives.slice(options.offset, options.offset + options.limit),
+        total: archives.length,
+      };
     },
   };
 
@@ -589,6 +631,7 @@ describe("PublicationService — cohérence lors d'une mise à jour partielle", 
     const { repository } = fakePublicationRepository([
       publicationFixture({
         type: "VIDEO",
+        status: "DRAFT",
         body: null,
         contentUrl: "https://www.youtube.com/watch?v=abc123",
       }),
@@ -607,7 +650,7 @@ describe("PublicationService — cohérence lors d'une mise à jour partielle", 
 
   it("refuse un PATCH qui bascule un TEXTE en VIDEO sans lui donner de lien", async () => {
     const { repository } = fakePublicationRepository([
-      publicationFixture({ type: "TEXTE" }),
+      publicationFixture({ type: "TEXTE", status: "DRAFT" }),
     ]);
     const service = new PublicationService(repository);
 
@@ -623,6 +666,7 @@ describe("PublicationService — cohérence lors d'une mise à jour partielle", 
     const { repository } = fakePublicationRepository([
       publicationFixture({
         type: "VIDEO",
+        status: "DRAFT",
         body: null,
         contentUrl: "https://www.youtube.com/watch?v=abc123",
       }),

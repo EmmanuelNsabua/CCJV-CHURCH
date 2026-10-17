@@ -1,20 +1,22 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { HeroPhoto } from "@/components/composition/HeroPhoto";
+import { HeroCompact } from "@/components/composition/HeroCompact";
 import { DetailPage } from "@/components/archetypes/DetailPage";
 import { Prose } from "@/components/editorial/Prose";
 import { KeyFacts } from "@/components/editorial/KeyFacts";
-import { PhotoGallery } from "@/components/editorial/PhotoGallery";
 import { ContentPending } from "@/components/editorial/ContentPending";
 import { CrossLinks } from "@/components/editorial/CrossLinks";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
 import { YouTubeThumb } from "@/components/shared/YouTubeThumb";
 import {
   getPublication,
   getPublications,
-} from "@/lib/api";
-import { galleryImages, images } from "@/data/mock/images";
+  readOrUnavailable,
+} from "@/lib/api/endpoints";
+import type { PublicationRecord } from "@/lib/api/types";
 import { getYouTubeId, formatLongDate } from "@/lib/utils";
 import type { Publication } from "@/types";
 import { pageMetadata } from "@/lib/seo";
@@ -30,13 +32,6 @@ const categoryLabel: Record<NonNullable<Publication["category"]>, string> = {
   ENSEIGNEMENT: "Enseignement",
   MEDIA: "Média",
   RESSOURCE: "Ressource",
-};
-
-/** Image de repli lorsque la publication n'est pas elle-même une photographie. */
-const fallbackImage: Record<Publication["type"], string> = {
-  VIDEO: images.predication,
-  PHOTO: images.assemblee,
-  TEXTE: images.assemblee,
 };
 
 const IMAGE_FILE_PATTERN = /\.(?:avif|gif|jpe?g|png|webp)(?:\?.*)?$/i;
@@ -58,6 +53,37 @@ function isImageSource(url?: string): boolean {
 }
 
 /**
+ * Résultat d'une lecture unitaire, où **absent** et **illisible** sont deux
+ * états distincts.
+ *
+ * `getPublication` ne lève jamais : elle renvoie `null` aussi bien quand la
+ * publication n'existe pas (HTTP 404 — c'est aussi le cas d'un brouillon, que
+ * la lecture publique ne renvoie pas) que lorsque l'API est injoignable. Seul
+ * le statut porté par l'`ApiError` permet de trancher : « introuvable » se
+ * termine en `notFound()`, une panne en `ContentUnavailable`.
+ */
+type PublicationRead =
+  | { status: "ok"; data: PublicationRecord }
+  | { status: "missing" }
+  | { status: "unreachable" };
+
+async function readPublication(slug: string): Promise<PublicationRead> {
+  const failures: Array<{ status: number | null }> = [];
+
+  const publication = await getPublication(slug, {
+    onFailure: (error) => {
+      failures.push({ status: error.status });
+    },
+  });
+
+  if (publication !== null) return { status: "ok", data: publication };
+
+  return failures.some((failure) => failure.status === 404)
+    ? { status: "missing" }
+    : { status: "unreachable" };
+}
+
+/**
  * Pré-génère une fiche par publication publiée.
  *
  * ⚠️ Cette fonction s'exécute **au build** : si l'API est injoignable à ce
@@ -67,17 +93,13 @@ function isImageSource(url?: string): boolean {
  * au build suivant.
  */
 export async function generateStaticParams() {
-  try {
-    const publications = await getPublications({ limit: 100 });
-    return publications.map((publication) => ({ slug: publication.slug }));
-  } catch (error) {
-    // `getPublications` ne lève pas : ce filet couvre toute erreur imprévue.
-    console.warn(
-      "[publications] generateStaticParams : API indisponible, repli sur une liste vide",
-      error,
-    );
-    return [];
-  }
+  const result = await readOrUnavailable((options) =>
+    getPublications({ limit: 100 }, options),
+  );
+
+  if (result.status === "unreachable") return [];
+
+  return result.data.map((publication) => ({ slug: publication.slug }));
 }
 
 export async function generateMetadata({
@@ -86,8 +108,16 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const publication = await getPublication(slug);
-  if (!publication) return {};
+  const read = await readPublication(slug);
+
+  /*
+   * Aucune métadonnée n'est affirmée quand la publication est absente ou
+   * illisible : décrire un contenu qu'on n'a pas lu serait pire que de laisser
+   * les métadonnées par défaut du layout.
+   */
+  if (read.status !== "ok") return {};
+
+  const publication = read.data;
 
   return pageMetadata({
     title: publication.title,
@@ -104,36 +134,47 @@ export default async function PublicationDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const publication = await getPublication(slug);
-  if (!publication) notFound();
+  const read = await readPublication(slug);
 
-  const isPhoto = publication.type === "PHOTO";
+  if (read.status === "unreachable") {
+    return (
+      <div className="container py-[clamp(3rem,7vw,6rem)]">
+        <ContentUnavailable resource="Cette publication" />
+      </div>
+    );
+  }
+
+  if (read.status === "missing") notFound();
+
+  const publication = read.data;
   const contentUrl = publication.contentUrl;
-  /** `contentUrl` d'abord, puis la couverture résolue par l'API. */
+  /**
+   * Uniquement le média réel de la publication : `contentUrl` d'abord, puis la
+   * couverture résolue par l'API. L'API n'expose **aucun** champ de galerie :
+   * une publication PHOTO sans média n'affiche donc pas d'image, plutôt que
+   * d'en emprunter une à un autre contenu.
+   */
   const imageSource = [contentUrl, publication.coverImage].find(isImageSource);
-  const heroImage = imageSource ?? fallbackImage[publication.type];
   const youtubeId = getYouTubeId(contentUrl);
 
   /** Contenus liés : la même rubrique, sinon le même type de publication. */
-  const relatedPool = publication.category
-    ? await getPublications({ category: publication.category, limit: 8 })
-    : await getPublications({ type: publication.type, limit: 8 });
+  const relatedRead = await readOrUnavailable((options) =>
+    publication.category
+      ? getPublications({ category: publication.category, limit: 8 }, options)
+      : getPublications({ type: publication.type, limit: 8 }, options),
+  );
 
-  const related = relatedPool
-    .filter(
-      (item) =>
-        item.id !== publication.id &&
-        (item.category === publication.category ||
-          item.type === publication.type),
-    )
-    .slice(0, 3);
-
-  /** Galerie associée : la photographie de l'album, puis les images voisines. */
-  const gallery = [
-    ...(imageSource
-      ? [imageSource, ...galleryImages.filter((src) => src !== imageSource)]
-      : galleryImages),
-  ].slice(0, 5);
+  const related =
+    relatedRead.status === "ok"
+      ? relatedRead.data
+          .filter(
+            (item) =>
+              item.id !== publication.id &&
+              (item.category === publication.category ||
+                item.type === publication.type),
+          )
+          .slice(0, 3)
+      : [];
 
   const paragraphs =
     publication.body && publication.body.length > 0
@@ -142,20 +183,38 @@ export default async function PublicationDetailPage({
         ? [publication.description]
         : [];
 
+  const metaLine = [
+    publication.category
+      ? categoryLabel[publication.category]
+      : typeLabel[publication.type],
+    formatLongDate(publication.publishedAt),
+  ].join(" · ");
+
   return (
     <DetailPage
       rhythm="standard"
       media={
-        <HeroPhoto
-          overline={typeLabel[publication.type]}
-          title={publication.title}
-          image={heroImage}
-          height="normal"
-          caption={[
-            publication.category ? categoryLabel[publication.category] : typeLabel[publication.type],
-            formatLongDate(publication.publishedAt),
-          ].join(" · ")}
-        />
+        imageSource ? (
+          <HeroPhoto
+            overline={typeLabel[publication.type]}
+            title={publication.title}
+            image={imageSource}
+            height="normal"
+            caption={metaLine}
+          />
+        ) : (
+          /* Sans média réel, l'en-tête reste typographique : aucune photographie
+             ne vient illustrer une publication qui n'en a pas fourni. */
+          <HeroCompact
+            overline={typeLabel[publication.type]}
+            title={publication.title}
+            aside={
+              <p className="font-sans text-[0.8rem] text-ccjv-ink-secondary">
+                {metaLine}
+              </p>
+            }
+          />
+        )
       }
       summary={
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-16">
@@ -254,14 +313,7 @@ export default async function PublicationDetailPage({
         </div>
       }
       gallery={
-        isPhoto ? (
-          <>
-            <h2 className="mb-10 font-sans text-[0.72rem] font-semibold tracking-[0.2em] text-ccjv-green uppercase">
-              Galerie de l&apos;album
-            </h2>
-            <PhotoGallery variant="mosaic" images={gallery} />
-          </>
-        ) : publication.type === "VIDEO" && contentUrl ? (
+        publication.type === "VIDEO" && contentUrl ? (
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-16">
             <div className="lg:col-span-3">
               <p className="font-sans text-xs font-semibold tracking-[0.18em] text-ccjv-green uppercase">
@@ -322,7 +374,9 @@ export default async function PublicationDetailPage({
       relatedTitle="À découvrir aussi"
       related={
         <>
-          {related.length > 0 ? (
+          {relatedRead.status === "unreachable" ? (
+            <ContentUnavailable resource="Les contenus liés" />
+          ) : related.length > 0 ? (
             <ul className="border-t border-ccjv-line">
               {related.map((item) => (
                 <li key={item.id} className="border-b border-ccjv-line">

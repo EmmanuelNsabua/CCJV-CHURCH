@@ -1,42 +1,92 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "next/image";
-import { departments, getDepartmentBySlug } from "@/data/mock/departments";
-import { leaders } from "@/data/mock/leaders";
-import { site } from "@/data/mock/site";
+import { site } from "@/data/site";
 import { pageMetadata } from "@/lib/seo";
 import { Button } from "@/components/ui/Button";
+import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 import { CrossMark } from "@/components/shared/CrossMark";
-import { VerseSection } from "@/components/shared/VerseSection";
 import { PhotoGallery } from "@/components/editorial/PhotoGallery";
 import { PhotoDuo } from "@/components/editorial/PhotoDuo";
+import { getDepartment, getDepartments, getLeaders } from "@/lib/api";
+import { readOrUnavailable } from "@/lib/api/endpoints";
+import type { Department } from "@/lib/api";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-/** Pré-génération statique des 10 départements réels CCJV */
+/** Résultat d'une lecture de fiche : introuvable et injoignable ne se confondent pas. */
+type DepartmentRead =
+  | { status: "ok"; department: Department }
+  | { status: "not-found" }
+  | { status: "unreachable" };
+
+/**
+ * Lit la fiche d'un département depuis l'API.
+ *
+ * Un slug inconnu répond `404 DEPARTMENT_NOT_FOUND` : la page doit alors
+ * répondre `notFound()`. Or les lecteurs publics ne lèvent jamais — ils
+ * signalent l'échec par `onFailure`, ce qui rend un 404 indiscernable d'une
+ * panne réseau. Le statut HTTP est donc relevé, pour ne pas présenter une page
+ * inexistante comme « momentanément indisponible », ni l'inverse.
+ */
+async function readDepartment(slug: string): Promise<DepartmentRead> {
+  let httpStatus: number | null = null;
+
+  const read = await readOrUnavailable((options) =>
+    getDepartment(slug, {
+      onFailure: (error) => {
+        httpStatus = error.status;
+        options.onFailure?.(error);
+      },
+    }),
+  );
+
+  if (read.status === "unreachable") {
+    return httpStatus === 404
+      ? { status: "not-found" }
+      : { status: "unreachable" };
+  }
+
+  return read.data
+    ? { status: "ok", department: read.data }
+    : { status: "not-found" };
+}
+
+/**
+ * Pré-génération statique des fiches département.
+ *
+ * Les slugs sont ceux de l'API, jamais une liste figée côté frontend. Si l'API
+ * est injoignable, la liste est vide : aucune fiche n'est pré-générée et les
+ * routes restent servies à la demande (`dynamicParams` par défaut).
+ */
 export async function generateStaticParams() {
-  return departments.map((dept) => ({
-    slug: dept.slug,
+  const departments = await getDepartments();
+
+  return departments.map((department) => ({
+    slug: department.slug,
   }));
 }
 
-/** Métadonnées SEO dynamiques par département */
+/** Métadonnées SEO dynamiques, décrivant le contenu réellement servi. */
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const department = getDepartmentBySlug(slug);
+  const read = await readDepartment(slug);
 
-  if (!department) {
+  if (read.status !== "ok") {
     return {};
   }
+
+  const { department } = read;
 
   return pageMetadata({
     title: `${department.name} — Centre Chrétien Jésus ma Vie`,
     description:
-      department.tagline ||
-      department.description ||
+      department.tagline ??
+      department.description ??
       `Découvrez la mission et la vie du département ${department.name} au Centre Chrétien Jésus ma Vie à Lubumbashi.`,
     path: `/${department.slug}`,
   });
@@ -46,39 +96,47 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  * Profil éditorial d'un département CCJV :
  * - Moins de texte, plus d'impact visuel
  * - Photographie dominante et authentique
- * - Aucune numérotation décorative superficielle
- * - Template hautement flexible et résilient selon les données disponibles
+ * - Chaque bloc vient d'un champ du département servi par l'API ; un champ
+ *   absent (`undefined`) fait simplement disparaître son bloc, jamais
+ *   remplacer par une valeur inventée.
  */
 export default async function DepartmentDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  const department = getDepartmentBySlug(slug);
+  const read = await readDepartment(slug);
 
-  if (!department) {
-    notFound();
+  if (read.status === "unreachable") {
+    return (
+      <main className="bg-ccjv-offwhite text-ccjv-ink selection:bg-ccjv-green selection:text-white">
+        <div className="container py-32 lg:py-40">
+          <ContentUnavailable resource="La fiche de ce département" />
+        </div>
+      </main>
+    );
   }
 
-  /** Résolution des coordinateurs rattachés à ce département */
-  const departmentLeaders = leaders.filter((ldr) => {
-    if (!ldr.scope) return false;
-    const scopeLower = ldr.scope.toLowerCase();
-    const deptNameLower = department.name.toLowerCase();
-    const deptSlugLower = department.slug.toLowerCase();
+  if (read.status === "not-found") {
+    return notFound();
+  }
 
-    return (
-      deptNameLower.includes(scopeLower) ||
-      scopeLower.includes(deptNameLower.split(" ")[0].toLowerCase()) ||
-      scopeLower.includes(deptSlugLower) ||
-      (department.responsibleName && ldr.name.toLowerCase().includes(department.responsibleName.toLowerCase()))
-    );
-  });
+  const department = read.department;
+
+  /*
+   * Résolution des responsables rattachés : le rattachement vient de l'API
+   * (`departmentId`), il n'est plus deviné à partir d'un libellé de périmètre.
+   */
+  const leadersRead = await readOrUnavailable((options) => getLeaders(options));
+  const departmentLeaders =
+    leadersRead.status === "ok"
+      ? leadersRead.data.filter((leader) => leader.departmentId === department.id)
+      : [];
 
   const primaryLeader = departmentLeaders[0];
   const secondaryLeader = departmentLeaders[1];
 
-  /** Galerie photographique réelle du département */
-  const galleryImages = department.gallery && department.gallery.length > 0
-    ? department.gallery
-    : [];
+  /** Galerie photographique réelle du département, servie par l'API. */
+  const galleryImages = department.gallery ?? [];
+
+  const keyPoints = department.keyPoints ?? [];
 
   return (
     <main className="bg-ccjv-offwhite text-ccjv-ink selection:bg-ccjv-green selection:text-white">
@@ -90,18 +148,20 @@ export default async function DepartmentDetailPage({ params }: PageProps) {
         className="relative flex min-h-[70vh] w-full flex-col justify-end overflow-hidden bg-ccjv-black px-6 pt-32 pb-16 text-white sm:px-12 lg:px-20 lg:pt-36 lg:pb-20"
         aria-label={department.name}
       >
-        {/* Photographie de fond avec voile sombre */}
-        <div className="absolute inset-0 z-0">
-          <Image
-            src={department.bannerImage ?? "/media/ccjv-09.jpeg"}
-            alt={department.name}
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover opacity-35"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-ccjv-black via-ccjv-black/75 to-ccjv-black/40" />
-        </div>
+        {/* Photographie d'en-tête avec voile sombre — absente si l'API n'en fournit pas */}
+        {department.bannerImage && (
+          <div className="absolute inset-0 z-0">
+            <Image
+              src={department.bannerImage}
+              alt={department.name}
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover opacity-35"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-ccjv-black via-ccjv-black/75 to-ccjv-black/40" />
+          </div>
+        )}
 
         <div className="relative z-10 mx-auto w-full max-w-7xl">
           {/* Fil d'Ariane épuré */}
@@ -146,22 +206,28 @@ export default async function DepartmentDetailPage({ params }: PageProps) {
         aria-labelledby="mission-titre"
       >
         <div className="mx-auto max-w-7xl">
-          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
+          <div
+            className={`grid grid-cols-1 items-center gap-12 ${
+              department.bannerImage ? "lg:grid-cols-12 lg:gap-16" : ""
+            }`}
+          >
             {/* Photographie dominante */}
-            <div className="lg:col-span-6">
-              <div className="relative aspect-[4/3] w-full overflow-hidden border border-ccjv-line bg-ccjv-line">
-                <Image
-                  src={department.bannerImage ?? "/media/ccjv-15.jpeg"}
-                  alt={`Vie du pôle ${department.name}`}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                  className="object-cover"
-                />
+            {department.bannerImage && (
+              <div className="lg:col-span-6">
+                <div className="relative aspect-[4/3] w-full overflow-hidden border border-ccjv-line bg-ccjv-line">
+                  <Image
+                    src={department.bannerImage}
+                    alt={`Vie du pôle ${department.name}`}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    className="object-cover"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Accroche narrative claire */}
-            <div className="lg:col-span-6">
+            <div className={department.bannerImage ? "lg:col-span-6" : "lg:col-span-12"}>
               <span className="font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-green uppercase">
                 Ce que nous portons
               </span>
@@ -170,12 +236,25 @@ export default async function DepartmentDetailPage({ params }: PageProps) {
                 id="mission-titre"
                 className="mt-3 font-serif text-[clamp(1.85rem,1.25rem+2vw,2.9rem)] leading-[1.14] text-ccjv-ink"
               >
-                Servir Dieu, bâtir les vies et affermir la communauté.
+                {department.tagline || "Servir Dieu, bâtir les vies et affermir la communauté."}
               </h2>
 
-              <p className="mt-5 font-sans text-[1.05rem] leading-[1.75] text-ccjv-ink-secondary max-w-[48ch]">
-                {department.description}
-              </p>
+              {department.description && (
+                <p className="mt-5 font-sans text-[1.05rem] leading-[1.75] text-ccjv-ink max-w-[48ch]">
+                  {department.description}
+                </p>
+              )}
+
+              {department.mission && (
+                <div className="mt-6 border-l-2 border-ccjv-green pl-4 py-2 bg-white border border-ccjv-line/60">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-ccjv-green block mb-1">
+                    Notre Vocation
+                  </span>
+                  <p className="font-sans text-[0.95rem] leading-[1.7] text-ccjv-ink-secondary whitespace-pre-wrap">
+                    {department.mission}
+                  </p>
+                </div>
+              )}
 
               <div className="mt-8">
                 <Button variant="outline" href={site.whatsappHref} external>
@@ -190,7 +269,7 @@ export default async function DepartmentDetailPage({ params }: PageProps) {
       {/* =========================================================================
           03. LA VIE DU DÉPARTEMENT & HORAIRES : SANS NUMÉROTATION ARTIFICIELLE
           ========================================================================= */}
-      {((department.keyPoints && department.keyPoints.length > 0) || department.meetingSchedule) && (
+      {(keyPoints.length > 0 || department.meetingSchedule) && (
         <section
           id="activites"
           className="border-b border-ccjv-line bg-ccjv-cream px-6 py-20 sm:px-12 lg:px-20 lg:py-28"
@@ -210,9 +289,35 @@ export default async function DepartmentDetailPage({ params }: PageProps) {
                   Comment s&apos;exprime notre engagement
                 </h2>
 
-                {department.keyPoints && department.keyPoints.length > 0 && (
+                {department.activities && department.activities.length > 0 ? (
+                  <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {department.activities.map((act) => (
+                      <div key={act.id} className="border border-ccjv-line bg-white p-5 space-y-3">
+                        {act.imageUrl && (
+                          <div className="relative aspect-[16/10] w-full overflow-hidden bg-ccjv-line">
+                            <Image
+                              src={act.imageUrl}
+                              alt={act.title}
+                              fill
+                              sizes="(max-width: 768px) 100vw, 33vw"
+                              className="object-cover"
+                            />
+                          </div>
+                        )}
+                        <h3 className="font-serif text-lg font-semibold text-ccjv-ink">
+                          {act.title}
+                        </h3>
+                        {act.description && (
+                          <p className="font-sans text-xs text-ccjv-ink-secondary leading-relaxed">
+                            {act.description}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : keyPoints.length > 0 ? (
                   <div className="mt-10 divide-y divide-ccjv-line border-y border-ccjv-line">
-                    {department.keyPoints.map((point) => (
+                    {keyPoints.map((point) => (
                       <div key={point} className="py-5">
                         <p className="font-sans text-[1.02rem] leading-[1.65] text-ccjv-ink">
                           {point}
@@ -220,7 +325,7 @@ export default async function DepartmentDetailPage({ params }: PageProps) {
                       </div>
                     ))}
                   </div>
-                )}
+                ) : null}
               </div>
 
               {/* Bloc synthétique des rencontres */}
@@ -264,19 +369,33 @@ export default async function DepartmentDetailPage({ params }: PageProps) {
       )}
 
       {/* =========================================================================
-          04. RESPIRATION BIBLIQUE : SOBRE & ANCRÉE
+          03b. HISTOIRE & ORIGINES DU PÔLE
           ========================================================================= */}
-      {department.verse && (
-        <VerseSection
-          text={department.verse.text}
-          reference={department.verse.reference}
-          variant="centered"
-          tone="dark"
-        />
+      {department.history && (
+        <section
+          id="histoire"
+          className="border-b border-ccjv-line bg-white px-6 py-20 sm:px-12 lg:px-20 lg:py-28"
+          aria-labelledby="histoire-titre"
+        >
+          <div className="mx-auto max-w-4xl">
+            <span className="font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-green uppercase">
+              Nos racines & genèse
+            </span>
+            <h2
+              id="histoire-titre"
+              className="mt-3 font-serif text-[clamp(1.85rem,1.2rem+1.8vw,2.75rem)] leading-[1.15] text-ccjv-ink"
+            >
+              L&apos;histoire de ce ministère
+            </h2>
+            <div className="mt-8 font-sans text-[1.02rem] leading-[1.8] text-ccjv-ink-secondary whitespace-pre-wrap border-l-2 border-ccjv-green pl-6 bg-ccjv-offwhite py-4">
+              {department.history}
+            </div>
+          </div>
+        </section>
       )}
 
       {/* =========================================================================
-          05. MOMENT PHOTOGRAPHIQUE : GALERIE AUTHENTIQUE
+          04. MOMENT PHOTOGRAPHIQUE : GALERIE AUTHENTIQUE
           ========================================================================= */}
       {galleryImages.length >= 2 && (
         <section
@@ -312,37 +431,45 @@ export default async function DepartmentDetailPage({ params }: PageProps) {
       )}
 
       {/* =========================================================================
-          06. PERSONNES & RESPONSABLES : PRÉSENTATION HUMAINE & ÉDITORIALE
+          05. PERSONNES & RESPONSABLES : PRÉSENTATION HUMAINE & ÉDITORIALE
           ========================================================================= */}
-      {(primaryLeader || department.responsibleName) && (
-        <section
-          className="border-b border-ccjv-line bg-white px-6 py-20 sm:px-12 lg:px-20 lg:py-28"
-          aria-labelledby="responsable-titre"
-        >
-          <div className="mx-auto max-w-7xl">
-            <div className="max-w-2xl">
-              <span className="font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-green uppercase">
-                Accompagnement
-              </span>
-              <h2
-                id="responsable-titre"
-                className="mt-3 font-serif text-[clamp(1.85rem,1.2rem+1.8vw,2.75rem)] leading-[1.15] text-ccjv-ink"
-              >
-                La coordination du pôle
-              </h2>
-            </div>
+      <section
+        className="border-b border-ccjv-line bg-white px-6 py-20 sm:px-12 lg:px-20 lg:py-28"
+        aria-labelledby="responsable-titre"
+      >
+        <div className="mx-auto max-w-7xl">
+          <div className="max-w-2xl">
+            <span className="font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-green uppercase">
+              Accompagnement
+            </span>
+            <h2
+              id="responsable-titre"
+              className="mt-3 font-serif text-[clamp(1.85rem,1.2rem+1.8vw,2.75rem)] leading-[1.15] text-ccjv-ink"
+            >
+              La coordination du pôle
+            </h2>
+          </div>
 
+          {leadersRead.status === "unreachable" ? (
+            <ContentUnavailable
+              className="mt-12"
+              resource="La coordination de ce département"
+            />
+          ) : primaryLeader || department.responsibleName ? (
             <div className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-2 items-stretch">
               {primaryLeader ? (
                 <div className="flex flex-col sm:flex-row gap-6 border border-ccjv-line bg-ccjv-offwhite p-6 sm:p-8">
+                  {/* Sans portrait rattaché côté API, le cadre reste vide. */}
                   <div className="relative aspect-[3/4] w-full sm:w-44 shrink-0 overflow-hidden bg-ccjv-line">
-                    <Image
-                      src={primaryLeader.photo ?? "/media/ccjv-04.jpeg"}
-                      alt={primaryLeader.name}
-                      fill
-                      sizes="200px"
-                      className="object-cover"
-                    />
+                    {primaryLeader.photo && (
+                      <Image
+                        src={primaryLeader.photo}
+                        alt={primaryLeader.name}
+                        fill
+                        sizes="200px"
+                        className="object-cover"
+                      />
+                    )}
                   </div>
                   <div className="flex flex-col justify-center">
                     <span className="font-sans text-xs font-semibold tracking-[0.14em] text-ccjv-green uppercase">
@@ -378,13 +505,15 @@ export default async function DepartmentDetailPage({ params }: PageProps) {
               {secondaryLeader && (
                 <div className="flex flex-col sm:flex-row gap-6 border border-ccjv-line bg-ccjv-offwhite p-6 sm:p-8">
                   <div className="relative aspect-[3/4] w-full sm:w-44 shrink-0 overflow-hidden bg-ccjv-line">
-                    <Image
-                      src={secondaryLeader.photo ?? "/media/ccjv-25.jpeg"}
-                      alt={secondaryLeader.name}
-                      fill
-                      sizes="200px"
-                      className="object-cover"
-                    />
+                    {secondaryLeader.photo && (
+                      <Image
+                        src={secondaryLeader.photo}
+                        alt={secondaryLeader.name}
+                        fill
+                        sizes="200px"
+                        className="object-cover"
+                      />
+                    )}
                   </div>
                   <div className="flex flex-col justify-center">
                     <span className="font-sans text-xs font-semibold tracking-[0.14em] text-ccjv-green uppercase">
@@ -405,12 +534,18 @@ export default async function DepartmentDetailPage({ params }: PageProps) {
                 </div>
               )}
             </div>
-          </div>
-        </section>
-      )}
+          ) : (
+            <EmptyState
+              className="mt-12"
+              title="Aucun responsable publié pour ce département"
+              description="Les responsables publiés depuis le back-office apparaîtront ici."
+            />
+          )}
+        </div>
+      </section>
 
       {/* =========================================================================
-          07. CONCLUSION & APPEL SOUVERAIN : TROUVER SA PLACE
+          06. CONCLUSION & APPEL SOUVERAIN : TROUVER SA PLACE
           ========================================================================= */}
       <section
         id="rejoindre"

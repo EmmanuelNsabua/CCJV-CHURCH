@@ -41,7 +41,7 @@ const gridMenuItems: GridMenuItem[] = [
   { label: "Enseignements", href: "/admin/enseignements", icon: GraduationCap, category: "Contenus" },
   { label: "Agenda & Cultes", href: "/admin/agenda", icon: Calendar, category: "Contenus" },
   { label: "Médiathèque", href: "/admin/media", icon: ImageIcon, category: "Contenus" },
-  { label: "Guides d'études", href: "/admin/publications?type=GUIDE_ETUDE", icon: FileText, category: "Contenus" },
+  { label: "Ressources", href: "/admin/ressources", icon: FileText, category: "Contenus" },
   { label: "Prières", href: "/admin/prayers", icon: HeartHandshake, category: "Communauté" },
   { label: "Témoignages", href: "/admin/testimonies", icon: MessageSquareQuote, category: "Communauté" },
   { label: "Départements", href: "/admin/departments", icon: Users, category: "Communauté" },

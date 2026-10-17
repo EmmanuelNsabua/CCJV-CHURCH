@@ -1,63 +1,68 @@
-import type { Event, EventStatus } from "@/domain/entities";
+import type { Event } from "@/domain/entities";
 
 /**
- * Représentation API d'un événement.
+ * Représentation API d'un événement (Envent).
  *
- * Calquée sur `frontend/src/types/index.ts` (`interface Event`) : `imageUrl`,
- * `bannerImage`, `gallery`, `eventDate`, `eventTime`, `practicalInfo` et
- * `status` portent exactement les noms attendus (IMPLEMENTATION_SPEC §7).
- *
- * `departmentId` est conservé même à `null` : le frontend distingue
- * explicitement « rattaché à aucun département » (événement général) d'un champ
- * absent, et affiche « Toute l'église » dans ce cas.
+ * Expose les champs normalisés :
+ * - `startDate` et `endDate` (avec maintien de `eventDate` pour rétrocompatibilité)
+ * - `startTime` et `endTime` (avec maintien de `eventTime` pour rétrocompatibilité)
+ * - `status` : "DRAFT" | "PUBLISHED" | "CANCELLED"
+ * - `location`, `imageUrl`, etc.
  */
 export interface EventDto {
   id: string;
   title: string;
   slug: string;
   description?: string;
-  /** Date ISO `YYYY-MM-DD`. */
+  startDate: string;
   eventDate: string;
-  /** Heure `HH:MM`. */
+  endDate: string;
+  startTime?: string;
   eventTime?: string;
+  endTime?: string;
   location?: string;
+  imageMediaId?: string;
+  bannerMediaId?: string;
   imageUrl?: string;
   departmentId: string | null;
-  /** Toujours calculé depuis `eventDate`, jamais stocké. */
-  status: EventStatus;
+  status: string;
   excerpt?: string;
-  /** Ex-`bannerImageUrl` : bandeau de la fiche événement. */
   bannerImage?: string;
   gallery?: string[];
   practicalInfo?: string[];
 }
 
-/**
- * `time` PostgreSQL revient sous la forme `HH:MM:SS` ; le contrat frontend
- * attend `HH:MM` (`formatTime` du frontend concatène les deux premiers
- * segments, mais la liste d'événements affiche la valeur brute). On tronque
- * donc les secondes, toujours nulles pour un horaire de culte.
- */
-function toShortTime(value: string | null): string | undefined {
-  if (value === null) return undefined;
+function toShortTime(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
   return /^\d{2}:\d{2}/.test(value) ? value.slice(0, 5) : value;
 }
 
 export function toEventDto(event: Event): EventDto {
+  const startDate = event.startDate ?? event.eventDate;
+  const endDate = event.endDate ?? startDate;
+  const startTime = toShortTime(event.startTime ?? event.eventTime);
+  const endTime = toShortTime(event.endTime);
+
   return {
     id: event.id,
     title: event.title,
     slug: event.slug,
     description: event.description ?? undefined,
-    eventDate: event.eventDate,
-    eventTime: toShortTime(event.eventTime),
+    startDate,
+    eventDate: startDate,
+    endDate,
+    startTime,
+    eventTime: startTime,
+    endTime,
     location: event.location ?? undefined,
+    imageMediaId: event.imageMediaId ?? undefined,
+    bannerMediaId: event.bannerMediaId ?? undefined,
     imageUrl: event.imageUrl ?? undefined,
     departmentId: event.departmentId,
     status: event.status,
     excerpt: event.excerpt ?? undefined,
     bannerImage: event.bannerImageUrl ?? undefined,
-    gallery: event.galleryUrls.length > 0 ? event.galleryUrls : undefined,
+    gallery: event.galleryUrls && event.galleryUrls.length > 0 ? event.galleryUrls : undefined,
     practicalInfo: event.practicalInfo ?? undefined,
   };
 }

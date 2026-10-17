@@ -9,15 +9,17 @@ export function cn(
 }
 
 /**
- * État métier d'un événement, calculé depuis `eventDate` (jamais persisté).
- * Conforme à docs/006 (suppression de `is_archived`).
+ * État chronologique d'un événement, calculé depuis `endDate` (ou `eventDate`).
+ * Si la date de fin est supérieure ou égale à aujourd'hui, l'événement est UPCOMING.
  */
 export function getEventStatus(
   eventDate: string,
+  endDate?: string | null,
   now: Date = new Date(),
 ): "UPCOMING" | "ARCHIVED" {
   const today = now.toISOString().slice(0, 10);
-  return eventDate >= today ? "UPCOMING" : "ARCHIVED";
+  const effectiveEnd = endDate && endDate.trim().length > 0 ? endDate : eventDate;
+  return effectiveEnd >= today ? "UPCOMING" : "ARCHIVED";
 }
 
 function toDate(iso: string): Date {
@@ -104,4 +106,47 @@ export function slugify(text: string): string {
     .replace(/[^\w-]+/g, "")
     .replace(/--+/g, "-");
 }
+
+/**
+ * Calcule et affiche le délai relatif en français pour les publications :
+ * « Maintenant », « Il y a 1 min », « Il y a 2 heures », « Il y a 3 jours »…
+ */
+export function formatRelativeTime(
+  dateInput: string | Date,
+  now: Date = new Date(),
+): string {
+  const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+  if (isNaN(date.getTime())) return "";
+
+  const diffMs = now.getTime() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+
+  if (diffSec < 60) {
+    return "Maintenant";
+  }
+
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) {
+    return `Il y a ${diffMin} min`;
+  }
+
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) {
+    return diffHours === 1 ? "Il y a 1 heure" : `Il y a ${diffHours} heures`;
+  }
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 30) {
+    return diffDays === 1 ? "Il y a 1 jour" : `Il y a ${diffDays} jours`;
+  }
+
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths < 12) {
+    return diffMonths === 1 ? "Il y a 1 mois" : `Il y a ${diffMonths} mois`;
+  }
+
+  const diffYears = Math.floor(diffDays / 365);
+  return diffYears === 1 ? "Il y a 1 an" : `Il y a ${diffYears} ans`;
+}
+
 

@@ -45,6 +45,42 @@ export function createPublicationController(service: PublicationService) {
       sendItem(res, toPublicationDto(await service.get(idOrSlug)));
     },
 
+    /** `GET /featured` — les 3 publications publiées les plus récentes. */
+    async featured(_req: Request, res: Response): Promise<void> {
+      const items = await service.listFeatured(3);
+      sendItem(res, items.map(toPublicationDto));
+    },
+
+    /** `GET /archives` — archives publiques chronologiques. */
+    async archives(req: Request, res: Response): Promise<void> {
+      const { page, limit, type, category, sort } =
+        validatedQuery<PublicationListQuery>(req);
+
+      const { items, total } = await service.listArchives({
+        page,
+        limit,
+        type,
+        category,
+        sort,
+      });
+
+      sendCollection(res, items.map(toPublicationDto), page, limit, total);
+    },
+
+    /** `POST /:idOrSlug/publish` — publication directe ou republication. */
+    async publish(req: Request, res: Response): Promise<void> {
+      const { idOrSlug } = validatedParams<PublicationIdOrSlugParams>(req);
+      const publication = await service.publish(idOrSlug);
+      sendItem(res, toPublicationDto(publication));
+    },
+
+    /** `POST /:idOrSlug/revert-to-draft` — repasse en brouillon avant modification. */
+    async revertToDraft(req: Request, res: Response): Promise<void> {
+      const { idOrSlug } = validatedParams<PublicationIdOrSlugParams>(req);
+      const publication = await service.revertToDraft(idOrSlug);
+      sendItem(res, toPublicationDto(publication));
+    },
+
     /** `POST /` — administration : création (brouillon possible). */
     async create(req: Request, res: Response): Promise<void> {
       const body = req.body as CreatePublicationBody;
