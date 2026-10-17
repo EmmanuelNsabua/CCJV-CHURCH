@@ -1,0 +1,9 @@
+# Ignorer les dossiers non pertinents pour le déploiement du backend sur Railway
+frontend/
+docs/
+.git/
+.github/
+.vscode/
+.agents/
+node_modules/
+*.md
