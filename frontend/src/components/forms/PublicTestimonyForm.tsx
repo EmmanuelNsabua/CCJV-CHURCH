@@ -1,184 +1,140 @@
 "use client";
 
-import React, { useState } from "react";
-import { CrossMark } from "@/components/shared/CrossMark";
-import { Button } from "@/components/ui/Button";
 import { submitPublicTestimony } from "@/lib/api";
+import { images } from "@/data/images";
+import {
+  ANONYMITY_VALUE_KEY,
+  CONSENT_VALUE_KEY,
+  PublicSubmissionForm,
+  readBooleanValue,
+  readTextValue,
+  type PublicSubmissionConfig,
+} from "@/components/forms/publicSubmission";
 
-export function PublicTestimonyForm() {
-  const [authorName, setAuthorName] = useState("");
-  const [content, setContent] = useState("");
-  const [isAnonymous, setIsAnonymous] = useState(false);
-  const [consent, setConsent] = useState(false);
+/**
+ * Dépôt public d'un témoignage.
+ *
+ * Ce module n'est plus un formulaire : c'est la **configuration** du formulaire
+ * public partagé pour ce contrat métier précis. Toute la présentation et les
+ * interactions communes (champs, focus, chargement, retours) vivent dans
+ * `PublicSubmissionForm`.
+ *
+ * Contrat métier repris de `POST /testimonies/submit` :
+ * - `content` obligatoire, de 10 à 5 000 caractères (le serveur applique les
+ *   mêmes bornes) ;
+ * - `authorName` **facultatif**, 120 caractères au plus ;
+ * - `isAnonymous` explicite, décoché par défaut ;
+ * - `consent` **obligatoire** : le serveur refuse une soumission sans
+ *   consentement, et horodate cet accord de son côté ;
+ * - `photoMediaId` non exposé : le formulaire public actuel ne propose pas de
+ *   photo, et aucun mécanisme de téléversement public n'existe pour ce flux.
+ *   L'ajouter relèverait d'un lot distinct (validation et stockage dédiés).
+ *
+ * La date de dépôt n'est jamais transmise : elle est générée par le serveur.
+ * Une soumission réussie ne vaut pas publication — elle crée un témoignage à
+ * l'état `PENDING`, soumis à modération.
+ */
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+/**
+ * Unique option de confidentialité du témoignage.
+ *
+ * Aucun sélecteur de visibilité, aucun bouton radio « nom public / privé / limité » :
+ * une seule case, décochée par défaut, qui demande le dépôt anonyme.
+ */
+const ANONYMITY_LABEL =
+  "Je souhaite que ce témoignage reste anonyme lors de sa publication";
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
+const CONSENT_LABEL =
+  "J'autorise l'équipe pastorale du Centre Chrétien Jésus ma Vie à modérer et éventuellement publier ce témoignage pour l'édification publique des fidèles.";
 
-    if (!content.trim()) {
-      setErrorMessage("Veuillez partager le récit de votre témoignage.");
-      return;
-    }
+const CONFIG: PublicSubmissionConfig = {
+  id: "temoignage",
+  title: "Partager ce que Dieu a fait",
+  /**
+   * Variante « image » : photographie avec le titre posé en bas, sans
+   * paragraphe — la section vit d'elle-même, sans texte d'introduction.
+   */
+  visual: {
+    kind: "image",
+    image: {
+      // Visuel non utilisé ailleurs sur /communaute (la section « Fraternité »
+      // emploie déjà `ccjv-35`) : un même portrait ne doit pas servir deux fois
+      // sur une même page.
+      src: images.portraitLarge,
+      alt: "Vie communautaire au Centre Chrétien Jésus ma Vie",
+    },
+  },
 
-    if (!consent) {
-      setErrorMessage(
-        "Vous devez accepter la modération et la publication éventuelle pour soumettre votre témoignage.",
-      );
-      return;
-    }
+  fields: [
+    {
+      kind: "text",
+      id: "authorName",
+      label: "Votre nom ou votre prénom",
+      hint: "Facultatif. Laissez vide si vous préférez ne pas signer.",
+      autoComplete: "name",
+      maxLength: 120,
+      placeholder: "Ex. Sœur Dorcas",
+    },
+    {
+      kind: "textarea",
+      id: "content",
+      label: "Votre témoignage",
+      hint: "Quelques phrases suffisent. Écrivez simplement ce que le Seigneur a accompli dans votre vie.",
+      placeholder:
+        "Racontez ce que vous avez vécu : le contexte, ce qui a changé, ce que vous voulez partager à l'assemblée…",
+      rows: 8,
+      required: true,
+      minLength: 10,
+      maxLength: 5000,
+      requiredMessage:
+        "Merci d'écrire votre témoignage avant de l'envoyer.",
+    },
+  ],
 
-    setIsSubmitting(true);
-    try {
-      await submitPublicTestimony({
-        authorName: isAnonymous ? null : authorName.trim() || null,
-        content: content.trim(),
-        isAnonymous,
-        consent,
-      });
-      setIsSubmitted(true);
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "Une erreur est survenue lors de l'envoi de votre témoignage. Veuillez réessayer.";
-      setErrorMessage(msg);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  anonymity: {
+    label: ANONYMITY_LABEL,
+    // Le nom est masqué et vidé tant que l'anonymat est demandé : ce qui reste
+    // à l'écran correspond exactement à ce qui sera transmis.
+    hidesFields: ["authorName"],
+  },
 
-  const handleReset = () => {
-    setAuthorName("");
-    setContent("");
-    setIsAnonymous(false);
-    setConsent(false);
-    setIsSubmitted(false);
-    setErrorMessage(null);
-  };
+  consent: {
+    label: CONSENT_LABEL,
+    required: true,
+    errorMessage:
+      "Merci de cocher cette autorisation : sans elle, l'équipe pastorale ne peut pas examiner votre témoignage.",
+  },
 
-  if (isSubmitted) {
-    return (
-      <div className="border border-ccjv-line bg-white p-8 sm:p-12 text-center">
-        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center border border-ccjv-green/30 bg-ccjv-green/10 text-ccjv-green">
-          <CrossMark size="md" />
-        </div>
-        <h3 className="font-serif text-2xl text-ccjv-ink">
-          Merci pour votre témoignage
-        </h3>
-        <p className="mt-3 font-sans text-sm leading-relaxed text-ccjv-ink-secondary max-w-md mx-auto">
-          Votre récit a bien été transmis à l&apos;équipe pastorale. Après révision
-          et modération, il pourra être publié pour encourager et fortifier
-          l&apos;assemblée.
-        </p>
-        <div className="mt-8">
-          <Button variant="outline" size="sm" onClick={handleReset}>
-            Partager un autre témoignage
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  submitLabel: "Transmettre mon témoignage",
+  submittingLabel: "Transmission en cours…",
 
-  return (
-    <form
-      onSubmit={handleSubmit}
-      className="border border-ccjv-line bg-white p-6 sm:p-10 space-y-6"
-    >
-      <div className="border-b border-ccjv-line pb-4">
-        <h3 className="font-serif text-xl sm:text-2xl text-ccjv-ink">
-          Partager ce que Dieu a fait
-        </h3>
-        <p className="mt-1 font-sans text-xs sm:text-sm text-ccjv-ink-secondary">
-          Un témoignage vivant édifie toute l&apos;église. Racontez une délivrance,
-          une guérison, une provision ou une grâce reçue.
-        </p>
-      </div>
+  success: {
+    title: "Votre témoignage nous est parvenu",
+    message:
+      "Merci de nous avoir confié ce que Dieu a fait pour vous. Votre récit a bien été reçu ; il sera lu et examiné par l'équipe pastorale, puis publié sur le site si elle le juge utile à l'édification de l'assemblée. Sa mise en ligne n'est donc pas immédiate.",
+    resetLabel: "Partager un autre témoignage",
+  },
 
-      {errorMessage && (
-        <div className="p-3 bg-red-50 border border-red-200 text-xs text-red-800">
-          {errorMessage}
-        </div>
-      )}
+  errorMessages: {
+    generic:
+      "Votre témoignage n'a pas pu être transmis. Vérifiez votre connexion, puis réessayez : vos réponses sont conservées.",
+  },
 
-      {/* Case anonyme */}
-      <div className="p-3 bg-ccjv-offwhite border border-ccjv-line">
-        <label className="flex items-center gap-3 cursor-pointer text-xs font-medium text-ccjv-ink">
-          <input
-            type="checkbox"
-            checked={isAnonymous}
-            onChange={(e) => setIsAnonymous(e.target.checked)}
-            className="h-4 w-4 rounded-none accent-ccjv-green focus:outline-ccjv-green cursor-pointer"
-          />
-          <span>
-            Je souhaite que ce témoignage reste <strong>anonyme</strong> lors de sa publication.
-          </span>
-        </label>
-      </div>
+  submit: async (values) => {
+    const isAnonymous = readBooleanValue(values, ANONYMITY_VALUE_KEY);
+    const authorName = readTextValue(values, "authorName").trim();
 
-      {/* Nom du témoin si non anonyme */}
-      {!isAnonymous && (
-        <div className="space-y-1.5">
-          <label className="block text-xs font-bold uppercase tracking-wider text-ccjv-ink">
-            Votre nom complet ou prénom
-          </label>
-          <input
-            type="text"
-            value={authorName}
-            onChange={(e) => setAuthorName(e.target.value)}
-            placeholder="Ex. Sœur Dorcas"
-            className="w-full border border-ccjv-line bg-white px-3.5 py-2.5 text-xs text-ccjv-ink focus:border-ccjv-green focus:outline-2 focus:outline-ccjv-green"
-          />
-        </div>
-      )}
+    await submitPublicTestimony({
+      // Un dépôt anonyme ne porte aucune identité, même si un nom avait été
+      // saisi avant de cocher la case.
+      authorName: isAnonymous ? null : authorName || null,
+      content: readTextValue(values, "content").trim(),
+      isAnonymous,
+      consent: readBooleanValue(values, CONSENT_VALUE_KEY),
+    });
+  },
+};
 
-      {/* Récit du témoignage */}
-      <div className="space-y-1.5">
-        <label className="block text-xs font-bold uppercase tracking-wider text-ccjv-ink">
-          Votre témoignage <span className="text-ccjv-green">*</span>
-        </label>
-        <textarea
-          rows={5}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="Racontez simplement ce que le Seigneur a accompli dans votre vie..."
-          required
-          className="w-full border border-ccjv-line bg-white p-3.5 text-xs text-ccjv-ink leading-relaxed focus:border-ccjv-green focus:outline-2 focus:outline-ccjv-green"
-        />
-      </div>
-
-      {/* Consentement obligatoire */}
-      <div className="pt-2 border-t border-ccjv-line">
-        <label className="flex items-start gap-3 cursor-pointer text-xs text-ccjv-ink-secondary leading-normal">
-          <input
-            type="checkbox"
-            checked={consent}
-            onChange={(e) => setConsent(e.target.checked)}
-            required
-            className="mt-0.5 h-4 w-4 shrink-0 rounded-none accent-ccjv-green focus:outline-ccjv-green cursor-pointer"
-          />
-          <span>
-            J&apos;autorise l&apos;équipe pastorale du Centre Chrétien Jésus ma Vie
-            à modérer et éventuellement publier ce témoignage pour
-            l&apos;édification publique des fidèles. <span className="text-ccjv-green">*</span>
-          </span>
-        </label>
-      </div>
-
-      <div className="pt-2">
-        <Button
-          type="submit"
-          variant="primary"
-          size="md"
-          className="w-full justify-center font-semibold text-xs uppercase tracking-wider"
-          disabled={isSubmitting || !consent || !content.trim()}
-        >
-          {isSubmitting ? "Transmission en cours..." : "Transmettre mon témoignage"}
-        </Button>
-      </div>
-    </form>
-  );
+export function PublicTestimonyForm({ className }: { className?: string }) {
+  return <PublicSubmissionForm config={CONFIG} className={className} />;
 }

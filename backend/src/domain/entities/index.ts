@@ -416,8 +416,12 @@ export interface Scripture {
 export interface ScheduleEntry {
   id: string;
   day: string;
+  days?: string[] | null;
   title: string;
+  startTime?: string | null;
+  endTime?: string | null;
   timeLabel: string;
+  timeZone?: string | null;
   audience: string | null;
   isConfirmed: boolean;
   position: number;
@@ -427,8 +431,10 @@ export interface ScheduleEntry {
 
 export interface SocialLink {
   id: string;
+  platform?: string | null;
   label: string;
   href: string;
+  isActive?: boolean;
   position: number;
   createdAt: Date;
   updatedAt: Date;

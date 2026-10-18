@@ -154,12 +154,19 @@ export const ScripturePolicy = createPolicy("ScripturePolicy", {
  * l'arbitrage plus urgent qu'il n'y paraît : la divergence ne se corrige pas par
  * une permission, mais il faut un titulaire pour la corriger.
  */
-export const SchedulePolicy = createPolicy("SchedulePolicy", {
-  READ: { roles: CONFIGURATION_ROLES },
-  UPDATE: { roles: CONFIGURATION_ROLES },
-  CREATE: { roles: CONFIGURATION_ROLES },
-  DELETE: { roles: CONFIGURATION_ROLES },
-});
+export const SchedulePolicy = createPolicy(
+  "SchedulePolicy",
+  {
+    READ: { roles: CONFIGURATION_ROLES },
+    UPDATE: { roles: CONFIGURATION_ROLES },
+    CREATE: { roles: CONFIGURATION_ROLES },
+    DELETE: { roles: CONFIGURATION_ROLES },
+  },
+  (admin) =>
+    admin.role === "DEPARTMENT_MANAGER"
+      ? "X25 / 020 §14 : cette catégorie n'est pas exposée aux responsables de département — refus définitif (docs/028 D-24, D-03)"
+      : null,
+);
 
 /* -------------------------------------------------------------------------- */
 /*  P-14 — SiteSettingsPolicy                                                 */
@@ -187,6 +194,8 @@ export const SiteSettingsPolicy = createPolicy(
   {
     READ: { roles: CONFIGURATION_ROLES },
     UPDATE: { roles: CONFIGURATION_ROLES },
+    CREATE: { roles: CONFIGURATION_ROLES },
+    DELETE: { roles: CONFIGURATION_ROLES },
   },
   (admin) =>
     admin.role === "DEPARTMENT_MANAGER"

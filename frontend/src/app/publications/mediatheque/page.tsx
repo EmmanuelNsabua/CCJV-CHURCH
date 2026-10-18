@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { HeroImmersive } from "@/components/composition/HeroImmersive";
+import { HeroBackdrop } from "@/components/composition/HeroBackdrop";
 import { MediaPage } from "@/components/archetypes/MediaPage";
 import { Prose } from "@/components/editorial/Prose";
 import { MediaFeature } from "@/components/editorial/MediaFeature";
@@ -75,13 +75,14 @@ export default async function MediathequePage() {
     <MediaPage
       rhythm="standard"
       hero={
-        <HeroImmersive
-          align="center"
-          overline="Publications & Médias"
-          title="Médiathèque"
-          text="Ce que nous avons vécu, gardé en images. Une communauté se souvient aussi par ce qu'elle a vu — et ces images sont faites pour être revues, pas seulement conservées."
+        <HeroBackdrop
+          title={
+            <>
+              Ce que nous avons <span className="italic text-ccjv-cream">vécu</span>.
+            </>
+          }
+          intro="Une communauté se souvient aussi par ce qu'elle a vu. Ces images sont faites pour être revues, pas seulement conservées."
           image={images.communaute}
-          caption="Centre Chrétien Jésus ma Vie — Lubumbashi"
         />
       }
       featured={

@@ -115,11 +115,8 @@ export function AdminMediaField({
             <ImageIcon className="w-5 h-5 stroke-[1.5]" />
           </div>
           <div>
-            <p className="text-xs font-semibold text-ccjv-ink group-hover:text-ccjv-green transition-colors">
+            <p className="text-[11px] text-ccjv-ink-secondary group-hover:text-ccjv-green transition-colors">
               Sélectionner depuis la médiathèque
-            </p>
-            <p className="text-[11px] text-ccjv-ink-secondary mt-0.5">
-              Parcourir les fichiers du bucket ou téléverser
             </p>
           </div>
           <Button

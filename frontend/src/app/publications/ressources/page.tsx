@@ -1,4 +1,4 @@
-import { HeroPractical } from "@/components/composition/HeroPractical";
+import { HeroEditorial } from "@/components/composition/HeroEditorial";
 import { ListingPage } from "@/components/archetypes/ListingPage";
 import { FeatureImage } from "@/components/editorial/FeatureImage";
 import { StepsList, type Step } from "@/components/editorial/StepsList";
@@ -12,7 +12,7 @@ import { pageMetadata } from "@/lib/seo";
 import { FileText, Download } from "lucide-react";
 
 export const metadata = pageMetadata({
-  title: "Ressources & Guides",
+  title: "Guides d'étude",
   description:
     "Guides d'étude, livrets et plans de lecture au format PDF proposés par le Centre Chrétien Jésus ma Vie en téléchargement libre.",
   path: "/publications/ressources",
@@ -70,39 +70,22 @@ export default async function RessourcesPage() {
     <ListingPage
       rhythm="dense"
       header={
-        <HeroPractical
-          overline="Publications & Médias"
-          title="Ressources"
-          intro="Des outils d'édification au format PDF : livrets de jeûne, plans de lecture et guides spirituels en téléchargement direct et sans inscription."
-          facts={[
-            {
-              label: "Ressources disponibles",
-              value: read.status === "unreachable" ? "Indisponible" : `${items.length}`,
-              hint: "Documents PDF en accès libre.",
-            },
-            {
-              label: "Format",
-              value: "Documents PDF",
-              hint: "Téléchargement immédiat et sans authentification.",
-            },
-            {
-              label: "Public",
-              value: "Seul ou en groupe",
-              hint: "Utilisable pour l'étude personnelle ou les partages fraternels.",
-            },
-            {
-              label: "Dernière parution",
-              value: lead && lead.createdAt ? formatLongDate(lead.createdAt.slice(0, 10)) : "Régulier",
-              hint: "Ressources mises à jour régulièrement.",
-            },
-          ]}
+        <HeroEditorial
+          title="Guides d'étude"
+          intro="Des outils d'édification au format PDF : livrets de jeûne, plans de lecture et guides spirituels en téléchargement direct, sans inscription."
+          image={images.fraternite}
+          imageAlt="Groupe de frères et sœurs réunis pour étudier la Parole ensemble"
+          action={{ label: "Voir les guides ↓", href: "#guides" }}
         />
       }
       lead={
-        read.status === "unreachable" ? (
-          <ContentUnavailable resource="Les ressources documentaires" />
-        ) : lead ? (
-          <article className="border border-ccjv-line bg-white p-8 sm:p-10">
+        /* Cible de l'action du héros : elle existe même sans document publié,
+           pour qu'aucun bouton ne mène nulle part. */
+        <div id="guides" className="scroll-mt-28">
+          {read.status === "unreachable" ? (
+            <ContentUnavailable resource="Les ressources documentaires" />
+          ) : lead ? (
+            <article className="border border-ccjv-line bg-white p-8 sm:p-10">
             <div className="flex items-center gap-2 text-ccjv-green">
               <FileText className="h-5 w-5" />
               <p className="font-sans text-xs font-semibold tracking-[0.2em] uppercase">
@@ -159,12 +142,13 @@ export default async function RessourcesPage() {
               </dl>
             </div>
           </article>
-        ) : (
-          <EmptyState
-            title="Aucun document pour le moment"
-            description="Les ressources et livrets PDF mis en ligne apparaîtront ici."
-          />
-        )
+          ) : (
+            <EmptyState
+              title="Aucun document pour le moment"
+              description="Les ressources et livrets PDF mis en ligne apparaîtront ici."
+            />
+          )}
+        </div>
       }
       listTitle="Autres ressources documentaires"
       list={

@@ -703,6 +703,40 @@ describe("Catalogue — exhaustivité et invariants statiques (docs/029 §5, §6
     expect(granted.pending).toBe("docs/028 Q-P4");
   });
 
+  /* -------------------------------------------------------------------------- */
+  /*  SiteSettingsPolicy & SchedulePolicy — Gouvernance et RBAC                 */
+  /* -------------------------------------------------------------------------- */
+
+  describe("SiteSettingsPolicy & SchedulePolicy — Droits SUPER_ADMIN/ADMIN vs exclusion DEPARTMENT_MANAGER", () => {
+    it("autorise SUPER_ADMIN et ADMIN sur SiteSettingsPolicy", () => {
+      for (const action of ["READ", "UPDATE", "CREATE", "DELETE"] as PolicyAction[]) {
+        expect(evaluate(SiteSettingsPolicy, superAdmin, action).allowed).toBe(true);
+        expect(evaluate(SiteSettingsPolicy, admin, action).allowed).toBe(true);
+      }
+    });
+
+    it("refuse strictement DEPARTMENT_MANAGER sur SiteSettingsPolicy", () => {
+      for (const action of ["READ", "UPDATE", "CREATE", "DELETE"] as PolicyAction[]) {
+        expect(evaluate(SiteSettingsPolicy, managerA, action).allowed).toBe(false);
+        expect(evaluate(SiteSettingsPolicy, managerB, action).allowed).toBe(false);
+      }
+    });
+
+    it("autorise SUPER_ADMIN et ADMIN sur SchedulePolicy", () => {
+      for (const action of ["READ", "UPDATE", "CREATE", "DELETE"] as PolicyAction[]) {
+        expect(evaluate(SchedulePolicy, superAdmin, action).allowed).toBe(true);
+        expect(evaluate(SchedulePolicy, admin, action).allowed).toBe(true);
+      }
+    });
+
+    it("refuse strictement DEPARTMENT_MANAGER sur SchedulePolicy", () => {
+      for (const action of ["READ", "UPDATE", "CREATE", "DELETE"] as PolicyAction[]) {
+        expect(evaluate(SchedulePolicy, managerA, action).allowed).toBe(false);
+        expect(evaluate(SchedulePolicy, managerB, action).allowed).toBe(false);
+      }
+    });
+  });
+
   /**
    * **D-09, D-25, XD-06, I12 — le nom d'un département n'entre jamais dans une
    * condition d'autorisation.**

@@ -93,9 +93,15 @@ class InMemoryTeachingRepository implements TeachingRepository {
   async update(id: string, data: any): Promise<Teaching> {
     const existing = this.items.get(id);
     if (!existing) throw new Error("Not found");
+    // Le repository Drizzle n'écrit que les clés **définies** : ce double doit
+    // faire de même, sinon il masquerait une écriture accidentelle à `undefined`.
+    const patch: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) patch[key] = value;
+    }
     const updated: Teaching = {
       ...existing,
-      ...data,
+      ...patch,
       updatedAt: new Date(),
     };
     this.items.set(id, updated);
@@ -448,6 +454,66 @@ describe("TeachingService — Tests unitaires métier", () => {
 
       const published = await service.publish(TEACHING_ID);
       expect(published.status).toBe("PUBLISHED");
+    });
+  });
+
+  describe("Publication : la seule porte est la transition contrôlée", () => {
+    it("refuse de créer un enseignement directement publié", async () => {
+      await expect(
+        service.create({
+          title: "Sermon déjà publié",
+          speakerName: "Orateur",
+          preachedAt: "2026-05-10",
+          status: "PUBLISHED",
+        }),
+      ).rejects.toThrow(ValidationError);
+
+      // Aucune ligne n'a été créée : le refus n'est pas un demi-succès.
+      expect(teachingRepo.items.size).toBe(0);
+    });
+
+    it("refuse une mise à jour qui publie sans média principal", async () => {
+      teachingRepo.items.set(TEACHING_ID, teachingFixture());
+
+      await expect(
+        service.update(TEACHING_ID, { status: "PUBLISHED" }),
+      ).rejects.toThrow(ValidationError);
+
+      const unchanged = teachingRepo.items.get(TEACHING_ID);
+      expect(unchanged?.status).toBe("DRAFT");
+      expect(unchanged?.publishedAt).toBeNull();
+    });
+
+    it("publie par la mise à jour en appliquant la règle de média et la date serveur", async () => {
+      teachingRepo.items.set(TEACHING_ID, teachingFixture());
+      await service.updateMedias(TEACHING_ID, [
+        { mediaId: MEDIA_AUDIO_ID, role: "AUDIO", isPrimary: true },
+      ]);
+
+      const updated = await service.update(TEACHING_ID, {
+        title: "Titre corrigé",
+        status: "PUBLISHED",
+      });
+
+      expect(updated.status).toBe("PUBLISHED");
+      expect(updated.publishedAt).toBeInstanceOf(Date);
+      expect(updated.title).toBe("Titre corrigé");
+    });
+
+    it("ne modifie pas la date de publication d'un enseignement déjà publié", async () => {
+      const firstPublication = new Date("2026-05-20T08:00:00Z");
+      teachingRepo.items.set(
+        TEACHING_ID,
+        teachingFixture({ status: "PUBLISHED", publishedAt: firstPublication }),
+      );
+
+      const updated = await service.update(TEACHING_ID, {
+        speakerName: "Autre orateur",
+        status: "PUBLISHED",
+      });
+
+      expect(updated.status).toBe("PUBLISHED");
+      expect(updated.publishedAt).toEqual(firstPublication);
     });
   });
 

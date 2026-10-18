@@ -16,8 +16,10 @@ import { InternalError } from "@/shared/errors/app-error";
 function toSocialLink(row: SocialLinkRow): SocialLink {
   return {
     id: row.id,
+    platform: row.platform,
     label: row.label,
     href: row.href,
+    isActive: row.isActive,
     position: row.position,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -59,8 +61,10 @@ export class DrizzleSocialLinkRepository implements SocialLinkRepository {
     const rows = await this.db
       .insert(socialLinks)
       .values({
+        platform: data.platform ?? null,
         label: data.label,
         href: data.href,
+        isActive: data.isActive ?? true,
         position: data.position ?? 0,
       })
       .returning();
@@ -70,8 +74,10 @@ export class DrizzleSocialLinkRepository implements SocialLinkRepository {
 
   async update(id: string, data: Partial<SocialLinkInput>): Promise<SocialLink | null> {
     const values: Partial<typeof socialLinks.$inferInsert> = {};
+    if (data.platform !== undefined) values.platform = data.platform;
     if (data.label !== undefined) values.label = data.label;
     if (data.href !== undefined) values.href = data.href;
+    if (data.isActive !== undefined) values.isActive = data.isActive;
     if (data.position !== undefined) values.position = data.position;
 
     if (Object.keys(values).length === 0) {

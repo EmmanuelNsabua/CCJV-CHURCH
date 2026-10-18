@@ -73,6 +73,11 @@ export default async function RootLayout({
       ? reglages.data.socialLinks
       : [];
 
+  const settings =
+    reglages.status === "ok" && reglages.data !== null
+      ? reglages.data.settings
+      : undefined;
+
   return (
     <html lang="fr" className={`${inter.variable} ${lora.variable}`} suppressHydrationWarning>
       <body suppressHydrationWarning>
@@ -80,6 +85,7 @@ export default async function RootLayout({
         <PublicSiteChrome
           socialLinks={socialLinks}
           verse={verset.status === "ok" ? verset.data : null}
+          settings={settings}
         >
           {children}
         </PublicSiteChrome>

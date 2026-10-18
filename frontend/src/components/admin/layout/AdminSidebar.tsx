@@ -16,7 +16,6 @@ import {
   Users,
   Layers,
   Shield,
-  Settings,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -107,11 +106,6 @@ export const adminNavSections: NavSection[] = [
         label: "Administrateurs",
         href: "/admin/administrateurs",
         icon: Shield,
-      },
-      {
-        label: "Paramètres",
-        href: "/admin/settings",
-        icon: Settings,
       },
     ],
   },

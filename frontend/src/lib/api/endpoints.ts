@@ -12,6 +12,7 @@
 import { apiFetch, apiFetchOrThrow, logApiIssue, withQuery } from "./client";
 import type { ApiFetchOptions } from "./client";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { pickMostRecentlyPublished as pickLatest } from "@/lib/teaching-recency";
 import type {
   AdminMediaItem,
   AdminProfile,
@@ -27,14 +28,14 @@ import type {
   PublicationRecord,
   PublicationType,
   Resource,
-  CreateEventPayload,
-  UpdateEventPayload,
   CreateResourcePayload,
   UpdateResourcePayload,
   ScheduleEntry,
+  ScheduleEntryInput,
   Scripture,
   SiteSettings,
   SocialLink,
+  SocialLinkInput,
   Testimony,
   DepartmentActivityItem,
   DepartmentArchive,
@@ -335,11 +336,15 @@ export async function getArchivePublications(
 
 /** Responsables et serviteurs, dans l'ordre défini par le back-office. */
 export async function getLeaders(
-  options: PublicReadOptions = {},
+  options: PublicReadOptions & { departmentId?: string; limit?: number } = {},
 ): Promise<Leader[]> {
+  const { departmentId, limit, ...fetchOptions } = options;
   const payload = await apiFetch<CollectionResponse<Leader> | Leader[]>(
-    withQuery("/leaders", { limit: REFERENCE_LIMIT }),
-    options,
+    withQuery("/leaders", {
+      limit: limit ?? REFERENCE_LIMIT,
+      departmentId: departmentId ?? undefined,
+    }),
+    fetchOptions,
   );
 
   return readCollection(payload);
@@ -448,9 +453,18 @@ export async function getSettings(
   const socialLinks: SocialLink[] = Array.isArray(payload.socialLinks)
     ? payload.socialLinks.flatMap((link) => {
         if (!isRecord(link)) return [];
-        const { label, href } = link;
+        const { label, href, platform, isActive, id, position } = link;
         return typeof label === "string" && typeof href === "string"
-          ? [{ label, href }]
+          ? [
+              {
+                id: typeof id === "string" ? id : undefined,
+                platform: typeof platform === "string" ? platform : null,
+                label,
+                href,
+                isActive: typeof isActive === "boolean" ? isActive : true,
+                position: typeof position === "number" ? position : 0,
+              },
+            ]
           : [];
       })
     : [];
@@ -1032,9 +1046,17 @@ export interface ListEnseignementsQuery {
   search?: string;
 }
 
+/**
+ * Taille de page maximale acceptée par l'API (`shared/http/pagination.ts`,
+ * `MAX_PAGE_SIZE`). Elle permet de lire **toutes** les pages en un minimum de
+ * requêtes.
+ */
+const TEACHING_PAGE_SIZE = 100;
+
 /** Liste les enseignements (filtrée par défaut aux seuls publiés pour les appels publics). */
 export async function listEnseignements(
   query: ListEnseignementsQuery = {},
+  options: PublicReadOptions = {},
 ): Promise<{ items: EnseignementRecord[]; total: number; totalPages: number }> {
   try {
     const payload = await apiFetch<CollectionResponse<EnseignementRecord>>(
@@ -1044,7 +1066,7 @@ export async function listEnseignements(
         status: query.status,
         search: query.search,
       }),
-      { timeoutMs: 15_000 },
+      { timeoutMs: 15_000, ...options },
     );
 
     if (payload && "data" in payload && Array.isArray(payload.data)) {
@@ -1061,13 +1083,99 @@ export async function listEnseignements(
   }
 }
 
+/**
+ * Lien public d'un enseignement.
+ *
+ * **Identifiant, pas slug.** Constat mesuré sur l'API actuellement déployée :
+ * `GET /api/v1/enseignements/la-puissance-du-pardon` répond `404 NOT_FOUND`
+ * alors que `GET /api/v1/enseignements/<uuid>` répond `200`. Le contrat serveur
+ * expose bien un `slug` et la route de détail accepte « identifiant ou slug »,
+ * mais la résolution par slug ne fonctionne pas en production (déploiement
+ * antérieur au code courant, ou `slug` absent de la ligne en base).
+ *
+ * Le lien doit donc rester résoluble **aujourd'hui** : un visiteur ne doit pas
+ * tomber sur un 404 depuis la liste. Dès que la résolution par slug est
+ * rétablie côté API, cette fonction peut renvoyer
+ * `teaching.slug ?? teaching.id` — le reste du site suivra sans autre
+ * modification, tous les liens passant par ici.
+ */
+export function enseignementHref(
+  teaching: Pick<EnseignementRecord, "id" | "slug">,
+): string {
+  return `/publications/enseignements/${encodeURIComponent(teaching.id)}`;
+}
+
+/**
+ * **Tous** les enseignements publiés.
+ *
+ * `limit` étant plafonné à 100 par l'API, une page unique en tronquerait la
+ * liste : on parcourt donc les pages jusqu'à `totalPages`. Le nombre de
+ * résultats n'est jamais réduit arbitrairement côté site public.
+ *
+ * Un échec sur **n'importe quelle** page déclenche `onFailure` : l'appelant
+ * doit alors présenter « indisponible » plutôt qu'une liste partielle qui se
+ * ferait passer pour complète.
+ */
+export async function listAllEnseignements(
+  options: PublicReadOptions = {},
+): Promise<EnseignementRecord[]> {
+  const first = await listEnseignements(
+    { page: 1, limit: TEACHING_PAGE_SIZE },
+    options,
+  );
+  const items = [...first.items];
+
+  for (let page = 2; page <= first.totalPages; page += 1) {
+    const next = await listEnseignements(
+      { page, limit: TEACHING_PAGE_SIZE },
+      options,
+    );
+    items.push(...next.items);
+  }
+
+  return items;
+}
+
+/**
+ * Enseignement le plus récemment **publié**.
+ *
+ * Le critère est `publishedAt` — jamais `preachedAt` (date de prédication), ni
+ * `createdAt`, ni `updatedAt`. Le serveur trie déjà par date de publication
+ * décroissante ; cette sélection explicite rend la règle lisible côté client et
+ * reste vraie si l'ordre de la réponse venait à changer.
+ *
+ * La règle elle-même vit dans `@/lib/teaching-recency` (module pur, sans
+ * dépendance), où elle est vérifiable isolément.
+ */
+export function pickMostRecentlyPublished(
+  items: readonly EnseignementRecord[],
+): EnseignementRecord | null {
+  return pickLatest(items);
+}
+
+/**
+ * Enseignement mis en avant sur la page d'accueil : **le plus récemment
+ * publié**, et lui seul.
+ *
+ * La fenêtre demandée est courte (le serveur trie déjà correctement) ; la
+ * décision finale reste prise sur `publishedAt` par `pickMostRecentlyPublished`.
+ */
+export async function getLatestPublishedEnseignement(
+  options: PublicReadOptions = {},
+): Promise<EnseignementRecord | null> {
+  const { items } = await listEnseignements({ page: 1, limit: 5 }, options);
+  return pickMostRecentlyPublished(items);
+}
+
 /** Récupère un enseignement par son identifiant ou son slug. */
 export async function getEnseignement(
   idOrSlug: string,
+  options: PublicReadOptions = {},
 ): Promise<EnseignementRecord | null> {
   try {
     const payload = await apiFetch<{ data: EnseignementRecord } | EnseignementRecord>(
       `/enseignements/${encodeURIComponent(idOrSlug)}`,
+      options,
     );
     if (!payload) return null;
     if ("data" in payload && isRecord(payload.data)) {
@@ -1492,6 +1600,59 @@ export async function saveDepartmentActivities(
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Responsables / Leaders (Administration)                                   */
+/* -------------------------------------------------------------------------- */
+
+export interface CreateLeaderPayload {
+  name: string;
+  role: string;
+  photoMediaId?: string | null;
+  departmentId?: string | null;
+  position?: number;
+}
+
+export type UpdateLeaderPayload = Partial<CreateLeaderPayload>;
+
+/** Crée un responsable (`POST /leaders`). */
+export async function createLeader(
+  payload: CreateLeaderPayload,
+): Promise<Leader> {
+  const res = await apiFetchOrThrow<{ data: Leader } | Leader>("/leaders", {
+    method: "POST",
+    body: payload as unknown as Record<string, unknown>,
+  });
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as Leader;
+  }
+  return res as Leader;
+}
+
+/** Met à jour un responsable (`PATCH /leaders/:id`). */
+export async function updateLeader(
+  id: string,
+  payload: UpdateLeaderPayload,
+): Promise<Leader> {
+  const res = await apiFetchOrThrow<{ data: Leader } | Leader>(
+    `/leaders/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: payload as unknown as Record<string, unknown>,
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as Leader;
+  }
+  return res as Leader;
+}
+
+/** Supprime un responsable (`DELETE /leaders/:id`). */
+export async function deleteLeader(id: string): Promise<void> {
+  await apiFetchOrThrow(`/leaders/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Témoignages (Administration, Workflow de modération & Hero)              */
 /* -------------------------------------------------------------------------- */
 
@@ -1614,6 +1775,177 @@ export async function updateTestimony(
 /** Supprime un témoignage (`DELETE /testimonies/:id`). */
 export async function deleteTestimony(id: string): Promise<void> {
   await apiFetchOrThrow(`/testimonies/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Demandes de prière — dépôt public uniquement                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Niveau de confidentialité d'une demande de prière.
+ *
+ * Valeurs de l'enum PostgreSQL `prayer_confidentiality`, telles qu'acceptées
+ * par `createPrayerRequestSchema` côté backend.
+ */
+export type PrayerConfidentiality = "private" | "community";
+
+/**
+ * Corps de `POST /prayer-requests`.
+ *
+ * Le schéma serveur est un `z.strictObject` : **toute clé inconnue produit un
+ * `400 VALIDATION_ERROR`**. Ce contrat n'envoie donc que les champs prévus, et
+ * **omet** les champs facultatifs vides au lieu de transmettre `null` (que le
+ * schéma refuse). Le `confidentiality` est toujours explicite : la valeur par
+ * défaut du serveur (`private`) est celle que présélectionne le formulaire.
+ */
+export interface SubmitPrayerRequestPayload {
+  requestText: string;
+  requesterName?: string;
+  requesterContact?: string;
+  confidentiality?: PrayerConfidentiality;
+}
+
+/**
+ * Accusé de réception d'une demande de prière (`PrayerRequestCreatedDto`).
+ *
+ * Il ne porte **ni texte, ni prénom, ni contact** : le visiteur n'a pas besoin
+ * de relire ce qu'il vient d'envoyer, et faire transiter à nouveau une donnée
+ * personnelle sensible l'exposerait inutilement (`docs/030`).
+ */
+export interface PrayerRequestReceipt {
+  id: string;
+  createdAt: string;
+  status: "NEW" | "PRAYED";
+}
+
+/**
+ * Dépôt public d'une intention de prière (`POST /prayer-requests`).
+ *
+ * Route publique (aucune authentification) protégée par un plafond dédié de
+ * 5 dépôts par heure et par IP : un `429 RATE_LIMITED` est un cas d'erreur à
+ * présenter explicitement au visiteur. La date de dépôt et l'identifiant sont
+ * générés côté serveur.
+ */
+export async function submitPublicPrayerRequest(
+  payload: SubmitPrayerRequestPayload,
+): Promise<PrayerRequestReceipt> {
+  return apiFetchOrThrow<PrayerRequestReceipt>("/prayer-requests", {
+    method: "POST",
+    body: payload as unknown as Record<string, unknown>,
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Paramètres de l'église, Horaires et Liens Sociaux (Administration)          */
+/* -------------------------------------------------------------------------- */
+
+/** Met à jour les réglages du site (`PATCH /settings`). */
+export async function updateSettings(
+  settings: Record<string, string>,
+): Promise<SiteSettings> {
+  const res = await apiFetchOrThrow<{ data: SiteSettings } | SiteSettings>(
+    "/settings",
+    {
+      method: "PATCH",
+      body: { settings },
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as SiteSettings;
+  }
+  return res as SiteSettings;
+}
+
+/** Crée une entrée d'horaire / rassemblement (`POST /schedule`). */
+export async function createScheduleEntry(
+  input: ScheduleEntryInput,
+): Promise<ScheduleEntry> {
+  const res = await apiFetchOrThrow<{ data: ScheduleEntry } | ScheduleEntry>(
+    "/schedule",
+    {
+      method: "POST",
+      body: input as unknown as Record<string, unknown>,
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as ScheduleEntry;
+  }
+  return res as ScheduleEntry;
+}
+
+/** Met à jour une entrée d'horaire / rassemblement (`PATCH /schedule/:id`). */
+export async function updateScheduleEntry(
+  id: string,
+  input: Partial<ScheduleEntryInput>,
+): Promise<ScheduleEntry> {
+  const res = await apiFetchOrThrow<{ data: ScheduleEntry } | ScheduleEntry>(
+    `/schedule/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: input as unknown as Record<string, unknown>,
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as ScheduleEntry;
+  }
+  return res as ScheduleEntry;
+}
+
+/** Supprime une entrée d'horaire / rassemblement (`DELETE /schedule/:id`). */
+export async function deleteScheduleEntry(id: string): Promise<void> {
+  await apiFetchOrThrow(`/schedule/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+/** Liste complète des liens sociaux pour l'administration (`GET /social-links`). */
+export async function getSocialLinks(): Promise<SocialLink[]> {
+  const payload = await apiFetch<CollectionResponse<SocialLink> | SocialLink[]>(
+    "/social-links",
+  );
+  return readCollection(payload);
+}
+
+/** Crée un lien de réseau social (`POST /social-links`). */
+export async function createSocialLink(
+  input: SocialLinkInput,
+): Promise<SocialLink> {
+  const res = await apiFetchOrThrow<{ data: SocialLink } | SocialLink>(
+    "/social-links",
+    {
+      method: "POST",
+      body: input as unknown as Record<string, unknown>,
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as SocialLink;
+  }
+  return res as SocialLink;
+}
+
+/** Met à jour un lien de réseau social (`PATCH /social-links/:id`). */
+export async function updateSocialLink(
+  id: string,
+  input: Partial<SocialLinkInput>,
+): Promise<SocialLink> {
+  const res = await apiFetchOrThrow<{ data: SocialLink } | SocialLink>(
+    `/social-links/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: input as unknown as Record<string, unknown>,
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as SocialLink;
+  }
+  return res as SocialLink;
+}
+
+/** Supprime un lien de réseau social (`DELETE /social-links/:id`). */
+export async function deleteSocialLink(id: string): Promise<void> {
+  await apiFetchOrThrow(`/social-links/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
 }

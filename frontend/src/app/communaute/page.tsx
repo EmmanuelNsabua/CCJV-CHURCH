@@ -13,6 +13,7 @@ import { CrossMark } from "@/components/shared/CrossMark";
 import { VerseSection } from "@/components/shared/VerseSection";
 import { PhotoDuo } from "@/components/editorial/PhotoDuo";
 import { PublicTestimonyForm } from "@/components/forms/PublicTestimonyForm";
+import { PrayerRequestForm } from "@/components/forms/PrayerRequestForm";
 
 export const metadata: Metadata = pageMetadata({
   title: "Notre Communauté — Centre Chrétien Jésus ma Vie",
@@ -46,7 +47,7 @@ export default async function CommunautePage() {
           ========================================================================= */}
       <section
         data-hero-dark
-        className="relative flex min-h-[80vh] w-full flex-col justify-end overflow-hidden bg-ccjv-black px-6 pt-32 pb-16 text-white sm:px-12 lg:px-20 lg:pt-36 lg:pb-24"
+        className="relative flex min-h-screen w-full flex-col justify-end overflow-hidden bg-ccjv-black px-6 pt-32 pb-16 text-white sm:px-12 lg:px-20 lg:pt-36 lg:pb-24"
         aria-label="Notre communauté au Centre Chrétien Jésus ma Vie"
       >
         {/* Voile photographique texturé */}
@@ -63,11 +64,6 @@ export default async function CommunautePage() {
         </div>
 
         <div className="relative z-10 mx-auto w-full max-w-7xl">
-          <Breadcrumbs tone="dark" />
-
-          <p className="mt-4 font-sans text-xs font-semibold tracking-[0.18em] text-ccjv-cream uppercase">
-            Notre communauté
-          </p>
 
           <h1 className="mt-3 max-w-[20ch] font-serif text-[clamp(2.4rem,1.8rem+3.4vw,4.6rem)] leading-[1.05] text-white">
             Une foi que nous vivons ensemble.
@@ -80,7 +76,7 @@ export default async function CommunautePage() {
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <Button variant="primary" href="#fraternite">
-              Découvrir notre vie ensemble ↓
+              Découvrir
             </Button>
             <Button
               variant="outline"
@@ -138,7 +134,7 @@ export default async function CommunautePage() {
 
               <div className="mt-8 flex flex-wrap gap-4">
                 <Button variant="outline" href="#priere">
-                  La prière & l&apos;intercession →
+                  Déposer une prière
                 </Button>
               </div>
             </div>
@@ -187,7 +183,7 @@ export default async function CommunautePage() {
 
               <div className="mt-8 flex flex-wrap gap-4">
                 <Button variant="primary" href={site.whatsappHref} external>
-                  Déposer une intention de prière
+                  Nous écrire
                 </Button>
               </div>
             </div>
@@ -207,6 +203,15 @@ export default async function CommunautePage() {
           </div>
         </div>
       </section>
+
+      {/* =========================================================================
+          04 bis. DÉPÔT D'UNE INTENTION DE PRIÈRE — SECTION AUTONOME
+          Composant partagé `PublicSubmissionForm`, configuration « prière ».
+          La section porte elle-même sa hauteur d'écran et sa composition
+          (introduction à gauche, champs à droite) : elle n'est jamais
+          imbriquée dans une autre section.
+          ========================================================================= */}
+      <PrayerRequestForm className="bg-ccjv-line" />
 
       {/* =========================================================================
           05. PARCOURS NOUVEAU : UNE NOUVELLE ÉTAPE OUVERTE ET HUMAINE
@@ -245,13 +250,13 @@ export default async function CommunautePage() {
                 nous prenons le temps de vous connaître, de répondre à vos questions et de vous entourer avec bienveillance.
               </p>
 
-              <blockquote className="mt-8 border-l-2 border-ccjv-green pl-5 font-serif text-[1.1rem] leading-[1.6] italic text-ccjv-ink">
+              <blockquote className="mt-8 font-serif text-[1.1rem] leading-[1.6] text-ccjv-ink">
                 « Vous n&apos;êtes pas un visiteur de passage, mais un membre attendu de la famille de Dieu. »
               </blockquote>
 
               <div className="mt-8">
                 <Button variant="outline" href="/vie-de-leglise/ou-nous-trouver">
-                  Planifier une visite au culte →
+                  Planifier une visite
                 </Button>
               </div>
             </div>
@@ -325,13 +330,15 @@ export default async function CommunautePage() {
               ))}
             </div>
           )}
-
-          {/* Dépôt de témoignage par un fidèle */}
-          <div className="mt-16 max-w-2xl mx-auto">
-            <PublicTestimonyForm />
-          </div>
         </div>
       </section>
+
+      {/* =========================================================================
+          06 bis. DÉPÔT D'UN TÉMOIGNAGE — SECTION AUTONOME
+          Même composant partagé, variante « image » : photographie et titre
+          posé en bas à gauche, champs à droite. Aucun paragraphe.
+          ========================================================================= */}
+      <PublicTestimonyForm />
 
       {/* =========================================================================
           07. DEUXIÈME RESPIRATION BIBLIQUE : L'AMOUR FRATERNEL

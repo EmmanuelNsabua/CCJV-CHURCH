@@ -17,13 +17,12 @@ import { Hero } from "@/features/pages/Hero";
 import { EventsSection } from "@/features/events/EventsSection";
 
 import { TeachingFeature } from "@/features/publications/TeachingFeature";
-import { TeachingCard } from "@/features/publications/TeachingCard";
 import {
   getCommunityFaces,
   getDepartments,
   getEvents,
   getHeroTestimonies,
-  getPublications,
+  getLatestPublishedEnseignement,
   getSchedule,
   getScripture,
   getSettings,
@@ -95,9 +94,13 @@ export default async function HomePage() {
     readOrUnavailable((options) =>
       getEvents({ status: "UPCOMING", limit: 6 }, options),
     ),
-    readOrUnavailable((options) =>
-      getPublications({ category: "ENSEIGNEMENT", limit: 3 }, options),
-    ),
+    /*
+     * Un seul enseignement, le plus récemment **publié** : la sélection se fait
+     * sur `publishedAt` (jamais sur la date de prédication, la date de création
+     * ou la date de modification). Le serveur ne renvoie de toute façon que les
+     * enseignements `PUBLISHED`.
+     */
+    readOrUnavailable((options) => getLatestPublishedEnseignement(options)),
     readOrUnavailable((options) => getCommunityFaces(options)),
     readOrUnavailable((options) => getSchedule(options)),
     readOrUnavailable((options) => getSettings(options)),
@@ -106,11 +109,10 @@ export default async function HomePage() {
   ]);
 
   const upcoming = eventsRead.status === "ok" ? eventsRead.data : [];
-  const teachings = teachingsRead.status === "ok" ? teachingsRead.data : [];
+  const latestTeaching = teachingsRead.status === "ok" ? teachingsRead.data : null;
   const communityFaces = facesRead.status === "ok" ? facesRead.data : [];
   const featuredTestimony =
     heroTestimoniesRead.status === "ok" ? heroTestimoniesRead.data[0] ?? null : null;
-  const [leadTeaching, ...otherTeachings] = teachings;
 
   /** Les événements de l'API référencent les départements par identifiant. */
   const departmentNames = Object.fromEntries(
@@ -123,9 +125,15 @@ export default async function HomePage() {
   const weeklyRhythm: RhythmItem[] = (
     scheduleRead.status === "ok" ? scheduleRead.data : []
   ).map((entry) => ({
-    day: entry.day,
+    day: entry.days && entry.days.length > 0 ? entry.days.join(", ") : entry.day,
     title: entry.title,
-    time: entry.timeLabel,
+    time:
+      entry.timeLabel ||
+      (entry.startTime
+        ? entry.endTime
+          ? `${entry.startTime} – ${entry.endTime}`
+          : `À partir de ${entry.startTime}`
+        : ""),
     audience: entry.audience ?? undefined,
   }));
 
@@ -279,7 +287,7 @@ export default async function HomePage() {
         </div>
       </Section>
 
-      {/* 07 — DERNIERS ENSEIGNEMENTS (card vidéo YouTube) */}
+      {/* 07 — DERNIER ENSEIGNEMENT PUBLIÉ */}
       <Section
         id="enseignements"
         tone="tinted"
@@ -288,32 +296,19 @@ export default async function HomePage() {
         <SectionHeading
           title="Écouter la Parole"
           id="enseignements-titre"
-          description="Retrouvez nos prédications et messages récents pour nourrir votre foi."
+          description="Retrouvez notre prédication la plus récente pour nourrir votre foi."
         />
         {teachingsRead.status === "unreachable" ? (
           <ContentUnavailable resource="Les enseignements" />
-        ) : teachings.length === 0 ? (
+        ) : !latestTeaching ? (
           <EmptyState
             title="Aucun enseignement publié pour le moment"
             description="Les prédications publiées depuis le back-office apparaîtront ici."
           />
         ) : (
-          <>
-            {leadTeaching && (
-              <Reveal>
-                <TeachingFeature publication={leadTeaching} />
-              </Reveal>
-            )}
-            {otherTeachings.length > 0 && (
-              <div className="mt-14 grid grid-cols-1 gap-8 sm:grid-cols-2">
-                {otherTeachings.slice(0, 2).map((teaching) => (
-                  <Reveal key={teaching.id} delay={80}>
-                    <TeachingCard publication={teaching} />
-                  </Reveal>
-                ))}
-              </div>
-            )}
-          </>
+          <Reveal>
+            <TeachingFeature teaching={latestTeaching} />
+          </Reveal>
         )}
         <div className="mt-14 flex flex-col items-start gap-4 border-t border-ccjv-line pt-8 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">

@@ -9,6 +9,7 @@ import { site } from "@/data/site";
 import { images } from "@/data/images";
 import { CrossMark } from "@/components/shared/CrossMark";
 import type { SocialLink } from "@/lib/api";
+import { SocialIcon } from "@/components/common/SocialIcons";
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -536,18 +537,20 @@ export function FullscreenMenu({
                 href={social.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-sans text-xs text-ccjv-cream underline underline-offset-4 hover:text-white"
+                className="inline-flex items-center gap-1.5 font-sans text-xs text-ccjv-cream underline underline-offset-4 hover:text-white"
               >
-                {social.label}
+                <SocialIcon platform={social.platform || social.label} size={15} />
+                <span>{social.label}</span>
               </a>
             ))}
             <a
               href={site.whatsappHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-sans text-xs text-ccjv-cream underline underline-offset-4 hover:text-white"
+              className="inline-flex items-center gap-1.5 font-sans text-xs text-ccjv-cream underline underline-offset-4 hover:text-white"
             >
-              WhatsApp
+              <SocialIcon platform="whatsapp" size={15} />
+              <span>WhatsApp</span>
             </a>
           </div>
           <p className="font-sans text-xs text-white/50">{site.location}</p>

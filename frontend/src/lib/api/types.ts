@@ -186,9 +186,13 @@ export interface Scripture {
 export interface ScheduleEntry {
   id: string;
   day: string;
+  days?: string[] | null;
   title: string;
+  startTime?: string | null;
+  endTime?: string | null;
   /** Libellé d'horaire déjà mis en forme (ex. « 16h30 – 18h30 »). */
   timeLabel: string;
+  timeZone?: string | null;
   audience: string | null;
   /** Horaire confirmé par CCJV, par opposition à un horaire provisoire. */
   isConfirmed: boolean;
@@ -197,10 +201,37 @@ export interface ScheduleEntry {
   updatedAt: string;
 }
 
-/** Lien social affiché dans le pied de page (`label` / `href`). */
+export interface ScheduleEntryInput {
+  title: string;
+  day?: string;
+  days?: string[];
+  startTime?: string | null;
+  endTime?: string | null;
+  timeLabel?: string;
+  timeZone?: string;
+  audience?: string | null;
+  isConfirmed?: boolean;
+  position?: number;
+}
+
+/** Lien social (`GET /social-links` ou dans `GET /settings`). */
 export interface SocialLink {
+  id?: string;
+  platform?: string | null;
   label: string;
   href: string;
+  isActive?: boolean;
+  position?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SocialLinkInput {
+  platform?: string | null;
+  label: string;
+  href: string;
+  isActive?: boolean;
+  position?: number;
 }
 
 /**
@@ -273,49 +304,69 @@ export interface CreatePublicationPayload {
 export type TeachingStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 export type TeachingMediaRole = "VIDEO" | "AUDIO" | "THUMBNAIL";
 
+/**
+ * Référence biblique d'un enseignement (`GET /enseignements`).
+ *
+ * Reproduit `BiblicalReferenceDto` (`teaching.serializer.ts`) — **pas** la vue
+ * d'administration : le serveur ne renvoie ni `teachingId`, ni `createdAt`, mais
+ * une forme déjà mise en forme (`formatted`), qu'il ne faut pas recalculer.
+ * Les références arrivent **triées par `position`** par le serveur.
+ */
 export interface BiblicalReferenceRecord {
   id: string;
-  teachingId: string;
   book: string;
   startChapter: number;
   startVerse: number;
   endChapter: number | null;
   endVerse: number | null;
   position: number;
-  createdAt: string;
+  /** Forme lisible produite par le serveur (« Jean 3:16–17 »). */
+  formatted: string;
 }
 
+/**
+ * Association d'un média de la bibliothèque centrale à un enseignement.
+ *
+ * Reproduit `TeachingMediaDto` : les champs sont **à plat** (`url`, `mimeType`),
+ * le média central n'est pas imbriqué. `url` peut manquer si le fichier n'est
+ * plus résolvable : un affichage ne doit jamais supposer sa présence.
+ */
 export interface TeachingMediaRecord {
   id: string;
-  teachingId: string;
   mediaId: string;
   role: TeachingMediaRole;
   isPrimary: boolean;
   position: number;
-  media?: {
-    id: string;
-    title: string;
-    publicUrl: string;
-    mimeType: string;
-    fileSizeBytes?: number;
-    alt?: string | null;
-  } | null;
+  /** URL publique du média ; absente si le fichier est introuvable. */
+  url?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  alt?: string | null;
 }
 
+/**
+ * Enseignement tel que l'API publique le renvoie (`TeachingDto`).
+ *
+ * `slug` est nullable : la route de détail accepte indifféremment le slug ou
+ * l'identifiant, un lien public doit donc prévoir la retombée sur `id`.
+ */
 export interface EnseignementRecord {
   id: string;
   title: string;
-  slug: string;
+  slug: string | null;
   speakerName: string;
   preachedAt: string;
   summary: string | null;
   description: string | null;
   status: TeachingStatus;
+  /** Date de **publication** ISO 8601 — critère de récence éditoriale. */
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
-  references: BiblicalReferenceRecord[];
+  biblicalReferences: BiblicalReferenceRecord[];
   medias: TeachingMediaRecord[];
+  /** Média marqué principal par le back-office, s'il existe. */
+  primaryMedia?: TeachingMediaRecord;
 }
 
 export interface CreateTeachingPayload {

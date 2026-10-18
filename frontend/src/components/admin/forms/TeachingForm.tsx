@@ -39,7 +39,6 @@ import {
 } from "@/lib/api/endpoints";
 import type {
   EnseignementRecord,
-  BiblicalReferenceRecord,
   BiblicalReferenceInputPayload,
   TeachingMediaInputPayload,
   AdminMediaItem,
@@ -173,10 +172,7 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
 
   // Références bibliques (avec champ texte unique pour les versets)
   const resolveReferences = (data?: EnseignementRecord): BiblicalRefDraft[] => {
-    const rawRefs =
-      data?.references ||
-      (data as unknown as { biblicalReferences?: BiblicalReferenceRecord[] })?.biblicalReferences ||
-      [];
+    const rawRefs = data?.biblicalReferences ?? [];
     return rawRefs.map((r, idx) => ({
       id: r.id,
       book: r.book,
@@ -190,53 +186,44 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
   };
 
   const resolveVideoSlot = (data?: EnseignementRecord): MediaSlot | null => {
-    const v = data?.medias?.find((m) => {
-      const mime = m.media?.mimeType || (m as unknown as { mimeType?: string }).mimeType;
-      return m.role === "VIDEO" || mime?.startsWith("video/");
-    });
-    if (!v) return null;
-    const url = v.media?.publicUrl || (v as unknown as { url?: string }).url;
-    if (!url) return null;
+    const v = data?.medias?.find(
+      (m) => m.role === "VIDEO" || m.mimeType?.startsWith("video/"),
+    );
+    if (!v?.url) return null;
     return {
       mediaId: v.mediaId,
-      title: v.media?.title || (v as unknown as { title?: string }).title || "Vidéo principale",
-      url,
-      mimeType: v.media?.mimeType || (v as unknown as { mimeType?: string }).mimeType || "video/mp4",
-      sizeBytes: v.media?.fileSizeBytes || (v as unknown as { sizeBytes?: number }).sizeBytes,
+      title: v.alt?.trim() || "Vidéo principale",
+      url: v.url,
+      mimeType: v.mimeType || "video/mp4",
+      sizeBytes: v.sizeBytes,
     };
   };
 
   const resolveImageSlot = (data?: EnseignementRecord): MediaSlot | null => {
-    const img = data?.medias?.find((m) => {
-      const mime = m.media?.mimeType || (m as unknown as { mimeType?: string }).mimeType;
-      return m.role === "THUMBNAIL" || mime?.startsWith("image/");
-    });
-    if (!img) return null;
-    const url = img.media?.publicUrl || (img as unknown as { url?: string }).url;
-    if (!url) return null;
+    const img = data?.medias?.find(
+      (m) => m.role === "THUMBNAIL" || m.mimeType?.startsWith("image/"),
+    );
+    if (!img?.url) return null;
     return {
       mediaId: img.mediaId,
-      title: img.media?.title || (img as unknown as { title?: string }).title || "Miniature de couverture",
-      url,
-      mimeType: img.media?.mimeType || (img as unknown as { mimeType?: string }).mimeType || "image/jpeg",
-      sizeBytes: img.media?.fileSizeBytes || (img as unknown as { sizeBytes?: number }).sizeBytes,
+      title: img.alt?.trim() || "Miniature de couverture",
+      url: img.url,
+      mimeType: img.mimeType || "image/jpeg",
+      sizeBytes: img.sizeBytes,
     };
   };
 
   const resolveAudioSlot = (data?: EnseignementRecord): MediaSlot | null => {
-    const a = data?.medias?.find((m) => {
-      const mime = m.media?.mimeType || (m as unknown as { mimeType?: string }).mimeType;
-      return m.role === "AUDIO" || mime?.startsWith("audio/");
-    });
-    if (!a) return null;
-    const url = a.media?.publicUrl || (a as unknown as { url?: string }).url;
-    if (!url) return null;
+    const a = data?.medias?.find(
+      (m) => m.role === "AUDIO" || m.mimeType?.startsWith("audio/"),
+    );
+    if (!a?.url) return null;
     return {
       mediaId: a.mediaId,
-      title: a.media?.title || (a as unknown as { title?: string }).title || "Enregistrement audio",
-      url,
-      mimeType: a.media?.mimeType || (a as unknown as { mimeType?: string }).mimeType || "audio/mpeg",
-      sizeBytes: a.media?.fileSizeBytes || (a as unknown as { sizeBytes?: number }).sizeBytes,
+      title: a.alt?.trim() || "Enregistrement audio",
+      url: a.url,
+      mimeType: a.mimeType || "audio/mpeg",
+      sizeBytes: a.sizeBytes,
     };
   };
 
@@ -244,10 +231,9 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
 
   // Sous-sections de médias dédiées
   // 1. Vidéo
-  const initialVideo = initialData?.medias?.find((m) => {
-    const mime = m.media?.mimeType || (m as unknown as { mimeType?: string }).mimeType;
-    return m.role === "VIDEO" || mime?.startsWith("video/");
-  });
+  const initialVideo = initialData?.medias?.find(
+    (m) => m.role === "VIDEO" || m.mimeType?.startsWith("video/"),
+  );
   const [videoSlot, setVideoSlot] = useState<MediaSlot | null>(() => resolveVideoSlot(initialData));
   const [useVideoAsThumbnail, setUseVideoAsThumbnail] = useState<boolean>(
     Boolean(initialVideo?.isPrimary && !initialData?.medias?.some((m) => m.role === "THUMBNAIL")),
@@ -275,10 +261,9 @@ export function TeachingForm({ initialData, isEditing = false }: TeachingFormPro
     setVideoSlot(resolveVideoSlot(initialData));
     setImageSlot(resolveImageSlot(initialData));
     setAudioSlot(resolveAudioSlot(initialData));
-    const initVid = initialData.medias?.find((m) => {
-      const mime = m.media?.mimeType || (m as unknown as { mimeType?: string }).mimeType;
-      return m.role === "VIDEO" || mime?.startsWith("video/");
-    });
+    const initVid = initialData.medias?.find(
+      (m) => m.role === "VIDEO" || m.mimeType?.startsWith("video/"),
+    );
     setUseVideoAsThumbnail(
       Boolean(initVid?.isPrimary && !initialData.medias?.some((m) => m.role === "THUMBNAIL")),
     );

@@ -93,10 +93,18 @@ export const scheduleEntries = pgTable(
   "schedule_entries",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    day: varchar("day", { length: 20 }).notNull(),
+    day: varchar("day", { length: 100 }).notNull(),
+    /** Liste ordonnée de jours, ex. ["Lundi", "Mercredi"]. */
+    days: text("days").array(),
     title: varchar("title", { length: 120 }).notNull(),
-    /** Libellé libre : « 09h00 », « 16h30 – 18h30 », « Dans la nuit ». */
+    /** Heure de début obligatoire, ex. « 08:30 » */
+    startTime: varchar("start_time", { length: 10 }),
+    /** Heure de fin facultative, ex. « 11:30 » */
+    endTime: varchar("end_time", { length: 10 }),
+    /** Libellé libre rétro-compatible : « 09h00 », « 16h30 – 18h30 », « Dans la nuit ». */
     timeLabel: varchar("time_label", { length: 60 }).notNull(),
+    /** Fuseau horaire associé, ex. « Africa/Lubumbashi ». */
+    timeZone: varchar("time_zone", { length: 80 }),
     audience: varchar("audience", { length: 120 }),
     isConfirmed: boolean("is_confirmed").notNull().default(false),
     position: integer("position").notNull().default(0),
@@ -115,8 +123,11 @@ export const socialLinks = pgTable(
   "social_links",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    /** Identifiant catalogue stable : facebook, instagram, youtube, tiktok, whatsapp, x, linkedin, etc. */
+    platform: varchar("platform", { length: 40 }),
     label: varchar("label", { length: 60 }).notNull(),
     href: text("href").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
     position: integer("position").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

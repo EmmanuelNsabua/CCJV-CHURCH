@@ -96,8 +96,27 @@ export class TeachingService {
 
   /**
    * Création d'un enseignement (statut initial DRAFT par défaut).
+   *
+   * `PUBLISHED` est **refusé** à la création : un enseignement neuf n'a par
+   * définition aucun média associé, donc la règle de publication (§4.3 —
+   * au moins un média principal) ne pourrait pas être vérifiée, et aucune date
+   * de publication ne serait posée. La publication passe exclusivement par
+   * `publish()`, qui contrôle les médias et horodate `publishedAt`.
    */
   async create(body: CreateTeachingBody): Promise<Teaching> {
+    if (body.status === "PUBLISHED") {
+      throw new ValidationError(
+        "Un enseignement ne peut pas être créé directement publié",
+        [
+          {
+            champ: "status",
+            message:
+              "Créez l'enseignement en brouillon, associez-lui un média principal, puis publiez-le : la date de publication doit être posée par le serveur.",
+          },
+        ],
+      );
+    }
+
     validateTeachingMetadata({
       title: body.title,
       speakerName: body.speakerName,
@@ -123,6 +142,16 @@ export class TeachingService {
 
   /**
    * Modification des métadonnées d'un enseignement.
+   *
+   * Le statut n'est jamais écrit tel quel : une demande de `PUBLISHED` sur un
+   * enseignement encore non publié emprunte la **transition contrôlée** de
+   * `publish()` (même règle de média, même horodatage de `publishedAt`). Sans
+   * cela, un `PATCH { status: "PUBLISHED" }` publierait un enseignement sans
+   * média et laisserait `publishedAt` à `NULL` — la page publique ne saurait
+   * alors plus quel message est le plus récent.
+   *
+   * Re-enregistrer un enseignement déjà publié ne modifie **pas** sa date de
+   * publication : sa récence éditoriale reste celle de sa première publication.
    */
   async update(id: string, body: UpdateTeachingBody): Promise<Teaching> {
     const existing = await this.repo.findById(id);
@@ -143,15 +172,27 @@ export class TeachingService {
           : null
         : undefined;
 
-    return this.repo.update(id, {
+    const requestsPublication = body.status === "PUBLISHED";
+    const publishingNow = requestsPublication && existing.status !== "PUBLISHED";
+
+    const updated = await this.repo.update(id, {
       title: body.title?.trim(),
       slug,
       speakerName: body.speakerName?.trim(),
       preachedAt: body.preachedAt?.trim(),
       summary: body.summary !== undefined ? (body.summary?.trim() || null) : undefined,
       description: body.description !== undefined ? (body.description?.trim() || null) : undefined,
-      status: body.status,
+      // `PUBLISHED` est appliqué plus bas par `publish()`, jamais ici ; une
+      // absence de statut reste une absence de clé (aucune écriture).
+      ...(body.status !== undefined && !requestsPublication
+        ? { status: body.status }
+        : {}),
     });
+
+    if (!publishingNow) return updated;
+
+    validateTeachingCanBePublished(updated.medias);
+    return this.repo.publish(id, new Date());
   }
 
   /**

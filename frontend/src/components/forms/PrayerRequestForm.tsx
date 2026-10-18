@@ -1,7 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { CrossMark } from "@/components/shared/CrossMark";
+import { Button } from "@/components/ui/Button";
+import {
+  PublicSubmissionForm,
+  readTextValue,
+  type PublicSubmissionConfig,
+  type SubmissionValues,
+} from "@/components/forms/publicSubmission";
+import { submitPublicPrayerRequest } from "@/lib/api";
+import type { PrayerConfidentiality } from "@/lib/api";
 import { site } from "@/data/site";
 
 /**
@@ -16,210 +23,181 @@ export interface PrayerRequestVerse {
   reference: string;
 }
 
+/**
+ * Dépôt public d'une intention de prière.
+ *
+ * Même composant partagé que le témoignage, **configuration distincte** — et
+ * aucun copier-coller du témoignage :
+ * - le contrat métier de `POST /prayer-requests` ne connaît que
+ *   `requestText`, `requesterName`, `requesterContact` et `confidentiality` ;
+ * - il n'existe **aucun champ `isAnonymous`** : la case d'anonymat n'est donc
+ *   pas configurée, conformément à `docs/030` et au schéma serveur ;
+ * - la confidentialité est un choix fermé à deux valeurs, celui de l'enum
+ *   PostgreSQL `prayer_confidentiality`, présélectionné sur `private` ;
+ * - aucun consentement n'est demandé : le serveur n'en attend pas, et un champ
+ *   inconnu serait refusé par le `z.strictObject` du schéma.
+ *
+ * La date de dépôt et l'identifiant sont générés côté serveur. Une demande
+ * reçue n'est jamais publiée : les routes de lecture sont réservées à
+ * l'administration.
+ */
+
+/** Valeurs acceptées par l'enum `prayer_confidentiality`. */
+const CONFIDENTIALITY_VALUES: readonly PrayerConfidentiality[] = [
+  "private",
+  "community",
+];
+
+function toConfidentiality(value: string): PrayerConfidentiality {
+  return CONFIDENTIALITY_VALUES.includes(value as PrayerConfidentiality)
+    ? (value as PrayerConfidentiality)
+    : "private";
+}
+
+const CONFIG: PublicSubmissionConfig = {
+  id: "priere",
+  title: "Confier une intention à l'équipe d'intercession",
+  /** Variante « éditoriale » : grand titre et paragraphe à gauche. */
+  visual: {
+    kind: "editorial",
+    eyebrow: "Intention de prière",
+    intro:
+      "Écrivez ce que vous traversez ou ce pour quoi vous souhaitez que nous priions. Quelques mots suffisent. Votre demande est transmise à l'équipe pastorale : elle n'est jamais publiée sur Internet ni sur les réseaux sociaux.",
+  },
+
+  fields: [
+    // Nom et numéro partagent une ligne : deux champs courts côte à côte
+    // gardent la section dans la hauteur de l'écran.
+    {
+      kind: "text",
+      id: "requesterName",
+      label: "Nom",
+      hint: "Facultatif.",
+      autoComplete: "given-name",
+      maxLength: 120,
+      width: "half",
+    },
+    {
+      kind: "text",
+      id: "requesterContact",
+      label: "Numéro",
+      hint: "Facultatif — pour un mot d'encouragement.",
+      autoComplete: "tel",
+      maxLength: 120,
+      width: "half",
+    },
+    {
+      kind: "textarea",
+      id: "requestText",
+      label: "Votre intention de prière",
+      hint: "Soyez simple : une situation, un prénom, un besoin. Vous n'avez rien à expliquer longuement.",
+      placeholder: "Écrivez votre demande ici…",
+      rows: 5,
+      required: true,
+      maxLength: 1000,
+      requiredMessage:
+        "Merci d'écrire votre intention de prière avant de l'envoyer.",
+    },
+    {
+      // Choix fermé du contrat métier (`prayer_confidentiality`) : conservé,
+      // mais compacté sur une ligne pour ne pas allonger le formulaire.
+      kind: "choice",
+      id: "confidentiality",
+      label: "Confidentialité de votre demande",
+      orientation: "inline",
+      options: [
+        { value: "private", label: "Confidentiel" },
+        { value: "community", label: "Porter en assemblée" },
+      ],
+      defaultValue: "private",
+    },
+  ],
+
+  submitLabel: "Transmettre ma demande de prière",
+  submittingLabel: "Transmission en cours…",
+
+  success: {
+    title: "Votre demande a bien été reçue",
+    message:
+      "Merci de nous accorder votre confiance. Votre intention est enregistrée et sera portée dans la prière par l'équipe d'intercession. Elle ne sera ni publiée sur Internet ni diffusée sur les réseaux sociaux.",
+    resetLabel: "Déposer une autre demande",
+  },
+
+  errorMessages: {
+    generic:
+      "Votre demande n'a pas pu être transmise. Vérifiez votre connexion, puis réessayez : ce que vous avez écrit est conservé.",
+    rateLimited:
+      "Trop de demandes ont été envoyées depuis cette connexion. Merci de réessayer dans une heure — ou de nous écrire directement sur WhatsApp.",
+  },
+
+  submit: async (values) => {
+    const name = readTextValue(values, "requesterName").trim();
+    const contact = readTextValue(values, "requesterContact").trim();
+
+    await submitPublicPrayerRequest({
+      requestText: readTextValue(values, "requestText").trim(),
+      confidentiality: toConfidentiality(
+        readTextValue(values, "confidentiality"),
+      ),
+      // Le schéma serveur refuse `null` sur ces deux champs facultatifs :
+      // ils sont omis tant qu'ils sont vides.
+      ...(name ? { requesterName: name } : {}),
+      ...(contact ? { requesterContact: contact } : {}),
+    });
+  },
+};
+
+/** Lien WhatsApp pré-rempli, seconde voie de contact pour le visiteur. */
+function whatsappHref(values: SubmissionValues): string {
+  const name = readTextValue(values, "requesterName").trim();
+  const request = readTextValue(values, "requestText").trim();
+
+  const lines = [
+    "Bonjour Centre Chrétien Jésus ma Vie,",
+    "Je souhaite vous confier une intention de prière :",
+    "",
+  ];
+  if (name) lines.push(`De la part de : ${name}`);
+  lines.push(
+    request
+      ? `Demande : ${request}`
+      : "Je préfère vous écrire directement ici.",
+  );
+
+  return `${site.whatsappHref}?text=${encodeURIComponent(lines.join("\n"))}`;
+}
+
 export function PrayerRequestForm({
   verse = null,
+  className,
 }: {
   verse?: PrayerRequestVerse | null;
+  className?: string;
 }) {
-  const [name, setName] = useState("");
-  const [contact, setContact] = useState("");
-  const [request, setRequest] = useState("");
-  const [confidentiality, setConfidentiality] = useState<"private" | "community">("private");
-  const [submitted, setSubmitted] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!request.trim()) return;
-
-    setSubmitting(true);
-    // Simulation d'envoi fluide et asynchrone
-    setTimeout(() => {
-      setSubmitting(false);
-      setSubmitted(true);
-    }, 600);
-  };
-
-  const handleReset = () => {
-    setName("");
-    setContact("");
-    setRequest("");
-    setConfidentiality("private");
-    setSubmitted(false);
-  };
-
-  const whatsappPrefilledHref = `${site.whatsappHref}?text=${encodeURIComponent(
-    `Bonjour Centre Chrétien Jésus ma Vie,\nJe souhaite vous confier une intention de prière :\n\n${
-      name ? `De la part de : ${name}\n` : ""
-    }${request ? `Demande : ${request}` : "Je préfère vous écrire directement ici."}`,
-  )}`;
-
-  if (submitted) {
-    return (
-      <div className="border border-ccjv-line bg-white p-8 md:p-12 text-center">
-        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center border border-ccjv-green/30 bg-ccjv-green/10 text-ccjv-green">
-          <CrossMark size="md" />
-        </div>
-
-        <h3 className="font-serif text-2xl md:text-3xl font-normal text-ccjv-ink">
-          Votre demande a bien été reçue.
-        </h3>
-
-        <p className="mt-4 mx-auto max-w-[50ch] font-sans text-base leading-relaxed text-ccjv-ink-secondary">
-          Merci de nous accorder votre confiance. Notre équipe d&apos;intercession
-          la portera fidèlement dans la prière dès aujourd&apos;hui.
-        </p>
-
-        {verse && (
-          <p className="mt-4 font-serif text-base italic text-ccjv-green">
+  const renderSuccessExtra = (values: SubmissionValues) => (
+    <div className="flex flex-col items-start gap-5">
+      {verse && (
+        <blockquote className="max-w-[44ch] border-l-2 border-ccjv-green pl-5">
+          <p className="font-serif text-[1.05rem] leading-[1.65] italic text-ccjv-ink">
             «&nbsp;{verse.text}&nbsp;»
           </p>
-        )}
+          <footer className="mt-2 font-sans text-[0.75rem] font-semibold tracking-[0.12em] text-ccjv-ink-secondary uppercase">
+            {verse.reference}
+          </footer>
+        </blockquote>
+      )}
 
-        <div className="mt-8 flex flex-wrap justify-center gap-4">
-          <button
-            type="button"
-            onClick={handleReset}
-            className="inline-flex h-11 items-center justify-center border border-ccjv-line bg-ccjv-offwhite px-6 font-sans text-xs font-semibold tracking-wider text-ccjv-ink uppercase transition-colors hover:border-ccjv-green hover:text-ccjv-green"
-          >
-            Déposer une autre demande
-          </button>
-          <a
-            href={whatsappPrefilledHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-11 items-center justify-center border border-ccjv-green bg-ccjv-green px-6 font-sans text-xs font-semibold tracking-wider text-white uppercase transition-colors hover:bg-ccjv-green-dark"
-          >
-            Confirmer sur WhatsApp →
-          </a>
-        </div>
-      </div>
-    );
-  }
+      <Button variant="ghost" size="md" href={whatsappHref(values)} external>
+        Nous écrire
+      </Button>
+    </div>
+  );
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="border border-ccjv-line bg-white p-6 sm:p-10 md:p-12"
-    >
-      <div className="space-y-6">
-        {/* Champ Demande de prière (Principal) */}
-        <div>
-          <label
-            htmlFor="prayer-request"
-            className="block font-sans text-xs font-semibold tracking-wider text-ccjv-ink uppercase"
-          >
-            Votre intention de prière <span className="text-ccjv-green">*</span>
-          </label>
-          <p className="mt-1 font-sans text-xs text-ccjv-ink-secondary">
-            Quelques mots suffisent. Écrivez simplement ce que vous vivez ou ce
-            pour quoi vous souhaitez que nous priions.
-          </p>
-          <textarea
-            id="prayer-request"
-            required
-            rows={5}
-            value={request}
-            onChange={(e) => setRequest(e.target.value)}
-            placeholder="Écrivez votre demande ici..."
-            className="mt-2.5 block w-full rounded-none border border-ccjv-line bg-ccjv-offwhite/50 p-4 font-sans text-sm text-ccjv-ink placeholder:text-ccjv-ink-secondary/60 focus:border-ccjv-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-ccjv-green"
-          />
-        </div>
-
-        {/* Ligne Prénom & Contact */}
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-          <div>
-            <label
-              htmlFor="prayer-name"
-              className="block font-sans text-xs font-semibold tracking-wider text-ccjv-ink uppercase"
-            >
-              Votre prénom ou nom (facultatif)
-            </label>
-            <input
-              type="text"
-              id="prayer-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Laissez vide pour rester anonyme"
-              className="mt-2 block w-full rounded-none border border-ccjv-line bg-ccjv-offwhite/50 px-4 py-3 font-sans text-sm text-ccjv-ink placeholder:text-ccjv-ink-secondary/60 focus:border-ccjv-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-ccjv-green"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="prayer-contact"
-              className="block font-sans text-xs font-semibold tracking-wider text-ccjv-ink uppercase"
-            >
-              WhatsApp ou téléphone (facultatif)
-            </label>
-            <input
-              type="text"
-              id="prayer-contact"
-              value={contact}
-              onChange={(e) => setContact(e.target.value)}
-              placeholder="Pour un message d'encouragement"
-              className="mt-2 block w-full rounded-none border border-ccjv-line bg-ccjv-offwhite/50 px-4 py-3 font-sans text-sm text-ccjv-ink placeholder:text-ccjv-ink-secondary/60 focus:border-ccjv-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-ccjv-green"
-            />
-          </div>
-        </div>
-
-        {/* Options de confidentialité */}
-        <div className="border-t border-ccjv-line pt-6">
-          <label className="block font-sans text-xs font-semibold tracking-wider text-ccjv-ink uppercase">
-            Confidentialité de votre demande
-          </label>
-          <div className="mt-3 space-y-3">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="radio"
-                name="confidentiality"
-                value="private"
-                checked={confidentiality === "private"}
-                onChange={() => setConfidentiality("private")}
-                className="mt-0.5 h-4 w-4 text-ccjv-green border-ccjv-line focus:ring-ccjv-green rounded-none"
-              />
-              <span className="font-sans text-xs sm:text-sm text-ccjv-ink">
-                <strong>Confidentiel :</strong> Partagé strictement avec l&apos;équipe
-                pastorale d&apos;intercession.
-              </span>
-            </label>
-
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="radio"
-                name="confidentiality"
-                value="community"
-                checked={confidentiality === "community"}
-                onChange={() => setConfidentiality("community")}
-                className="mt-0.5 h-4 w-4 text-ccjv-green border-ccjv-line focus:ring-ccjv-green rounded-none"
-              />
-              <span className="font-sans text-xs sm:text-sm text-ccjv-ink">
-                <strong>Porter en assemblée :</strong> Mentionnée lors des temps de
-                prière communautaires (sans nom de famille).
-              </span>
-            </label>
-          </div>
-        </div>
-
-        {/* Engagement de sécurité et discrétion */}
-        <div className="bg-ccjv-offwhite p-4 text-xs font-sans text-ccjv-ink-secondary leading-relaxed border-l-2 border-ccjv-green">
-          <strong className="text-ccjv-ink">Engagement CCJV :</strong> Votre
-          demande ne sera jamais publiée sur Internet ni sur les réseaux
-          sociaux. Le respect de votre vie privée et de votre dignité est
-          absolu.
-        </div>
-
-        {/* Bouton d'action principal */}
-        <div className="pt-2">
-          <button
-            type="submit"
-            disabled={submitting || !request.trim()}
-            className="inline-flex w-full h-12 items-center justify-center border border-ccjv-green bg-ccjv-green px-8 font-sans text-xs font-semibold tracking-[0.16em] text-white uppercase transition-colors hover:bg-ccjv-green-dark disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {submitting ? "Transmission en cours..." : "Transmettre ma demande de prière"}
-          </button>
-        </div>
-      </div>
-    </form>
+    <PublicSubmissionForm
+      config={CONFIG}
+      className={className}
+      renderSuccessExtra={renderSuccessExtra}
+    />
   );
 }

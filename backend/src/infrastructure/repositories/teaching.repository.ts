@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import type {
   BiblicalReference,
   Teaching,
@@ -174,7 +174,11 @@ export class DrizzleTeachingRepository implements TeachingRepository {
       .select()
       .from(teachings)
       .where(whereClause)
-      .orderBy(desc(teachings.preachedAt), desc(teachings.createdAt))
+      .orderBy(
+        sql`${teachings.publishedAt} DESC NULLS LAST`,
+        desc(teachings.preachedAt),
+        desc(teachings.createdAt),
+      )
       .limit(limit)
       .offset(offset);
 

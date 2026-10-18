@@ -204,16 +204,22 @@ export interface ScriptureInput {
 
 export interface ScheduleEntryInput {
   day: string;
+  days?: string[] | null;
   title: string;
+  startTime?: string | null;
+  endTime?: string | null;
   timeLabel: string;
+  timeZone?: string | null;
   audience?: string | null;
   isConfirmed?: boolean;
   position?: number;
 }
 
 export interface SocialLinkInput {
+  platform?: string | null;
   label: string;
   href: string;
+  isActive?: boolean;
   position?: number;
 }
 

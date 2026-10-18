@@ -1,24 +1,31 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save, Plus, Trash2, ArrowUp, ArrowDown, ExternalLink } from "lucide-react";
+import Image from "next/image";
+import { ArrowLeft, Save, Plus, Trash2, ArrowUp, ArrowDown, User, UserPlus, Pencil } from "lucide-react";
 import { FormField } from "@/components/admin/forms/FormField";
 import { Input } from "@/components/admin/forms/Input";
 import { Textarea } from "@/components/admin/forms/Textarea";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/admin/feedback/ToastContext";
 import { AdminMediaField, type AdminMediaValue } from "@/components/admin/media/AdminMediaField";
+import { LeaderModal, type DepartmentLeaderData } from "@/components/admin/forms/LeaderModal";
 import type { Department, DepartmentActivityItem } from "@/types";
 import { slugify } from "@/lib/utils";
+import { getLeaders } from "@/lib/api";
+
+export interface DepartmentFormSubmitPayload {
+  department: Record<string, unknown>;
+  activities: { title: string; description?: string | null; imageMediaId?: string | null; position?: number }[];
+  leader?: DepartmentLeaderData | null;
+  removedLeaderId?: string | null;
+}
 
 export interface DepartmentFormProps {
   initialData?: Department;
-  onSubmit: (payload: {
-    department: Record<string, unknown>;
-    activities: { title: string; description?: string | null; imageMediaId?: string | null; position?: number }[];
-  }) => Promise<void>;
+  onSubmit: (payload: DepartmentFormSubmitPayload) => Promise<void>;
   isEditing?: boolean;
 }
 
@@ -32,13 +39,65 @@ export function DepartmentForm({
 
   const [name, setName] = useState(initialData?.name || "");
   const [slug, setSlug] = useState(initialData?.slug || "");
-  const [isSlugManual, setIsSlugManual] = useState(Boolean(initialData?.slug));
   const [tagline, setTagline] = useState(initialData?.tagline || "");
-  const [responsibleName, setResponsibleName] = useState(initialData?.responsibleName || "");
   const [meetingSchedule, setMeetingSchedule] = useState(initialData?.meetingSchedule || "");
   const [description, setDescription] = useState(initialData?.description || "");
   const [mission, setMission] = useState(initialData?.mission || "");
   const [history, setHistory] = useState(initialData?.history || "");
+
+  // Leader / Responsable du pôle
+  const initialLeader: DepartmentLeaderData | null = initialData?.leaders?.[0]
+    ? {
+        id: initialData.leaders[0].id,
+        name: initialData.leaders[0].name,
+        role: initialData.leaders[0].role,
+        photoMediaId: initialData.leaders[0].photoMediaId,
+        photoUrl: initialData.leaders[0].photoUrl,
+      }
+    : initialData?.responsibleName
+      ? {
+          name: initialData.responsibleName,
+          role: "Responsable du pôle",
+          photoMediaId: null,
+          photoUrl: null,
+        }
+      : null;
+
+  const [leader, setLeader] = useState<DepartmentLeaderData | null>(initialLeader);
+  const [removedLeaderId, setRemovedLeaderId] = useState<string | null>(null);
+  const [isLeaderModalOpen, setIsLeaderModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (initialData?.id && !initialData.leaders?.length) {
+      getLeaders({ departmentId: initialData.id })
+        .then((ldrs) => {
+          if (ldrs && ldrs.length > 0) {
+            const first = ldrs[0];
+            setLeader({
+              id: first.id,
+              name: first.name,
+              role: first.role,
+              photoUrl: first.photo ?? null,
+            });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [initialData?.id, initialData?.leaders]);
+
+  const handleSaveLeader = (data: DepartmentLeaderData) => {
+    setLeader(data);
+    if (removedLeaderId === data.id) {
+      setRemovedLeaderId(null);
+    }
+  };
+
+  const handleRemoveLeader = () => {
+    if (leader?.id) {
+      setRemovedLeaderId(leader.id);
+    }
+    setLeader(null);
+  };
 
   // Bannière
   const [bannerMedia, setBannerMedia] = useState<AdminMediaValue | null>(
@@ -78,7 +137,7 @@ export function DepartmentForm({
 
   const handleNameChange = (val: string) => {
     setName(val);
-    if (!isSlugManual && !isEditing) {
+    if (!isEditing || !slug) {
       setSlug(slugify(val));
     }
   };
@@ -142,9 +201,9 @@ export function DepartmentForm({
     try {
       const departmentPayload: Record<string, unknown> = {
         name: name.trim(),
-        slug: slug.trim() || undefined,
+        slug: slug.trim() || slugify(name.trim()),
         tagline: tagline.trim() || null,
-        responsibleName: responsibleName.trim() || null,
+        responsibleName: leader ? leader.name : null,
         meetingSchedule: meetingSchedule.trim() || null,
         description: description.trim() || null,
         mission: mission.trim() || null,
@@ -164,6 +223,8 @@ export function DepartmentForm({
       await onSubmit({
         department: departmentPayload,
         activities: activitiesPayload,
+        leader,
+        removedLeaderId,
       });
 
       toast.success(
@@ -185,37 +246,29 @@ export function DepartmentForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8 animate-in fade-in duration-150">
+    <>
+      <form onSubmit={handleSubmit} className="space-y-8 animate-in fade-in duration-150">
       {/* En-tête formulaire avec fil d'ariane et actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-ccjv-line pb-6">
-        <div>
+        <div className="flex items-center gap-3">
           <Link
             href="/admin/departments"
-            className="inline-flex items-center gap-1.5 text-xs text-ccjv-ink-secondary hover:text-ccjv-ink mb-2 font-medium transition-colors"
+            className="p-2 text-ccjv-ink-secondary hover:text-ccjv-ink bg-white border border-ccjv-line transition-colors rounded-none"
+            title="Retour aux départements"
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Retour à la liste des départements
+            <ArrowLeft className="w-4 h-4" />
           </Link>
-          <h1 className="text-2xl font-serif font-bold text-ccjv-ink">
-            {isEditing ? `Modifier : ${name || "le département"}` : "Nouveau Département"}
-          </h1>
-          <p className="text-xs text-ccjv-ink-secondary mt-1">
-            Définissez l&apos;identité, la mission, l&apos;histoire et les activités du pôle de service.
-          </p>
+          <div>
+            <h1 className="text-2xl font-serif font-bold text-ccjv-ink">
+              {isEditing ? `Modifier : ${name || "le département"}` : "Nouveau Département"}
+            </h1>
+            <p className="text-xs text-ccjv-ink-secondary mt-1">
+              Définissez l&apos;identité, la mission, l&apos;histoire et les activités du pôle de service.
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
-          {isEditing && slug && (
-            <Link
-              href={`/${slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-ccjv-ink-secondary hover:text-ccjv-green border border-ccjv-line px-3 py-2 bg-white"
-            >
-              <span>Aperçu public</span>
-              <ExternalLink className="h-3.5 w-3.5" />
-            </Link>
-          )}
           <Button
             type="submit"
             variant="primary"
@@ -235,14 +288,14 @@ export function DepartmentForm({
           {/* Identité & Vision */}
           <div className="bg-white border border-ccjv-line p-6 rounded-none space-y-5">
             <h2 className="text-sm font-bold uppercase tracking-wider text-ccjv-ink border-b border-ccjv-line pb-2">
-              1. Identité et Vision
+              Identité et Vision
             </h2>
 
             <FormField
-              label="Nom du département ou ministère"
+              label="Nom du département"
               required
               error={formErrors.name}
-              hint="Exemple : La Chorale Grand Groupe, Intercession, Protocole..."
+              hint=""
             >
               <Input
                 value={name}
@@ -252,22 +305,8 @@ export function DepartmentForm({
             </FormField>
 
             <FormField
-              label="Slug (identifiant d'URL)"
-              hint="Généré automatiquement à partir du nom si laissé vide."
-            >
-              <Input
-                value={slug}
-                onChange={(e) => {
-                  setSlug(e.target.value);
-                  setIsSlugManual(true);
-                }}
-                placeholder="chorale-sainte-cecile"
-              />
-            </FormField>
-
-            <FormField
-              label="Phrase d'accroche (Tagline)"
-              hint="Courte phrase résumant la devise ou le cœur du ministère."
+              label="Phrase d'accroche"
+              hint=""
             >
               <Input
                 value={tagline}
@@ -277,8 +316,8 @@ export function DepartmentForm({
             </FormField>
 
             <FormField
-              label="Description générale"
-              hint="Aperçu synthétique affiché dans les listes et en tête de fiche."
+              label="Description"
+              hint=""
             >
               <Textarea
                 rows={3}
@@ -289,8 +328,8 @@ export function DepartmentForm({
             </FormField>
 
             <FormField
-              label="Mission & Vocation"
-              hint="Objectifs spirituels, vision doctrinale et portée du ministère."
+              label="Mission"
+              hint=""
             >
               <Textarea
                 rows={4}
@@ -301,8 +340,8 @@ export function DepartmentForm({
             </FormField>
 
             <FormField
-              label="Histoire & Origines"
-              hint="Récit de création du département, témoignages fondateurs ou étapes de développement."
+              label="Histoire"
+              hint=""
             >
               <Textarea
                 rows={4}
@@ -318,21 +357,18 @@ export function DepartmentForm({
             <div className="flex items-center justify-between border-b border-ccjv-line pb-2">
               <div>
                 <h2 className="text-sm font-bold uppercase tracking-wider text-ccjv-ink">
-                  2. Activités & Services du pôle
+                  Activités & Services du pôle
                 </h2>
-                <p className="text-xs text-ccjv-ink-secondary mt-0.5">
-                  Présentez les sous-activités concrètes (ex: Répétitions, Formations, Sorties, Accueil).
-                </p>
               </div>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={handleAddActivity}
-                className="font-semibold"
+                className="text-[11px] rounded-none hover:border-ccjv-green"
               >
                 <Plus className="h-3.5 w-3.5 mr-1" />
-                Ajouter une activité
+                Ajouter
               </Button>
             </div>
 
@@ -375,7 +411,7 @@ export function DepartmentForm({
                         <button
                           type="button"
                           onClick={() => handleRemoveActivity(index)}
-                          title="Supprimer cette activité"
+                          title="Supprimer"
                           className="p-1 hover:bg-red-50 text-red-600 ml-2"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -425,41 +461,114 @@ export function DepartmentForm({
           {/* Coordination & Responsable */}
           <div className="bg-white border border-ccjv-line p-6 rounded-none space-y-5">
             <h2 className="text-sm font-bold uppercase tracking-wider text-ccjv-ink border-b border-ccjv-line pb-2">
-              3. Coordination
+              Coordination
             </h2>
 
-            <FormField
-              label="Responsable du pôle"
-              hint="Personnage cité à titre de référence pour les membres."
-            >
-              <Input
-                value={responsibleName}
-                onChange={(e) => setResponsibleName(e.target.value)}
-                placeholder="Ex. Frère David Mukendi"
-              />
-            </FormField>
+            {/* Zone Responsable du pôle (hauteur fixe) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-ccjv-ink hidden">
+                  Responsable du pôle
+                </label>
+                {leader && (
+                  <button
+                    type="button"
+                    onClick={() => setIsLeaderModalOpen(true)}
+                    className="text-xs text-ccjv-green hover:underline flex items-center gap-1 font-medium"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    Modifier
+                  </button>
+                )}
+              </div>
 
-            <FormField
-              label="Rythme & Horaires de rencontre"
-              hint="Jour et heure habituels de rassemblement du pôle."
-            >
-              <Input
-                value={meetingSchedule}
-                onChange={(e) => setMeetingSchedule(e.target.value)}
-                placeholder="Ex. Vendredi · 17:00 — Répétition générale"
-              />
-            </FormField>
+              {/* Conteneur à hauteur fixe (120px) */}
+              <div className="h-[120px] w-full">
+                {!leader ? (
+                  <div className="h-full w-full border border-dashed border-ccjv-line bg-ccjv-offwhite p-4 flex flex-col items-center justify-center gap-2 text-center">
+                    <p className="text-xs text-ccjv-ink-secondary">
+                      Aucun responsable assigné à ce pôle.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsLeaderModalOpen(true)}
+                      className="hover:border-ccjv-green text-[11px] mt-2 rounded-none"
+                    >
+                      <UserPlus className="h-3.5 w-3.5 mr-1.5 text-ccjv-green" />
+                      Ajouter
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="h-full w-full border border-ccjv-line bg-white p-3 flex items-center justify-between gap-3 shadow-2xs">
+                    {/* Flux horizontal : Photo -> Identités (nom et rôle) */}
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      {/* Photo à gauche */}
+                      <div className="relative w-16 h-16 shrink-0 border border-ccjv-line bg-ccjv-offwhite flex items-center justify-center overflow-hidden">
+                        {leader.photoUrl ? (
+                          <Image
+                            src={leader.photoUrl}
+                            alt={leader.name}
+                            fill
+                            className="object-cover"
+                            sizes="64px"
+                          />
+                        ) : (
+                          <User className="h-7 w-7 text-ccjv-ink-secondary/50" />
+                        )}
+                      </div>
+
+                      {/* Identités : Nom et Rôle */}
+                      <div className="min-w-0">
+                        <div className="inline-block bg-ccjv-green/10 text-ccjv-green text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 mb-1">
+                          Responsable
+                        </div>
+                        <p className="font-bold text-sm text-ccjv-ink leading-tight truncate">
+                          {leader.name}
+                        </p>
+                        <p className="text-xs text-ccjv-ink-secondary mt-0.5 line-clamp-2">
+                          {leader.role || "Responsable du pôle"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Boutons d'action */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setIsLeaderModalOpen(true)}
+                        title="Modifier"
+                        className="p-1.5 border border-ccjv-line bg-white hover:bg-ccjv-offwhite text-ccjv-ink hover:text-ccjv-green transition-colors"
+                        aria-label="Modifier"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRemoveLeader}
+                        title="Retirer ce responsable"
+                        className="p-1.5 border border-ccjv-line bg-white hover:bg-red-50 text-red-600 hover:border-red-200 transition-colors"
+                        aria-label="Retirer"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Photographie d'en-tête */}
           <div className="bg-white border border-ccjv-line p-6 rounded-none space-y-5">
             <h2 className="text-sm font-bold uppercase tracking-wider text-ccjv-ink border-b border-ccjv-line pb-2">
-              4. Photographie d&apos;en-tête
+              Photographie d&apos;en-tête
             </h2>
 
             <AdminMediaField
-              label="Bannière d'en-tête (Hero)"
-              hint="Grande image représentative du département affichée en haut de page."
+              label=""
+              hint=""
               value={bannerMedia}
               onChange={setBannerMedia}
               acceptedTypes="image"
@@ -468,5 +577,14 @@ export function DepartmentForm({
         </div>
       </div>
     </form>
-  );
+
+    {/* Modale flottante d'ajout / modification de responsable (rendue hors de la balise <form>) */}
+    <LeaderModal
+      isOpen={isLeaderModalOpen}
+      onClose={() => setIsLeaderModalOpen(false)}
+      onSave={handleSaveLeader}
+      initialData={leader}
+    />
+  </>
+);
 }

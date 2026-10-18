@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { HeroCompact } from "@/components/composition/HeroCompact";
+import { HeroEditorial } from "@/components/composition/HeroEditorial";
 import { ListingPage } from "@/components/archetypes/ListingPage";
 import { CrossLinks } from "@/components/editorial/CrossLinks";
 import { FeatureImage } from "@/components/editorial/FeatureImage";
@@ -49,30 +49,22 @@ export default async function ActualitesPage() {
   return (
     <ListingPage
       header={
-        <HeroCompact
-          overline="Publications & Médias"
+        <HeroEditorial
           title="Actualités"
           intro="Les nouvelles de la vie de l'église : annonces, rentrées, informations pratiques. Ce qui change dans les prochaines semaines se trouve ici."
-          aside={
-            itemsRead.status === "unreachable" ? (
-              <p className="font-sans text-[0.8rem] text-ccjv-ink-secondary">
-                Le nombre d&apos;actualités publiées n&apos;a pas pu être lu.
-              </p>
-            ) : (
-              <p className="font-sans text-[0.8rem] text-ccjv-ink-secondary">
-                {items.length} actualité{items.length > 1 ? "s" : ""} publiée
-                {items.length > 1 ? "s" : ""}
-                {lead ? ` · dernière le ${formatLongDate(lead.publishedAt)}` : ""}
-              </p>
-            )
-          }
+          image={images.assemblee}
+          imageAlt="Assemblée réunie pour un temps de vie d'église, au Centre Chrétien Jésus ma Vie"
+          action={{ label: "Lire les actualités ↓", href: "#actualites" }}
         />
       }
       lead={
-        itemsRead.status === "unreachable" ? (
-          <ContentUnavailable resource="Les actualités" />
-        ) : lead ? (
-          <div>
+        /* Cible de l'action du héros : elle existe même sans actualité publiée,
+           pour qu'aucun bouton ne mène nulle part. */
+        <div id="actualites" className="scroll-mt-28">
+          {itemsRead.status === "unreachable" ? (
+            <ContentUnavailable resource="Les actualités" />
+          ) : lead ? (
+            <>
             <article>
               <p className="font-sans text-xs font-semibold tracking-[0.2em] text-ccjv-green uppercase">
                 À la une
@@ -114,13 +106,14 @@ export default async function ActualitesPage() {
               src={images.fraternite}
               caption="Centre Chrétien Jésus ma Vie — Lubumbashi"
             />
-          </div>
-        ) : (
-          <EmptyState
-            title="Aucune actualité pour le moment"
-            description="Les nouvelles publiées depuis le back-office apparaîtront ici."
-          />
-        )
+            </>
+          ) : (
+            <EmptyState
+              title="Aucune actualité pour le moment"
+              description="Les nouvelles publiées depuis le back-office apparaîtront ici."
+            />
+          )}
+        </div>
       }
       listTitle="Autres actualités"
       list={

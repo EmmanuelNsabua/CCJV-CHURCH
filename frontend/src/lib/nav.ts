@@ -72,32 +72,6 @@ export const mainNav: NavItem[] = [
     label: "Notre communauté",
     description: "Une foi que nous vivons ensemble : fraternité, prière et partage.",
     ready: true,
-    children: [
-      {
-        href: "/communaute#groupes-de-maison",
-        label: "Groupes de maison",
-        description: "La proximité au cœur des quartiers.",
-        ready: true,
-      },
-      {
-        href: "/communaute#priere",
-        label: "Prière & intercession",
-        description: "Porter les fardeaux ensemble.",
-        ready: true,
-      },
-      {
-        href: "/communaute#parcours-nouveau",
-        label: "Parcours nouveau",
-        description: "Une nouvelle étape parmi nous.",
-        ready: true,
-      },
-      {
-        href: "/communaute#temoignages",
-        label: "Témoignages",
-        description: "Ce que nous vivons ici.",
-        ready: true,
-      },
-    ],
   },
   {
     href: "/organisation",
@@ -130,7 +104,7 @@ export const mainNav: NavItem[] = [
       },
       {
         href: "/publications/ressources",
-        label: "Ressources & Guides",
+        label: "Guides d'étude",
         description: "Guides et documents.",
         ready: true,
       },

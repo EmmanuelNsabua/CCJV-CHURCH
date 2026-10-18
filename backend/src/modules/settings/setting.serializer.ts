@@ -15,7 +15,7 @@ import type { SettingsOverview } from "./setting.service";
  */
 export interface SettingsDto {
   settings: Record<string, string>;
-  socialLinks: { label: string; href: string }[];
+  socialLinks: { platform?: string | null; label: string; href: string }[];
 }
 
 export function toSettingsDto(overview: SettingsOverview): SettingsDto {
@@ -26,9 +26,12 @@ export function toSettingsDto(overview: SettingsOverview): SettingsDto {
 
   return {
     settings,
-    socialLinks: overview.socialLinks.map((link) => ({
-      label: link.label,
-      href: link.href,
-    })),
+    socialLinks: overview.socialLinks
+      .filter((link) => link.isActive)
+      .map((link) => ({
+        platform: link.platform ?? null,
+        label: link.label,
+        href: link.href,
+      })),
   };
 }

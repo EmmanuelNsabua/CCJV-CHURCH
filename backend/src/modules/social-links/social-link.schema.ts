@@ -11,15 +11,23 @@ import { z } from "zod";
 export const socialLinkParamsSchema = z.object({ id: z.uuid() });
 
 export const socialLinkCreateSchema = z.object({
+  platform: z.string().trim().min(1).max(40).optional(),
   label: z.string().trim().min(1).max(60),
   // `z.regexes.httpProtocol` = `http` ou `https` : Zod compare le protocole sans
   // son « : », et `z.url()` valide en plus la forme générale de l'URL.
   href: z.url({ protocol: z.regexes.httpProtocol }),
+  isActive: z.boolean().default(true),
   position: z.coerce.number().int().min(0).max(9999).default(0),
 });
 
-export const socialLinkUpdateSchema = socialLinkCreateSchema
-  .partial()
+export const socialLinkUpdateSchema = z
+  .object({
+    platform: z.string().trim().min(1).max(40).nullish(),
+    label: z.string().trim().min(1).max(60).optional(),
+    href: z.url({ protocol: z.regexes.httpProtocol }).optional(),
+    isActive: z.boolean().optional(),
+    position: z.coerce.number().int().min(0).max(9999).optional(),
+  })
   .refine((value) => Object.keys(value).length > 0, {
     message: "Aucun champ à mettre à jour",
   });

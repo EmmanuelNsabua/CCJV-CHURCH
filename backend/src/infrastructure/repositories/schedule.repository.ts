@@ -18,8 +18,12 @@ function toScheduleEntry(row: ScheduleEntryRow): ScheduleEntry {
   return {
     id: row.id,
     day: row.day,
+    days: row.days,
     title: row.title,
+    startTime: row.startTime,
+    endTime: row.endTime,
     timeLabel: row.timeLabel,
+    timeZone: row.timeZone,
     audience: row.audience,
     isConfirmed: row.isConfirmed,
     position: row.position,
@@ -64,8 +68,12 @@ export class DrizzleScheduleRepository implements ScheduleRepository {
       .insert(scheduleEntries)
       .values({
         day: data.day,
+        days: data.days ?? (data.day ? [data.day] : null),
         title: data.title,
+        startTime: data.startTime ?? null,
+        endTime: data.endTime ?? null,
         timeLabel: data.timeLabel,
+        timeZone: data.timeZone ?? "Africa/Lubumbashi",
         audience: data.audience ?? null,
         isConfirmed: data.isConfirmed ?? false,
         position: data.position ?? 0,
@@ -81,8 +89,12 @@ export class DrizzleScheduleRepository implements ScheduleRepository {
   ): Promise<ScheduleEntry | null> {
     const values: Partial<typeof scheduleEntries.$inferInsert> = {};
     if (data.day !== undefined) values.day = data.day;
+    if (data.days !== undefined) values.days = data.days;
     if (data.title !== undefined) values.title = data.title;
+    if (data.startTime !== undefined) values.startTime = data.startTime;
+    if (data.endTime !== undefined) values.endTime = data.endTime;
     if (data.timeLabel !== undefined) values.timeLabel = data.timeLabel;
+    if (data.timeZone !== undefined) values.timeZone = data.timeZone;
     if (data.audience !== undefined) values.audience = data.audience;
     if (data.isConfirmed !== undefined) values.isConfirmed = data.isConfirmed;
     if (data.position !== undefined) values.position = data.position;

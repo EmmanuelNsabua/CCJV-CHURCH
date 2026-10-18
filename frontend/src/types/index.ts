@@ -26,6 +26,15 @@ export interface DepartmentActivityItem {
   position?: number;
 }
 
+export interface DepartmentLeaderItem {
+  id: string;
+  name: string;
+  role: string;
+  photoUrl?: string | null;
+  photoMediaId?: string | null;
+  position?: number;
+}
+
 export interface Department {
   id: string;
   name: string;
@@ -34,6 +43,7 @@ export interface Department {
   mission?: string | null;
   history?: string | null;
   activities?: DepartmentActivityItem[];
+  leaders?: DepartmentLeaderItem[];
   responsibleName?: string;
   /** Image d'en-tête de la fiche département. */
   bannerImage?: string;

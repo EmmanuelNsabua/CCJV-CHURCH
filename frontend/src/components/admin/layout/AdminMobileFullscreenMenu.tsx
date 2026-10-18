@@ -15,7 +15,6 @@ import {
   Users,
   Layers,
   Shield,
-  Settings,
   X,
   ExternalLink,
   LogOut,
@@ -47,7 +46,6 @@ const gridMenuItems: GridMenuItem[] = [
   { label: "Départements", href: "/admin/departments", icon: Users, category: "Communauté" },
   { label: "Éditeur de pages", href: "/admin/pages", icon: Layers, category: "Configuration" },
   { label: "Administrateurs", href: "/admin/administrateurs", icon: Shield, category: "Configuration" },
-  { label: "Paramètres", href: "/admin/settings", icon: Settings, category: "Configuration" },
 ];
 
 export function AdminMobileFullscreenMenu({

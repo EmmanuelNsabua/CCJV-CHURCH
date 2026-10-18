@@ -7,7 +7,7 @@ import { ParallaxImage } from "@/components/shared/ParallaxImage";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
 import { site } from "@/data/site";
-import { getSchedule, readOrUnavailable } from "@/lib/api/endpoints";
+import { getSchedule, getSettings, readOrUnavailable } from "@/lib/api/endpoints";
 import { images } from "@/data/images";
 import { pageMetadata } from "@/lib/seo";
 
@@ -18,18 +18,36 @@ export const metadata = pageMetadata({
   path: "/vie-de-leglise/ou-nous-trouver",
 });
 
-const itineraryHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-  site.address,
-)}`;
-
 export default async function OuNousTrouverPage() {
   /*
-   * Les horaires affichés sont ceux de `getSchedule()` : aucune heure n'est
-   * codée en dur sur cette page, et l'API dit elle-même si un horaire est
-   * confirmé ou provisoire.
+   * Les horaires affichés sont ceux de `getSchedule()` et les informations
+   * institutionnelles proviennent de `getSettings()` (base de données).
    */
-  const scheduleRead = await readOrUnavailable((options) => getSchedule(options));
+  const [scheduleRead, settingsRead] = await Promise.all([
+    readOrUnavailable((options) => getSchedule(options)),
+    readOrUnavailable((options) => getSettings(options)),
+  ]);
+
   const schedule = scheduleRead.status === "ok" ? scheduleRead.data : [];
+  const settings = settingsRead.status === "ok" && settingsRead.data ? settingsRead.data.settings : {};
+
+  const address = settings["site.address"] || site.address;
+  const addressLine1 = settings["site.addressLine1"] || site.addressLines[0];
+  const addressLine2 = settings["site.addressLine2"] || site.addressLines[1];
+  const addressLine3 = settings["site.addressLine3"] || site.addressLines[2];
+  const latitude = settings["site.latitude"];
+  const longitude = settings["site.longitude"];
+  const whatsappNumber = settings["site.whatsappNumber"] || site.whatsappNumber;
+  const whatsappHref = settings["site.whatsappHref"] || site.whatsappHref;
+  const supportEmail = settings["site.supportEmail"];
+
+  const itineraryHref = latitude && longitude
+    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(latitude)},${encodeURIComponent(longitude)}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+
+  const mapEmbedUrl = latitude && longitude
+    ? `https://maps.google.com/maps?q=${encodeURIComponent(latitude)},${encodeURIComponent(longitude)}&t=&z=16&ie=UTF8&iwloc=&output=embed`
+    : `https://maps.google.com/maps?q=${encodeURIComponent(address)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
 
   const firstVisitPoints = [
     {
@@ -204,25 +222,65 @@ export default async function OuNousTrouverPage() {
                     </div>
                     <div>
                       <h4 className="font-serif text-lg font-bold text-ccjv-ink">
-                        Centre Chrétien Jésus ma Vie
+                        {settings["site.name"] || site.name}
                       </h4>
-                      {/* Adresse institutionnelle : `site.addressLines`, source unique. */}
+                      {/* Adresse institutionnelle dynamique */}
                       <p className="mt-1 font-sans text-sm text-ccjv-ink leading-relaxed">
-                        {site.addressLines.slice(0, 2).join(", ")}
+                        {[addressLine1, addressLine2].filter(Boolean).join(", ") || address}
                       </p>
-                      <p className="font-sans text-xs text-ccjv-ink-secondary">
-                        {site.addressLines[2]}
-                      </p>
+                      {addressLine3 && (
+                        <p className="font-sans text-xs text-ccjv-ink-secondary">
+                          {addressLine3}
+                        </p>
+                      )}
+                      {latitude && longitude && (
+                        <p className="mt-2 font-mono text-[11px] text-ccjv-green font-medium">
+                          Coordonnées GPS : {latitude}, {longitude}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
 
+                {/* Carte interactive */}
+                <div className="mt-6 aspect-[16/9] w-full border border-ccjv-line bg-ccjv-offwhite overflow-hidden relative">
+                  <iframe
+                    title="Plan d'accès et localisation de l'église"
+                    src={mapEmbedUrl}
+                    className="w-full h-full border-0"
+                    loading="lazy"
+                  />
+                </div>
+
                 {/* Contact direct rapide */}
-                <div className="mt-6 flex flex-col gap-2 font-sans text-xs text-ccjv-ink">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-ccjv-green">Besoin d&apos;orientation :</span>
-                    <span>Écrivez-nous sur WhatsApp pour des repères précis.</span>
-                  </div>
+                <div className="mt-6 flex flex-col gap-2.5 font-sans text-xs text-ccjv-ink">
+                  {whatsappNumber && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-ccjv-green">WhatsApp assistance :</span>
+                      <a
+                        href={whatsappHref || `https://wa.me/${whatsappNumber.replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:text-ccjv-green font-medium"
+                      >
+                        {whatsappNumber}
+                      </a>
+                    </div>
+                  )}
+                  {supportEmail && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-ccjv-green">E-mail support :</span>
+                      <a
+                        href={`mailto:${supportEmail}`}
+                        className="underline hover:text-ccjv-green font-medium"
+                      >
+                        {supportEmail}
+                      </a>
+                    </div>
+                  )}
+                  <p className="text-ccjv-ink-secondary text-[11px] mt-1">
+                    Besoin d&apos;orientation ? Écrivez-nous pour recevoir des repères d&apos;accès précis.
+                  </p>
                 </div>
               </div>
 

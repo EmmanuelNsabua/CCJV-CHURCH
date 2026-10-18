@@ -1,22 +1,30 @@
 "use client";
 
-import React from "react";
-import { DepartmentForm } from "@/components/admin/forms/DepartmentForm";
-import { createDepartment, saveDepartmentActivities } from "@/lib/api";
+import { DepartmentForm, type DepartmentFormSubmitPayload } from "@/components/admin/forms/DepartmentForm";
+import { createDepartment, saveDepartmentActivities, createLeader } from "@/lib/api";
 
 export default function NewDepartmentPage() {
   const handleCreate = async ({
     department,
     activities,
-  }: {
-    department: Record<string, unknown>;
-    activities: { title: string; description?: string | null; imageMediaId?: string | null; position?: number }[];
-  }) => {
+    leader,
+  }: DepartmentFormSubmitPayload) => {
     const created = await createDepartment(
       department as unknown as Parameters<typeof createDepartment>[0],
     );
-    if (activities.length > 0 && created.id) {
-      await saveDepartmentActivities(created.id, activities);
+    if (created.id) {
+      if (activities.length > 0) {
+        await saveDepartmentActivities(created.id, activities);
+      }
+      if (leader) {
+        await createLeader({
+          name: leader.name,
+          role: leader.role,
+          photoMediaId: leader.photoMediaId ?? null,
+          departmentId: created.id,
+          position: 0,
+        });
+      }
     }
   };
 

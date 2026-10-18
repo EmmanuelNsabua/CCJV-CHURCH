@@ -11,8 +11,12 @@ import type { ScheduleEntry } from "@/domain/entities";
 export interface ScheduleEntryDto {
   id: string;
   day: string;
+  days: string[] | null;
   title: string;
+  startTime: string | null;
+  endTime: string | null;
   timeLabel: string;
+  timeZone: string | null;
   audience: string | null;
   isConfirmed: boolean;
   position: number;
@@ -24,8 +28,12 @@ export function toScheduleEntryDto(entry: ScheduleEntry): ScheduleEntryDto {
   return {
     id: entry.id,
     day: entry.day,
+    days: entry.days ?? null,
     title: entry.title,
+    startTime: entry.startTime ?? null,
+    endTime: entry.endTime ?? null,
     timeLabel: entry.timeLabel,
+    timeZone: entry.timeZone ?? null,
     audience: entry.audience,
     isConfirmed: entry.isConfirmed,
     position: entry.position,

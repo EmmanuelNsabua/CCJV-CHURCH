@@ -16,6 +16,8 @@ interface PublicSiteChromeProps {
   socialLinks: SocialLink[];
   /** Verset du rideau d'introduction (`getScripture("rassemblement")`). */
   verse: IntroVerse | null;
+  /** Réglages scalaires pour l'adresse dynamique et les métadonnées. */
+  settings?: Record<string, string>;
 }
 
 /**
@@ -31,6 +33,7 @@ export function PublicSiteChrome({
   children,
   socialLinks,
   verse,
+  settings,
 }: PublicSiteChromeProps) {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith("/admin");
@@ -47,7 +50,7 @@ export function PublicSiteChrome({
       </a>
       <Header socialLinks={socialLinks} />
       <main id="contenu">{children}</main>
-      <Footer socialLinks={socialLinks} />
+      <Footer socialLinks={socialLinks} address={settings?.["site.address"]} />
     </>
   );
 }

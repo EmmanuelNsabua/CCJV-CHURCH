@@ -9,8 +9,10 @@ import type { SocialLink } from "@/domain/entities";
  */
 export interface SocialLinkDto {
   id: string;
+  platform: string | null;
   label: string;
   href: string;
+  isActive: boolean;
   position: number;
   createdAt: string;
   updatedAt: string;
@@ -18,6 +20,7 @@ export interface SocialLinkDto {
 
 /** Forme réduite utilisée dans la réponse regroupée de `GET /settings`. */
 export interface SocialLinkSummaryDto {
+  platform: string | null;
   label: string;
   href: string;
 }
@@ -25,8 +28,10 @@ export interface SocialLinkSummaryDto {
 export function toSocialLinkDto(link: SocialLink): SocialLinkDto {
   return {
     id: link.id,
+    platform: link.platform ?? null,
     label: link.label,
     href: link.href,
+    isActive: link.isActive ?? true,
     position: link.position,
     createdAt: link.createdAt.toISOString(),
     updatedAt: link.updatedAt.toISOString(),
@@ -34,5 +39,5 @@ export function toSocialLinkDto(link: SocialLink): SocialLinkDto {
 }
 
 export function toSocialLinkSummaryDto(link: SocialLink): SocialLinkSummaryDto {
-  return { label: link.label, href: link.href };
+  return { platform: link.platform ?? null, label: link.label, href: link.href };
 }

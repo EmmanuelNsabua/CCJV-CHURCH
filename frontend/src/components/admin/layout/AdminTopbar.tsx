@@ -6,9 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Search,
   Bell,
-  User,
   Shield,
-  Settings,
   LogOut,
   ExternalLink,
   Check,
@@ -117,7 +115,6 @@ export function AdminTopbar({ className }: AdminTopbarProps) {
     { title: "Ressources", href: "/admin/ressources", icon: FileText, cat: "Contenu" },
     { title: "Éditeur de pages", href: "/admin/pages", icon: Layers, cat: "Configuration" },
     { title: "Départements", href: "/admin/departments", icon: Users, cat: "Communauté" },
-    { title: "Paramètres & Profil", href: "/admin/settings", icon: Settings, cat: "Système" },
   ].filter((item) => item.title.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
@@ -235,13 +232,9 @@ export function AdminTopbar({ className }: AdminTopbarProps) {
                 </div>
 
                 <div className="p-2 border-t border-ccjv-line bg-ccjv-offwhite text-center">
-                  <Link
-                    href="/admin/settings"
-                    onClick={() => setNotifOpen(false)}
-                    className="text-[11px] font-sans text-ccjv-ink-secondary hover:text-ccjv-ink transition-colors"
-                  >
-                    Gérer les préférences de notification
-                  </Link>
+                  <span className="text-[11px] font-sans text-ccjv-ink-secondary">
+                    Notifications administratives du système
+                  </span>
                 </div>
               </div>
             )}
@@ -289,24 +282,6 @@ export function AdminTopbar({ className }: AdminTopbarProps) {
 
                 <div className="p-1 space-y-0.5">
                   <Link
-                    href="/admin/settings"
-                    onClick={() => setProfileOpen(false)}
-                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-sans text-ccjv-ink hover:bg-ccjv-offwhite transition-colors"
-                  >
-                    <User className="h-3.5 w-3.5 text-ccjv-ink-secondary" />
-                    <span>Mon profil</span>
-                  </Link>
-
-                  <Link
-                    href="/admin/settings"
-                    onClick={() => setProfileOpen(false)}
-                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-sans text-ccjv-ink hover:bg-ccjv-offwhite transition-colors"
-                  >
-                    <Settings className="h-3.5 w-3.5 text-ccjv-ink-secondary" />
-                    <span>Paramètres système</span>
-                  </Link>
-
-                  <Link
                     href="/"
                     target="_blank"
                     rel="noopener noreferrer"
@@ -314,7 +289,7 @@ export function AdminTopbar({ className }: AdminTopbarProps) {
                     className="flex items-center gap-2.5 px-3 py-2 text-xs font-sans text-ccjv-ink hover:bg-ccjv-offwhite transition-colors"
                   >
                     <ExternalLink className="h-3.5 w-3.5 text-ccjv-ink-secondary" />
-                    <span>Ouvrir le site public</span>
+                    <span>Voir le site public</span>
                   </Link>
                 </div>
 

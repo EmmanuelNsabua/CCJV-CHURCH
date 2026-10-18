@@ -28,6 +28,10 @@ export const ALLOWED_SETTING_KEYS = [
   "site.scheduleChildren",
   "site.whatsappNumber",
   "site.whatsappHref",
+  "site.supportEmail",
+  "site.latitude",
+  "site.longitude",
+  "site.timezone",
 ] as const;
 
 export type SettingKey = (typeof ALLOWED_SETTING_KEYS)[number];
@@ -37,10 +41,71 @@ export function isAllowedSettingKey(key: string): key is SettingKey {
   return (ALLOWED_SETTING_KEYS as readonly string[]).includes(key);
 }
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const phoneRegex = /^\+?[0-9\s\-().]{6,25}$/;
+
 export const settingsPatchSchema = z.object({
-  // Valeur scalaire non vide : un réglage vidé par erreur casserait l'affichage
-  // du site (nom, adresse, numéro WhatsApp).
-  settings: z.record(z.string(), z.string().trim().min(1).max(500)),
+  settings: z.record(z.string(), z.string().trim().max(500)),
+}).superRefine((data, ctx) => {
+  const { settings } = data;
+  if (settings["site.supportEmail"] && !emailRegex.test(settings["site.supportEmail"])) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "L'adresse e-mail de support est invalide.",
+      path: ["settings", "site.supportEmail"],
+    });
+  }
+
+  if (settings["site.whatsappNumber"] && !phoneRegex.test(settings["site.whatsappNumber"])) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Le numéro WhatsApp doit être un numéro international valide.",
+      path: ["settings", "site.whatsappNumber"],
+    });
+  }
+
+  if (settings["site.latitude"] !== undefined && settings["site.latitude"] !== "") {
+    const lat = Number.parseFloat(settings["site.latitude"]);
+    if (Number.isNaN(lat) || lat < -90 || lat > 90) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "La latitude doit être un nombre décimal compris entre -90 et 90.",
+        path: ["settings", "site.latitude"],
+      });
+    }
+  }
+
+  if (settings["site.longitude"] !== undefined && settings["site.longitude"] !== "") {
+    const lng = Number.parseFloat(settings["site.longitude"]);
+    if (Number.isNaN(lng) || lng < -180 || lng > 180) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "La longitude doit être un nombre décimal compris entre -180 et 180.",
+        path: ["settings", "site.longitude"],
+      });
+    }
+  }
+
+  if (settings["site.timezone"] !== undefined && settings["site.timezone"] !== "") {
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: settings["site.timezone"] });
+    } catch {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Le fuseau horaire doit être un identifiant IANA valide (ex: Africa/Lubumbashi).",
+        path: ["settings", "site.timezone"],
+      });
+    }
+  }
+}).transform((data) => {
+  const { settings } = data;
+  if (settings["site.whatsappNumber"] && !settings["site.whatsappHref"]) {
+    const digits = settings["site.whatsappNumber"].replace(/\D/g, "");
+    if (digits) {
+      settings["site.whatsappHref"] = `https://wa.me/${digits}`;
+    }
+  }
+  return data;
 });
 
 export type SettingsPatchInput = z.infer<typeof settingsPatchSchema>;

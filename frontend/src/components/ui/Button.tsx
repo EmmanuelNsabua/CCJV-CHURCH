@@ -19,6 +19,7 @@ export interface ButtonProps {
   children: ReactNode;
   onClick?: (e?: React.MouseEvent<HTMLElement>) => void;
   "aria-label"?: string;
+  title?: string;
 }
 
 

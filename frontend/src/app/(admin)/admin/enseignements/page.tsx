@@ -146,11 +146,7 @@ export default function EnseignementsListPage() {
             (m) => m.isPrimary || m.role === "THUMBNAIL",
           );
           const resolvedImage =
-            primaryMedia?.media?.publicUrl ||
-            (primaryMedia as unknown as { url?: string })?.url ||
-            item.medias?.[0]?.media?.publicUrl ||
-            (item.medias?.[0] as unknown as { url?: string })?.url ||
-            null;
+            primaryMedia?.url ?? item.medias?.[0]?.url ?? null;
 
           return (
             <AdminEntityCard
