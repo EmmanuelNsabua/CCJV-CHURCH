@@ -262,13 +262,30 @@ export interface EditablePage {
 
 export type AdminRole = "SUPER_ADMIN" | "ADMIN" | "DEPARTMENT_MANAGER";
 
+/** Périmètre d'action d'un profil (`admin_scope`, docs/028 D-02). */
+export type AdminScope = "GLOBAL" | "DEPARTMENT";
+
+/**
+ * Profil administratif (`GET /admin/me`, `GET /admin/profiles`).
+ *
+ * Le rôle et le périmètre viennent **uniquement** de `admin_profiles`
+ * (`docs/032` §3.1) : Supabase Auth sait qu'un compte peut s'authentifier, pas
+ * ce qu'il a le droit de faire.
+ *
+ * `email` n'est renseigné que par l'annuaire (`/admin/profiles`) : l'adresse de
+ * connexion vit chez le fournisseur d'identité, elle n'est pas dans la table
+ * métier. `null` = non résolue, jamais inventée.
+ */
 export interface AdminProfile {
   id: string;
   username: string;
   displayName: string | null;
   role: AdminRole;
+  scope?: AdminScope;
+  departmentId?: string | null;
   isActive?: boolean;
   createdAt?: string;
+  email?: string | null;
 }
 
 export interface AdminMediaItem {

@@ -16,6 +16,7 @@ import { pickMostRecentlyPublished as pickLatest } from "@/lib/teaching-recency"
 import type {
   AdminMediaItem,
   AdminProfile,
+  AdminRole,
   CollectionResponse,
   CommunityFace,
   Department,
@@ -522,6 +523,131 @@ export async function listAdminProfiles(query: {
 } = {}): Promise<CollectionResponse<AdminProfile>> {
   const path = withQuery("/admin/profiles", query);
   return apiFetchOrThrow<CollectionResponse<AdminProfile>>(path);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Gestion des comptes administrateurs                                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Corps de `POST /admin/users`.
+ *
+ * `password` est **facultatif** : sans lui, le serveur en génère un et ne le
+ * renvoie jamais. Le rôle demandé n'est pas une décision du client : la policy
+ * le vérifie côté serveur (D-03, D-04) — un `ADMIN` qui demande un compte
+ * `ADMIN` reçoit un `403`.
+ */
+export interface CreateAdminUserPayload {
+  email: string;
+  username: string;
+  displayName?: string | null;
+  role: AdminRole;
+  departmentId?: string | null;
+  password?: string;
+}
+
+/** Réécriture complète d'une habilitation (`PATCH /admin/users/:id/authorization`). */
+export interface UpdateAdminAuthorizationPayload {
+  role: AdminRole;
+  departmentId?: string | null;
+}
+
+/**
+ * Correction de l'identité d'un compte (`PATCH /admin/users/:id/identity`).
+ *
+ * `username` et `displayName` sont écrits dans `admin_profiles`, `email` chez le
+ * fournisseur d'identité. Le rôle ne figure **pas** ici : autre permission,
+ * autre route.
+ */
+export interface UpdateAdminIdentityPayload {
+  username?: string;
+  displayName?: string | null;
+  email?: string;
+}
+
+/** Crée un compte et son habilitation (`POST /admin/users`). */
+export async function createAdminUser(
+  payload: CreateAdminUserPayload,
+): Promise<AdminProfile> {
+  return apiFetchOrThrow<AdminProfile>("/admin/users", {
+    method: "POST",
+    body: payload as unknown as Record<string, unknown>,
+  });
+}
+
+/** Réécrit l'habilitation d'un compte (`PATCH /admin/users/:id/authorization`). */
+export async function updateAdminAuthorization(
+  id: string,
+  payload: UpdateAdminAuthorizationPayload,
+): Promise<AdminProfile> {
+  return apiFetchOrThrow<AdminProfile>(
+    `/admin/users/${encodeURIComponent(id)}/authorization`,
+    { method: "PATCH", body: payload as unknown as Record<string, unknown> },
+  );
+}
+
+/** Active ou désactive un compte (`PATCH /admin/users/:id/activation`). */
+export async function setAdminActivation(
+  id: string,
+  isActive: boolean,
+): Promise<AdminProfile> {
+  return apiFetchOrThrow<AdminProfile>(
+    `/admin/users/${encodeURIComponent(id)}/activation`,
+    { method: "PATCH", body: { isActive } },
+  );
+}
+
+/** Corrige l'identité d'un compte (`PATCH /admin/users/:id/identity`). */
+export async function updateAdminIdentity(
+  id: string,
+  payload: UpdateAdminIdentityPayload,
+): Promise<AdminProfile> {
+  return apiFetchOrThrow<AdminProfile>(
+    `/admin/users/${encodeURIComponent(id)}/identity`,
+    { method: "PATCH", body: payload as unknown as Record<string, unknown> },
+  );
+}
+
+/**
+ * Réinitialise le mot de passe d'un **autre** compte
+ * (`PATCH /admin/users/:id/password`).
+ *
+ * Le secret ne revient jamais : la réponse est un `204` sans corps. Il n'est ni
+ * relu, ni conservé côté client, ni affiché après coup.
+ */
+export async function setAdminPassword(
+  id: string,
+  password: string,
+): Promise<void> {
+  await apiFetchOrThrow<null>(
+    `/admin/users/${encodeURIComponent(id)}/password`,
+    { method: "PATCH", body: { password } },
+  );
+}
+
+/**
+ * Change **son propre** mot de passe (`PATCH /admin/me/password`).
+ *
+ * Aucun identifiant transmis : la cible est l'identité du jeton vérifié.
+ */
+export async function changeOwnPassword(password: string): Promise<void> {
+  await apiFetchOrThrow<null>("/admin/me/password", {
+    method: "PATCH",
+    body: { password },
+  });
+}
+
+/**
+ * Supprime **définitivement** un compte (`DELETE /admin/users/:id`).
+ *
+ * Réservé au super administrateur ; la réponse est un `204` sans corps. Un
+ * `409` signifie que le compte a accordé des droits d'accès média : la base
+ * refuse tant que ces autorisations existent.
+ */
+export async function deleteAdminUser(id: string): Promise<void> {
+  await apiFetchOrThrow<null>(`/admin/users/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 }
 
 /** Liste des publications pour le back-office (`GET /publications`). */

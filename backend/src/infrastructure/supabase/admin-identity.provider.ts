@@ -4,8 +4,29 @@ import type {
   CreatedIdentity,
   IdentityToCreate,
 } from "@/domain/identity/admin-identity-provider";
-import { DuplicateEmailError, InternalError } from "@/shared/errors/app-error";
+import {
+  DuplicateEmailError,
+  InternalError,
+  NotFoundError,
+} from "@/shared/errors/app-error";
 import { logger } from "@/infrastructure/logger";
+
+/** Bornes de la lecture d'adresses (`findEmails`) : 4 pages de 200 comptes. */
+const MAX_LISTED_USER_PAGES = 4;
+
+/**
+ * L'erreur du fournisseur dit-elle « adresse déjà prise » ?
+ *
+ * Supabase répond `422` pour une adresse déjà enregistrée ; le message est
+ * vérifié en second recours, car cette bibliothèque a déjà changé de statut
+ * selon les versions.
+ */
+function isDuplicateEmail(error: {
+  message: string;
+  status?: number | undefined;
+}): boolean {
+  return error.status === 422 || /already|registered|exists/i.test(error.message);
+}
 
 /**
  * Implémentation Supabase Auth du port d'identité.
@@ -30,13 +51,9 @@ export class SupabaseAdminIdentityProvider implements AdminIdentityProvider {
     });
 
     if (error) {
-      const status = "status" in error ? error.status : undefined;
-
-      // 422 est la réponse de Supabase pour une adresse déjà enregistrée. Elle
-      // est traduite en **conflit métier** (409) plutôt qu'en panne : c'est une
-      // situation que l'administrateur peut corriger lui-même en changeant
-      // d'adresse, et un `500` le lui cacherait.
-      if (status === 422 || /already|registered|exists/i.test(error.message)) {
+      // `isDuplicateEmail` couvre le statut **et** le message : cette
+      // bibliothèque a déjà changé de code selon les versions.
+      if (isDuplicateEmail(error)) {
         throw new DuplicateEmailError();
       }
 
@@ -98,6 +115,114 @@ export class SupabaseAdminIdentityProvider implements AdminIdentityProvider {
         "L'état du compte d'authentification n'a pas pu être modifié",
       );
     }
+  }
+
+  /**
+   * Remplace l'adresse de connexion.
+   *
+   * `email_confirm: true` est aligné sur la création : l'adresse est saisie et
+   * assumée par un administrateur, exiger du titulaire qu'il confirme une
+   * adresse qu'il n'a pas choisie bloquerait le compte sans rien protéger.
+   *
+   * ⚠️ Ce choix est une **hypothèse d'implémentation**, pas une règle du
+   * dépôt : si la configuration Supabase du projet impose une double
+   * confirmation, `updateUserById` produira une adresse en attente et la
+   * connexion continuera de se faire avec l'ancienne jusqu'à validation. Le
+   * compte rendu le signale ; l'interface ne prétend pas que le changement est
+   * actif tant que le fournisseur ne l'a pas dit.
+   */
+  async updateEmail(id: string, email: string): Promise<void> {
+    const { error } = await this.supabase.auth.admin.updateUserById(id, {
+      email,
+      email_confirm: true,
+    });
+
+    if (error) {
+      if (isDuplicateEmail(error)) {
+        throw new DuplicateEmailError();
+      }
+
+      logger.error({ err: error, userId: id }, "Changement d'adresse refusé");
+      throw new InternalError(
+        "L'adresse de connexion n'a pas pu être modifiée",
+      );
+    }
+  }
+
+  /**
+   * Définit un nouveau mot de passe.
+   *
+   * Le secret traverse cette méthode **une seule fois**, vers l'API
+   * d'administration, qui l'empreint elle-même. Il n'est jamais journalisé : le
+   * `logger` ne reçoit que l'identifiant du compte.
+   */
+  async updatePassword(id: string, password: string): Promise<void> {
+    const { error } = await this.supabase.auth.admin.updateUserById(id, {
+      password,
+    });
+
+    if (error) {
+      if ("status" in error && error.status === 404) {
+        throw new NotFoundError(
+          "PROFILE_NOT_FOUND",
+          "Ce compte n'existe pas chez le fournisseur d'identité",
+          { id },
+        );
+      }
+
+      logger.error(
+        { err: { message: error.message, status: "status" in error ? error.status : undefined }, userId: id },
+        "Changement de mot de passe refusé",
+      );
+      throw new InternalError(
+        "Le mot de passe n'a pas pu être modifié",
+      );
+    }
+  }
+
+  /**
+   * Adresses de connexion des comptes demandés.
+   *
+   * Lecture **tolérante** : l'annuaire administratif doit rester consultable
+   * même si le fournisseur ne répond pas. Une adresse manquante s'affiche comme
+   * « non résolue » — elle n'empêche ni la modification d'habilitation ni la
+   * désactivation d'un compte.
+   *
+   * La pagination est bornée : `admin_profiles` compte quelques lignes, et une
+   * boucle non bornée sur un annuaire inattendu serait pire qu'une adresse
+   * manquante.
+   */
+  async findEmails(ids: readonly string[]): Promise<Map<string, string>> {
+    const emails = new Map<string, string>();
+    if (ids.length === 0) return emails;
+
+    const wanted = new Set(ids);
+    const perPage = 200;
+
+    for (let page = 1; page <= MAX_LISTED_USER_PAGES; page += 1) {
+      const { data, error } = await this.supabase.auth.admin.listUsers({
+        page,
+        perPage,
+      });
+
+      if (error) {
+        logger.warn(
+          { err: error, page },
+          "Adresses de connexion illisibles : l'annuaire est affiché sans elles",
+        );
+        return emails;
+      }
+
+      for (const user of data.users) {
+        if (user.email && wanted.has(user.id)) {
+          emails.set(user.id, user.email);
+        }
+      }
+
+      if (emails.size === wanted.size || data.users.length < perPage) break;
+    }
+
+    return emails;
   }
 
   async deleteUser(id: string): Promise<void> {

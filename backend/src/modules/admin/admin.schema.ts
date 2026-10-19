@@ -157,6 +157,66 @@ export type UpdateAdminAuthorizationBody = z.infer<
   typeof updateAdminAuthorizationSchema
 >;
 
+/**
+ * Modification de l'**identité** d'un compte : nom d'utilisateur, nom affiché,
+ * adresse de connexion.
+ *
+ * Les trois champs sont facultatifs, mais **au moins un** est exigé : une requête
+ * vide n'est pas une modification, et l'accepter produirait un `200` mensonger.
+ *
+ * Séparation des autorités, qui commande la séparation des écritures :
+ * - `username` et `displayName` vivent dans `admin_profiles` ;
+ * - `email` vit **uniquement** chez Supabase Auth.
+ *
+ * Rien de tout cela ne touche au rôle ni au périmètre : c'est
+ * `updateAdminAuthorizationSchema`, qui exige une autre permission.
+ */
+export const updateAdminIdentitySchema = z
+  .object({
+    username: z
+      .string()
+      .trim()
+      .min(3, "Le nom d'utilisateur doit contenir au moins 3 caractères")
+      .max(50, "Le nom d'utilisateur ne peut pas dépasser 50 caractères")
+      .optional(),
+    displayName: z
+      .string()
+      .trim()
+      .max(120, "Le nom affiché ne peut pas dépasser 120 caractères")
+      .nullish(),
+    email: z.email("Adresse électronique invalide").max(254).optional(),
+  })
+  .refine(
+    (value) =>
+      value.username !== undefined ||
+      value.displayName !== undefined ||
+      value.email !== undefined,
+    {
+      message: "Aucun champ à mettre à jour",
+      path: ["username"],
+    },
+  );
+
+export type UpdateAdminIdentityBody = z.infer<typeof updateAdminIdentitySchema>;
+
+/**
+ * Définition administrative d'un mot de passe.
+ *
+ * ⚠️ **Le secret ne sort jamais du serveur** : il n'est ni renvoyé, ni
+ * journalisé, ni stocké en base. Il est transmis par HTTPS au backend, qui le
+ * remet à l'API d'administration Supabase — laquelle se charge de l'empreinte.
+ *
+ * Seule la **longueur** est contrainte ici, volontairement : une politique de
+ * complexité écrite dans ce fichier divergerait de celle que Supabase applique,
+ * et deux autorités pour une même règle finissent par se contredire. Le
+ * fournisseur reste l'arbitre du refus.
+ */
+export const setAdminPasswordSchema = z.object({
+  password: passwordSchema,
+});
+
+export type SetAdminPasswordBody = z.infer<typeof setAdminPasswordSchema>;
+
 /** Identifiant de profil dans l'URL. */
 export const adminUserParamsSchema = z.object({
   id: z.uuid("L'identifiant de profil doit être un UUID"),

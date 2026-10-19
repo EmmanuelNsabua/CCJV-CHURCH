@@ -1305,7 +1305,7 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     type: "object",
     description:
       "Entrée de l'annuaire administratif : le profil courant complété de l'état " +
-      "d'activation et de la date de création.",
+      "d'activation, de la date de création et de l'adresse de connexion.",
     required: [
       "id",
       "username",
@@ -1313,6 +1313,7 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       "role",
       "isActive",
       "createdAt",
+      "email",
     ],
     properties: {
       id: { type: "string", format: "uuid" },
@@ -1321,6 +1322,16 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       role: { type: "string", enum: ["SUPER_ADMIN", "ADMIN", "DEPARTMENT_MANAGER"] },
       isActive: { type: "boolean" },
       createdAt: { type: "string", format: "date-time" },
+      /*
+       * Adresse de connexion, lue chez le fournisseur d'identité — elle
+       * n'existe pas dans `admin_profiles`. `null` quand elle n'a pas pu être
+       * résolue : l'annuaire reste consultable, la colonne est simplement vide.
+       *
+       * Ce champ n'existe que sur la **collection administrative**, dont l'accès
+       * est décidé par `UserPolicy.READ` (SUPER_ADMIN) : `GET /admin/me` garde
+       * son contrat, sans adresse.
+       */
+      email: { type: ["string", "null"], format: "email" },
     },
   });
 
@@ -2987,10 +2998,14 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     tags: ["admin"],
     summary: "Lister les profils administratifs",
     description:
-      "Annuaire administratif, avec l'état d'activation et la date de création de " +
-      "chaque profil. Collection paginée, sans filtre serveur. Réservé au " +
-      "`SUPER_ADMIN` : le périmètre de lecture de l'`ADMIN` n'est pas arbitré " +
-      "(docs/029 Q-02), et le refus par défaut s'applique (docs/029 §4.3).",
+      "Annuaire administratif, avec l'état d'activation, la date de création et " +
+      "l'adresse de connexion de chaque profil. Collection paginée, sans filtre " +
+      "serveur.\n\n" +
+      "**Cellule 1.4 — arbitrée** : ouverte au `SUPER_ADMIN` **et à l'`ADMIN`** " +
+      "(Q-02 tranchée par le commanditaire). Lire l'annuaire n'autorise pas à " +
+      "administrer les comptes qu'on y trouve : les cellules 1.5 et 1.6 restent " +
+      "bornées aux responsables de département pour un acteur `ADMIN`, et XD-03 " +
+      "lui interdit toute action contre un `SUPER_ADMIN`.",
     security: BEARER_SECURITY,
     parameters: PAGINATION_PARAMETERS,
     responses: {
@@ -3058,6 +3073,42 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     properties: { isActive: { type: "boolean" } },
   });
 
+  registry.registerComponent("schemas", "AdminUserIdentity", {
+    type: "object",
+    description:
+      "Correction de l'identité d'un compte. `username` et `displayName` vivent " +
+      "dans `admin_profiles`, `email` chez le fournisseur d'identité — deux " +
+      "écritures, deux autorités, donc **aucune transaction commune**. Au moins " +
+      "un champ est exigé : une requête vide n'est pas une modification. Le rôle " +
+      "et le périmètre ne figurent pas ici (cellule 1.5, autre permission).",
+    minProperties: 1,
+    properties: {
+      username: { type: "string", minLength: 3, maxLength: 50 },
+      displayName: { type: ["string", "null"], maxLength: 120 },
+      email: { type: "string", format: "email", maxLength: 254 },
+    },
+  });
+
+  registry.registerComponent("schemas", "AdminUserPassword", {
+    type: "object",
+    description:
+      "Nouveau mot de passe. La valeur traverse le serveur **sans y être lue, " +
+      "journalisée, stockée ni renvoyée** : elle part vers l'API d'administration " +
+      "Supabase, qui l'empreinte elle-même. Aucun algorithme de hachage n'existe " +
+      "dans le projet, et la réponse est un `204` sans corps.",
+    required: ["password"],
+    properties: {
+      password: {
+        type: "string",
+        minLength: 12,
+        maxLength: 200,
+        description:
+          "12 caractères au minimum (borne basse de `docs/030` §5). La politique " +
+          "de complexité reste celle de Supabase : le fournisseur arbitre le refus.",
+      },
+    },
+  });
+
   const adminUserIdParameter = {
     name: "id",
     in: "path" as const,
@@ -3097,10 +3148,14 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     tags: ["admin"],
     summary: "Réécrire l'habilitation d'un compte",
     description:
-      "Rôle, périmètre et rattachement. Réservé au `SUPER_ADMIN` : le périmètre de " +
-      "l'`ADMIN` sur cette action n'est pas arbitré (docs/029 Q-02), et administrer un " +
-      "compte `SUPER_ADMIN` ne l'est pas davantage (Q-03) — les deux refus sont donc " +
-      "appliqués.",
+      "Rôle, périmètre et rattachement.\n\n" +
+      "**Cellule 1.5 — arbitrée** : ouverte au `SUPER_ADMIN` **et, pour les " +
+      "responsables de département seulement, à l'`ADMIN`** (Q-02 tranchée). " +
+      "Pour un acteur `ADMIN` : la cible doit être un `DEPARTMENT_MANAGER` et le " +
+      "rôle écrit doit rester `DEPARTMENT_MANAGER` — promouvoir vers un rôle " +
+      "qu'il ne détient pas serait s'attribuer un pouvoir par personne " +
+      "interposée (D-03, D-04). Administrer un compte `SUPER_ADMIN` reste refusé " +
+      "à tous (XD-03, Q-03).",
     security: BEARER_SECURITY,
     parameters: [adminUserIdParameter],
     requestBody: {
@@ -3123,8 +3178,11 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       "La révocation est **immédiate** (D-14) : le profil est mis à jour avant le " +
       "fournisseur d'identité, parce que c'est `is_active` que la chaîne d'accès relit " +
       "à chaque requête — donc ce qui invalide les jetons déjà émis. Une désactivation " +
-      "ne touche pas au rôle : réactiver rend le compte tel qu'il était. Aucune route " +
-      "ne supprime un compte (cellule 1.8, Q-24).",
+      "ne touche pas au rôle : réactiver rend le compte tel qu'il était.\n\n" +
+      "**Cellule 1.6 — arbitrée** : ouverte au `SUPER_ADMIN` **et, pour les " +
+      "responsables de département seulement, à l'`ADMIN`** (Q-A4 tranchée). " +
+      "Personne ne désactive son propre compte : ce serait un verrouillage. Pour " +
+      "supprimer définitivement un compte, voir `DELETE /admin/users/{id}`.",
     security: BEARER_SECURITY,
     parameters: [adminUserIdParameter],
     requestBody: {
@@ -3134,6 +3192,119 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     responses: {
       200: jsonResponse("État du compte mis à jour.", "AdminProfileSummary"),
       ...adminResponses({ 404: responseRef("NotFound") }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "delete",
+    path: `${API_BASE_PATH}/admin/users/{id}`,
+    operationId: "adminUsersDelete",
+    tags: ["admin"],
+    summary: "Supprimer définitivement un compte",
+    description:
+      "**Suppression physique et irréversible** du profil et du compte " +
+      "d'authentification — à ne pas confondre avec la désactivation.\n\n" +
+      "**Cellule 1.8 — arbitrée** : réservée au **`SUPER_ADMIN`** (Q-24 tranchée " +
+      "par le commanditaire). Trois bornes s'appliquent : aucun compte " +
+      "`SUPER_ADMIN` ne peut être supprimé (Q-03 — le dernier accès " +
+      "d'administration est donc protégé), personne ne supprime son propre " +
+      "compte, et un compte encore **auteur de droits d'accès média** ne peut pas " +
+      "disparaître (`media_access.granted_by` est en `RESTRICT`) : la réponse est " +
+      "alors `409`, avec la consigne de retirer ces autorisations.\n\n" +
+      "Ordre des écritures : profil d'abord, compte d'authentification ensuite. " +
+      "Si la seconde échoue, la réponse le dit explicitement — le compte " +
+      "subsistant ne peut plus rien faire (aucun profil, donc aucun droit).",
+    security: BEARER_SECURITY,
+    parameters: [adminUserIdParameter],
+    responses: {
+      204: { description: "Compte supprimé. Aucun corps." },
+      ...adminResponses({
+        404: responseRef("NotFound"),
+        409: responseRef("Conflict"),
+      }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "patch",
+    path: `${API_BASE_PATH}/admin/users/{id}/identity`,
+    operationId: "adminUsersUpdateIdentity",
+    tags: ["admin"],
+    summary: "Corriger l'identité d'un compte",
+    description:
+      "Nom d'utilisateur, nom affiché et adresse de connexion. **Aucune cellule " +
+      "de `docs/029` §2.1** ne couvre cette opération : l'hypothèse retenue est la " +
+      "plus restrictive cohérente (alignée sur la cellule 1.5, donc `SUPER_ADMIN`), " +
+      "déclarée `pending` dans `UserPolicy`. Les exclusions existantes s'appliquent " +
+      "— XD-03 (un `ADMIN` n'administre pas un `SUPER_ADMIN`) et Q-03 (un " +
+      "`SUPER_ADMIN` n'administre pas un pair).\n\n" +
+      "L'adresse est écrite **avant** l'identité applicative : le fournisseur est " +
+      "seul à pouvoir refuser pour un motif métier (adresse déjà prise). En cas " +
+      "d'échec de la seconde écriture, la réponse **le dit** — l'adresse a changé, " +
+      "le profil non.",
+    security: BEARER_SECURITY,
+    parameters: [adminUserIdParameter],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: schemaRef("AdminUserIdentity") } },
+    },
+    responses: {
+      200: jsonResponse("Profil mis à jour.", "AdminProfileSummary"),
+      ...adminResponses({
+        404: responseRef("NotFound"),
+        409: responseRef("Conflict"),
+      }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "patch",
+    path: `${API_BASE_PATH}/admin/users/{id}/password`,
+    operationId: "adminUsersSetPassword",
+    tags: ["admin"],
+    summary: "Réinitialiser le mot de passe d'un compte",
+    description:
+      "Réinitialisation **administrative** : aucun courriel n'est envoyé, la " +
+      "valeur est transmise par HTTPS au backend puis à l'API d'administration " +
+      "Supabase, qui l'empreinte. Aucun hachage n'est calculé par l'application, " +
+      "et le secret ne figure ni dans une réponse, ni dans un journal, ni en base. " +
+      "Réponse `204` sans corps.\n\n" +
+      "Les sessions déjà ouvertes ne sont **pas** révoquées : un jeton reste " +
+      "valide jusqu'à expiration. Pour couper un accès immédiatement, utilisez la " +
+      "désactivation.",
+    security: BEARER_SECURITY,
+    parameters: [adminUserIdParameter],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: schemaRef("AdminUserPassword") } },
+    },
+    responses: {
+      204: { description: "Mot de passe redéfini. Aucun corps." },
+      ...adminResponses({ 404: responseRef("NotFound") }),
+    },
+  });
+
+  registerRoute(registry, {
+    method: "patch",
+    path: `${API_BASE_PATH}/admin/me/password`,
+    operationId: "adminChangeOwnPassword",
+    tags: ["admin"],
+    summary: "Changer son propre mot de passe",
+    description:
+      "Aucun identifiant n'est reçu : la cible est l'identité du **jeton vérifié**. " +
+      "Volontairement hors de `UserPolicy` — administrer son propre secret n'est pas " +
+      "administrer autrui — et indispensable : Q-03 interdit à un `SUPER_ADMIN` " +
+      "d'administrer un compte `SUPER_ADMIN`, y compris le sien, ce qui laisserait " +
+      "le compte suprême sans moyen de faire tourner son mot de passe. La garde " +
+      "reste réelle : administrateur **actif**. Réponse `204` sans corps.",
+    security: BEARER_SECURITY,
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: schemaRef("AdminUserPassword") } },
+    },
+    responses: {
+      204: { description: "Mot de passe modifié. Aucun corps." },
+      ...adminResponses(),
     },
   });
 

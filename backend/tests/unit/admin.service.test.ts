@@ -111,6 +111,21 @@ function fakeAdminProfiles(seed: readonly AdminProfile[] = []) {
       store.set(id, updated);
       return updated;
     },
+    async updateProfile(id, data) {
+      const existing = store.get(id);
+      if (existing === undefined) return null;
+      const updated: AdminProfile = {
+        ...existing,
+        username: data.username !== undefined ? data.username.trim() : existing.username,
+        displayName:
+          data.displayName !== undefined ? data.displayName : existing.displayName,
+      };
+      store.set(id, updated);
+      return updated;
+    },
+    async remove(id) {
+      return store.delete(id);
+    },
   };
 
   return { repository, store };
@@ -125,10 +140,16 @@ function fakeDepartments(known: readonly string[] = [DEPARTMENT_ID]) {
 }
 
 /** Double du port d'identité — aucun appel réseau, aucune écriture. */
-function fakeIdentities(options: { failOnCreate?: boolean } = {}) {
+function fakeIdentities(options: { failOnCreate?: boolean; failOnEmail?: boolean } = {}) {
   const created: string[] = [];
   const deleted: string[] = [];
   const activations: { id: string; isActive: boolean }[] = [];
+  const emails: { id: string; email: string }[] = [];
+  const passwords: { id: string; password: string }[] = [];
+  const directory = new Map<string, string>([
+    [MANAGER_ID, "responsable@ccjv.org"],
+    [ADMIN_ID, "admin@ccjv.org"],
+  ]);
 
   const provider: AdminIdentityProvider = {
     async createUser(): Promise<CreatedIdentity> {
@@ -136,6 +157,23 @@ function fakeIdentities(options: { failOnCreate?: boolean } = {}) {
         throw new Error("fournisseur indisponible");
       }
       return { id: MANAGER_ID };
+    },
+    async updateEmail(id, email) {
+      if (options.failOnEmail) {
+        throw new Error("adresse déjà prise");
+      }
+      emails.push({ id, email });
+    },
+    async updatePassword(id, password) {
+      passwords.push({ id, password });
+    },
+    async findEmails(ids) {
+      const found = new Map<string, string>();
+      for (const id of ids) {
+        const email = directory.get(id);
+        if (email !== undefined) found.set(id, email);
+      }
+      return found;
     },
     async setActive(id, isActive) {
       activations.push({ id, isActive });
@@ -145,7 +183,7 @@ function fakeIdentities(options: { failOnCreate?: boolean } = {}) {
     },
   };
 
-  return { provider, created, deleted, activations };
+  return { provider, created, deleted, activations, emails, passwords };
 }
 
 function service(
@@ -309,24 +347,282 @@ describe("AdminService — création de comptes (D-03, D-04)", () => {
 });
 
 /* -------------------------------------------------------------------------- */
+/*  Identité du compte                                                        */
+/* -------------------------------------------------------------------------- */
+
+describe("AdminService — identité du compte (nom, adresse de connexion)", () => {
+  const target = () => actor("DEPARTMENT_MANAGER", { id: MANAGER_ID });
+
+  it("un ADMIN ne corrige pas l'identité d'un compte : hypothèse alignée sur 1.5", async () => {
+    const { repository, store } = fakeAdminProfiles([target()]);
+    const { service: adminService, identities } = service(repository);
+
+    const error = await capture(
+      adminService.updateIdentity(admin, MANAGER_ID, { username: "nouveau" }),
+    );
+
+    expectAppError(error, "FORBIDDEN", 403);
+    // Refus **total** : ni le profil, ni le fournisseur d'identité.
+    expect(store.get(MANAGER_ID)?.username).toBe("department_manager");
+    expect(identities.emails).toHaveLength(0);
+  });
+
+  it("un SUPER_ADMIN corrige le nom, le nom affiché et l'adresse", async () => {
+    const { repository, store } = fakeAdminProfiles([target()]);
+    const { service: adminService, identities } = service(repository);
+
+    const updated = await adminService.updateIdentity(superAdmin, MANAGER_ID, {
+      username: "responsable-social",
+      displayName: "Responsable des affaires sociales",
+      email: "social@ccjv.org",
+    });
+
+    expect(updated.username).toBe("responsable-social");
+    expect(updated.displayName).toBe("Responsable des affaires sociales");
+    expect(store.get(MANAGER_ID)?.username).toBe("responsable-social");
+    // L'adresse ne vit pas dans `admin_profiles` : elle part chez le fournisseur.
+    expect(identities.emails).toEqual([
+      { id: MANAGER_ID, email: "social@ccjv.org" },
+    ]);
+    expect(JSON.stringify(updated)).not.toMatch(/social@ccjv\.org/);
+  });
+
+  it("refuse de toucher au compte SUPER_ADMIN d'un pair : Q-03 non tranchée", async () => {
+    const { repository } = fakeAdminProfiles([superAdmin]);
+    const { service: adminService, identities } = service(repository);
+
+    const error = await capture(
+      adminService.updateIdentity(superAdmin, superAdmin.id, {
+        displayName: "moi-même",
+      }),
+    );
+
+    expectAppError(error, "FORBIDDEN", 403);
+    expect(identities.emails).toHaveLength(0);
+  });
+
+  /**
+   * L'adresse est écrite **avant** l'identité applicative : le fournisseur est
+   * le seul à pouvoir refuser pour un motif métier (adresse déjà prise), et le
+   * tenter en premier évite de corriger un nom pour échouer ensuite.
+   */
+  it("un refus du fournisseur n'écrit rien côté profil", async () => {
+    const { repository, store } = fakeAdminProfiles([target()]);
+    const identities = fakeIdentities({ failOnEmail: true });
+    const adminService = new AdminService(
+      repository,
+      fakeDepartments(),
+      identities.provider,
+    );
+
+    const error = await capture(
+      adminService.updateIdentity(superAdmin, MANAGER_ID, {
+        username: "nouveau",
+        email: "pris@ccjv.org",
+      }),
+    );
+
+    expect((error as Error).message).toBe("adresse déjà prise");
+    expect(store.get(MANAGER_ID)?.username).toBe("department_manager");
+  });
+
+  /**
+   * Échec partiel : deux systèmes, aucune transaction commune. La réponse doit
+   * dire ce qui a réellement eu lieu — jamais un succès silencieux, jamais un
+   * « rien n'a changé » mensonger.
+   */
+  it("signale explicitement une adresse changée sans écriture du profil", async () => {
+    const { repository } = fakeAdminProfiles([target()]);
+    jest
+      .spyOn(repository, "updateProfile")
+      .mockRejectedValue(new Error("nom d'utilisateur déjà pris"));
+    const { service: adminService, identities } = service(repository);
+
+    const error = await capture(
+      adminService.updateIdentity(superAdmin, MANAGER_ID, {
+        username: "deja-pris",
+        email: "nouvelle@ccjv.org",
+      }),
+    );
+
+    const appError = expectAppError(error, "VALIDATION_ERROR", 400);
+    expect(appError.message).toMatch(/adresse de connexion a été modifiée/i);
+    expect(identities.emails).toEqual([
+      { id: MANAGER_ID, email: "nouvelle@ccjv.org" },
+    ]);
+  });
+
+  it("répond 404 sur un profil inconnu", async () => {
+    const { repository } = fakeAdminProfiles();
+    const { service: adminService } = service(repository);
+
+    const error = await capture(
+      adminService.updateIdentity(superAdmin, MANAGER_ID, { username: "x" }),
+    );
+
+    expectAppError(error, "PROFILE_NOT_FOUND", 404);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Mot de passe                                                              */
+/* -------------------------------------------------------------------------- */
+
+describe("AdminService — mot de passe (aucun hachage maison)", () => {
+  const target = () => actor("DEPARTMENT_MANAGER", { id: MANAGER_ID });
+  const NEW_PASSWORD = "un-mot-de-passe-de-12-caracteres";
+
+  it("un ADMIN ne réinitialise pas le mot de passe d'un autre compte", async () => {
+    const { repository } = fakeAdminProfiles([target()]);
+    const { service: adminService, identities } = service(repository);
+
+    const error = await capture(
+      adminService.setPassword(admin, MANAGER_ID, { password: NEW_PASSWORD }),
+    );
+
+    expectAppError(error, "FORBIDDEN", 403);
+    expect(identities.passwords).toHaveLength(0);
+  });
+
+  it("un SUPER_ADMIN le fait, et le service ne renvoie ni ne conserve le secret", async () => {
+    const { repository } = fakeAdminProfiles([target()]);
+    const { service: adminService, identities } = service(repository);
+
+    const result = await adminService.setPassword(superAdmin, MANAGER_ID, {
+      password: NEW_PASSWORD,
+    });
+
+    // Aucune valeur de retour : il n'y a rien à fuiter.
+    expect(result).toBeUndefined();
+    // Le secret part **tel quel** au fournisseur, qui l'empreint lui-même.
+    expect(identities.passwords).toEqual([
+      { id: MANAGER_ID, password: NEW_PASSWORD },
+    ]);
+  });
+
+  it("un SUPER_ADMIN ne réinitialise pas le mot de passe d'un pair (Q-03)", async () => {
+    const { repository } = fakeAdminProfiles([superAdmin]);
+    const { service: adminService, identities } = service(repository);
+
+    const error = await capture(
+      adminService.setPassword(superAdmin, superAdmin.id, {
+        password: NEW_PASSWORD,
+      }),
+    );
+
+    expectAppError(error, "FORBIDDEN", 403);
+    expect(identities.passwords).toHaveLength(0);
+  });
+
+  it("répond 404 sur un profil inconnu", async () => {
+    const { repository } = fakeAdminProfiles();
+    const { service: adminService } = service(repository);
+
+    const error = await capture(
+      adminService.setPassword(superAdmin, MANAGER_ID, { password: NEW_PASSWORD }),
+    );
+
+    expectAppError(error, "PROFILE_NOT_FOUND", 404);
+  });
+
+  /**
+   * Le changement de **son propre** mot de passe est hors policy : sinon Q-03
+   * rendrait le dernier `SUPER_ADMIN` incapable de faire tourner son secret.
+   * La cible est alors l'identité du jeton, jamais un identifiant reçu.
+   */
+  it("chacun change son propre mot de passe, sans permission supplémentaire", async () => {
+    for (const who of [superAdmin, admin, manager]) {
+      const { repository } = fakeAdminProfiles([who]);
+      const { service: adminService, identities } = service(repository);
+
+      await adminService.changeOwnPassword(who, { password: NEW_PASSWORD });
+
+      expect(identities.passwords).toEqual([
+        { id: who.id, password: NEW_PASSWORD },
+      ]);
+    }
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Annuaire                                                                  */
+/* -------------------------------------------------------------------------- */
+
+describe("AdminService — annuaire et adresses de connexion", () => {
+  it("résout l'adresse de chaque profil, et rien de plus", async () => {
+    const { repository } = fakeAdminProfiles([
+      actor("DEPARTMENT_MANAGER", { id: MANAGER_ID }),
+    ]);
+    const { service: adminService } = service(repository);
+
+    const { items } = await adminService.listProfiles({ page: 1, limit: 20 });
+    const emails = await adminService.findEmails(items);
+
+    expect(emails.get(MANAGER_ID)).toBe("responsable@ccjv.org");
+    // Un profil sans adresse connue reste absent de la table : l'interface
+    // affichera une valeur vide plutôt qu'une adresse inventée.
+    expect(emails.size).toBe(1);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
 /*  Habilitation                                                              */
 /* -------------------------------------------------------------------------- */
 
-describe("AdminService — modification d'habilitation (cellule 1.5, Q-02)", () => {
-  it("un ADMIN ne modifie pas l'habilitation d'un responsable : Q-02 n'est pas tranchée", async () => {
+describe("AdminService — modification d'habilitation (cellule 1.5, arbitrée pour l'ADMIN)", () => {
+  /**
+   * Q-02 a été **tranchée par le commanditaire en faveur de l'`ADMIN`** : il
+   * administre les responsables de département. Le test vérifie l'ouverture
+   * *et* ses bornes — c'est la borne qui empêche l'auto-promotion.
+   */
+  it("un ADMIN déplace un responsable d'un département à un autre", async () => {
     const target = actor("DEPARTMENT_MANAGER", { id: MANAGER_ID });
     const { repository, store } = fakeAdminProfiles([target]);
-    const { service: adminService } = service(repository);
+    const departments = fakeDepartments([DEPARTMENT_ID, OTHER_DEPARTMENT_ID]);
+    const { service: adminService } = service(repository, departments);
 
     const body: UpdateAdminAuthorizationBody = {
       role: "DEPARTMENT_MANAGER",
       departmentId: OTHER_DEPARTMENT_ID,
     };
 
-    const error = await capture(adminService.updateAuthorization(admin, MANAGER_ID, body));
+    const updated = await adminService.updateAuthorization(admin, MANAGER_ID, body);
+
+    expect(updated.departmentId).toBe(OTHER_DEPARTMENT_ID);
+    expect(store.get(MANAGER_ID)?.departmentId).toBe(OTHER_DEPARTMENT_ID);
+  });
+
+  it("un ADMIN ne peut PAS promouvoir un responsable en ADMIN (D-03, D-04)", async () => {
+    const target = actor("DEPARTMENT_MANAGER", { id: MANAGER_ID });
+    const { repository, store } = fakeAdminProfiles([target]);
+    const { service: adminService } = service(repository);
+
+    const error = await capture(
+      adminService.updateAuthorization(admin, MANAGER_ID, {
+        role: "ADMIN",
+        departmentId: null,
+      }),
+    );
+
+    // S'attribuer un pouvoir par personne interposée est refusé : le rôle écrit
+    // doit rester celui que l'ADMIN détient déjà, c'est-à-dire aucun rôle système.
+    expectAppError(error, "FORBIDDEN", 403);
+    expect(store.get(MANAGER_ID)?.role).toBe("DEPARTMENT_MANAGER");
+  });
+
+  it("un ADMIN n'administre pas un pair ADMIN", async () => {
+    const peer = actor("ADMIN", { id: MANAGER_ID, username: "pair" });
+    const { repository } = fakeAdminProfiles([peer]);
+    const { service: adminService } = service(repository);
+
+    const error = await capture(
+      adminService.updateAuthorization(admin, MANAGER_ID, {
+        role: "ADMIN",
+        departmentId: null,
+      }),
+    );
 
     expectAppError(error, "FORBIDDEN", 403);
-    expect(store.get(MANAGER_ID)?.departmentId).toBe(DEPARTMENT_ID);
   });
 
   it("un SUPER_ADMIN le peut, et le périmètre suit le rôle", async () => {
@@ -382,17 +678,47 @@ describe("AdminService — modification d'habilitation (cellule 1.5, Q-02)", () 
 describe("AdminService — activation et désactivation (cellule 1.6)", () => {
   const body: SetAdminActivationBody = { isActive: false };
 
-  it("un ADMIN ne désactive pas un compte : Q-A4 n'est pas tranchée", async () => {
+  /**
+   * Q-A4 a été **tranchée en faveur de l'`ADMIN`** : il suspend et réactive les
+   * responsables de département. Révoquer un accès reste une opération sensible,
+   * mais elle n'est plus réservée au compte suprême.
+   */
+  it("un ADMIN désactive puis réactive un responsable", async () => {
     const target = actor("DEPARTMENT_MANAGER", { id: MANAGER_ID });
     const { repository, store } = fakeAdminProfiles([target]);
+    const { service: adminService, identities } = service(repository);
+
+    const disabled = await adminService.setActivation(admin, MANAGER_ID, body);
+
+    expect(disabled.isActive).toBe(false);
+    expect(store.get(MANAGER_ID)?.isActive).toBe(false);
+    // Le fournisseur est prévenu : les nouvelles authentifications sont refusées.
+    expect(identities.activations).toEqual([{ id: MANAGER_ID, isActive: false }]);
+
+    const enabled = await adminService.setActivation(admin, MANAGER_ID, { isActive: true });
+    expect(enabled.isActive).toBe(true);
+  });
+
+  it("un ADMIN ne désactive pas un pair ADMIN (D-04 : il est différent, pas inférieur)", async () => {
+    const peer = actor("ADMIN", { id: MANAGER_ID, username: "pair" });
+    const { repository, store } = fakeAdminProfiles([peer]);
     const { service: adminService, identities } = service(repository);
 
     const error = await capture(adminService.setActivation(admin, MANAGER_ID, body));
 
     expectAppError(error, "FORBIDDEN", 403);
-    // Le refus est **total** : ni le profil, ni le compte d'authentification ne
-    // sont touchés. Un refus à moitié appliqué laisserait un état incohérent.
     expect(store.get(MANAGER_ID)?.isActive).toBe(true);
+    expect(identities.activations).toHaveLength(0);
+  });
+
+  it("personne ne désactive son propre compte — ce serait un verrouillage", async () => {
+    const { repository, store } = fakeAdminProfiles([admin]);
+    const { service: adminService, identities } = service(repository);
+
+    const error = await capture(adminService.setActivation(admin, admin.id, body));
+
+    expectAppError(error, "FORBIDDEN", 403);
+    expect(store.get(admin.id)?.isActive).toBe(true);
     expect(identities.activations).toHaveLength(0);
   });
 
@@ -403,6 +729,33 @@ describe("AdminService — activation et désactivation (cellule 1.6)", () => {
     const error = await capture(adminService.setActivation(admin, superAdmin.id, body));
 
     expectAppError(error, "FORBIDDEN", 403);
+  });
+
+  /**
+   * Verrouillage administratif : Q-03 refuse à **tout** `SUPER_ADMIN`
+   * d'administrer un compte `SUPER_ADMIN`, y compris le sien. Conséquence
+   * directe et heureuse — le dernier compte suprême ne peut être ni désactivé,
+   * ni rétrogradé par cette API : personne ne peut se couper l'administration à
+   * lui-même, et aucune protection supplémentaire n'a été inventée.
+   */
+  it("protège le dernier SUPER_ADMIN : aucun SUPER_ADMIN ne peut le désactiver", async () => {
+    const other = actor("SUPER_ADMIN", {
+      id: "88888888-8888-4888-8888-888888888888",
+      username: "autre-super-admin",
+    });
+    const { repository, store } = fakeAdminProfiles([superAdmin, other]);
+    const { service: adminService, identities } = service(repository);
+
+    for (const author of [superAdmin, other]) {
+      const error = await capture(
+        adminService.setActivation(author, superAdmin.id, body),
+      );
+      expectAppError(error, "FORBIDDEN", 403);
+    }
+
+    // Aucun des deux comptes n'a bougé, et le fournisseur n'a pas été prévenu.
+    expect(store.get(superAdmin.id)?.isActive).toBe(true);
+    expect(identities.activations).toHaveLength(0);
   });
 
   it("un SUPER_ADMIN désactive : le profil d'abord, le fournisseur ensuite", async () => {
@@ -444,5 +797,102 @@ describe("AdminService — activation et désactivation (cellule 1.6)", () => {
     expect(disabled.departmentId).toBe(DEPARTMENT_ID);
     expect(enabled.isActive).toBe(true);
     expect(enabled.role).toBe("DEPARTMENT_MANAGER");
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Suppression (cellule 1.8, arbitrée : SUPER_ADMIN seul)                    */
+/* -------------------------------------------------------------------------- */
+
+describe("AdminService — suppression définitive d'un compte", () => {
+  it("un SUPER_ADMIN supprime un responsable : profil puis compte d'authentification", async () => {
+    const target = actor("DEPARTMENT_MANAGER", { id: MANAGER_ID });
+    const { repository, store } = fakeAdminProfiles([target]);
+    const orders: string[] = [];
+    const { service: adminService, identities } = service(repository);
+
+    jest.spyOn(repository, "remove").mockImplementation(async (id) => {
+      orders.push("profil");
+      store.delete(id);
+      return true;
+    });
+    jest.spyOn(identities.provider, "deleteUser").mockImplementation(async () => {
+      orders.push("fournisseur");
+    });
+
+    await adminService.deleteUser(superAdmin, MANAGER_ID);
+
+    expect(store.has(MANAGER_ID)).toBe(false);
+    // Ordre inversé par rapport à la création : supprimer le profil d'abord
+    // évite d'effacer l'authentification d'un compte dont le profil, retenu par
+    // une référence `RESTRICT`, subsisterait avec ses droits.
+    expect(orders).toEqual(["profil", "fournisseur"]);
+  });
+
+  it("un ADMIN ne supprime aucun compte : la cellule est réservée au SUPER_ADMIN", async () => {
+    const target = actor("DEPARTMENT_MANAGER", { id: MANAGER_ID });
+    const { repository, store } = fakeAdminProfiles([target]);
+    const { service: adminService, identities } = service(repository);
+
+    const error = await capture(adminService.deleteUser(admin, MANAGER_ID));
+
+    expectAppError(error, "FORBIDDEN", 403);
+    expect(store.has(MANAGER_ID)).toBe(true);
+    expect(identities.deleted).toHaveLength(0);
+  });
+
+  it("refuse de supprimer son propre compte", async () => {
+    const { repository, store } = fakeAdminProfiles([superAdmin]);
+    const { service: adminService, identities } = service(repository);
+
+    const error = await capture(adminService.deleteUser(superAdmin, superAdmin.id));
+
+    expectAppError(error, "FORBIDDEN", 403);
+    expect(store.has(superAdmin.id)).toBe(true);
+    expect(identities.deleted).toHaveLength(0);
+  });
+
+  it("refuse de supprimer un compte SUPER_ADMIN : Q-03 protège le dernier accès", async () => {
+    const other = actor("SUPER_ADMIN", {
+      id: "88888888-8888-4888-8888-888888888888",
+      username: "autre-super-admin",
+    });
+    const { repository, store } = fakeAdminProfiles([superAdmin, other]);
+    const { service: adminService, identities } = service(repository);
+
+    const error = await capture(adminService.deleteUser(superAdmin, other.id));
+
+    expectAppError(error, "FORBIDDEN", 403);
+    expect(store.has(other.id)).toBe(true);
+    expect(identities.deleted).toHaveLength(0);
+  });
+
+  it("répond 404 sur un profil inconnu", async () => {
+    const { repository } = fakeAdminProfiles();
+    const { service: adminService } = service(repository);
+
+    const error = await capture(adminService.deleteUser(superAdmin, MANAGER_ID));
+
+    expectAppError(error, "PROFILE_NOT_FOUND", 404);
+  });
+
+  /**
+   * Échec partiel assumé : le profil est parti, le compte d'authentification
+   * subsiste. La réponse doit **le dire** — un « échec » générique laisserait
+   * croire que rien n'a bougé, un « succès » masquerait un compte orphelin.
+   */
+  it("signale un compte d'authentification subsistant après suppression du profil", async () => {
+    const target = actor("DEPARTMENT_MANAGER", { id: MANAGER_ID });
+    const { repository } = fakeAdminProfiles([target]);
+    const { service: adminService, identities } = service(repository);
+
+    jest
+      .spyOn(identities.provider, "deleteUser")
+      .mockRejectedValue(new Error("fournisseur indisponible"));
+
+    const error = await capture(adminService.deleteUser(superAdmin, MANAGER_ID));
+
+    const appError = expectAppError(error, "INTERNAL_ERROR", 500);
+    expect(appError.message).toMatch(/profil a été supprimé/i);
   });
 });

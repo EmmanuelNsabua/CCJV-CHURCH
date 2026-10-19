@@ -6,6 +6,7 @@ import { UserPolicy, asUserPolicyResource } from "@/presentation/policies";
 import {
   AuthRequiredError,
   ForbiddenError,
+  InternalError,
   NotFoundError,
   ValidationError,
 } from "@/shared/errors/app-error";
@@ -15,7 +16,9 @@ import type {
   CreateAdminUserBody,
   ListAdminProfilesQuery,
   SetAdminActivationBody,
+  SetAdminPasswordBody,
   UpdateAdminAuthorizationBody,
+  UpdateAdminIdentityBody,
 } from "./admin.schema";
 
 /**
@@ -78,6 +81,235 @@ export class AdminService {
       items: profiles.slice(offset, offset + query.limit),
       total: profiles.length,
     };
+  }
+
+  /**
+   * Adresses de connexion des profils affichés.
+   *
+   * L'adresse vit **uniquement** chez le fournisseur d'identité : la table
+   * `admin_profiles` ne la porte pas (`docs/032` §3.1). Sans elle, l'annuaire
+   * serait inexploitable — on ne peut pas administrer un compte dont on ignore
+   * l'identifiant de connexion.
+   *
+   * Lecture tolérante : une panne du fournisseur rend une table partielle, et
+   * l'annuaire s'affiche avec des adresses non résolues plutôt que pas du tout.
+   */
+  async findEmails(profiles: readonly AdminProfile[]): Promise<Map<string, string>> {
+    return this.identities.findEmails(profiles.map((profile) => profile.id));
+  }
+
+  /**
+   * Corrige l'**identité** d'un compte : nom d'utilisateur, nom affiché,
+   * adresse de connexion.
+   *
+   * ### Deux autorités, donc deux écritures — et un échec partiel possible
+   *
+   * `username` et `displayName` appartiennent à `admin_profiles` ; l'adresse
+   * appartient au fournisseur d'identité. Aucune transaction ne couvre les deux,
+   * et **on ne le prétend pas**.
+   *
+   * L'ordre retenu est celui du risque :
+   *
+   * ```text
+   * 1. décider (policy, sur la cible)        — rien n'est écrit
+   * 2. écrire l'adresse (fournisseur)        — autorité sur l'unicité
+   * 3. écrire l'identité applicative (profil)
+   * ```
+   *
+   * L'adresse passe en premier parce que c'est la seule opération que le
+   * fournisseur peut refuser pour un motif métier (adresse déjà prise) : la
+   * tenter avant l'écriture locale évite de corriger un nom d'affichage pour
+   * échouer ensuite sur l'adresse. Si l'étape 3 échoue après une étape 2
+   * réussie, la réponse le dit explicitement — jamais un succès partiel
+   * silencieux, jamais un retour en arrière tenté à l'aveugle.
+   */
+  async updateIdentity(
+    actor: AdminProfile | undefined,
+    id: string,
+    data: UpdateAdminIdentityBody,
+  ): Promise<AdminProfile> {
+    const author = this.currentProfile(actor);
+    const target = await this.requireProfile(id);
+
+    this.assertAllowed(author, "UPDATE_IDENTITY", asUserPolicyResource(target));
+
+    const emailChanged = data.email !== undefined;
+    if (data.email !== undefined) {
+      await this.identities.updateEmail(id, data.email);
+    }
+
+    const wantsProfileWrite =
+      data.username !== undefined || data.displayName !== undefined;
+
+    if (!wantsProfileWrite) {
+      if (emailChanged) {
+        logger.info(
+          { actorId: author.id, targetId: id },
+          "Adresse de connexion modifiée",
+        );
+      }
+      return target;
+    }
+
+    let updated: AdminProfile | null;
+    try {
+      updated = await this.adminProfiles.updateProfile(id, {
+        username: data.username,
+        displayName: data.displayName,
+      });
+    } catch (error) {
+      logger.error(
+        { err: error, actorId: author.id, targetId: id, emailChanged },
+        "Identité applicative non enregistrée",
+      );
+
+      // L'échec est rapporté **avec son état réel** : l'adresse a pu changer
+      // sans que le nom suive. Un message générique laisserait l'exploitant
+      // croire que rien n'a bougé.
+      throw new ValidationError(
+        emailChanged
+          ? "L'adresse de connexion a été modifiée, mais les informations du profil n'ont pas pu être enregistrées : ce nom d'utilisateur est peut-être déjà pris."
+          : "Les informations du profil n'ont pas pu être enregistrées : ce nom d'utilisateur est peut-être déjà pris.",
+        [{ champ: "username", message: "Nom d'utilisateur en conflit ou invalide" }],
+      );
+    }
+
+    if (updated === null) {
+      throw notFound(id);
+    }
+
+    logger.info(
+      {
+        actorId: author.id,
+        targetId: updated.id,
+        emailChanged,
+        usernameChanged: data.username !== undefined,
+        displayNameChanged: data.displayName !== undefined,
+      },
+      "Identité du compte modifiée",
+    );
+
+    return updated;
+  }
+
+  /**
+   * Définit le mot de passe d'un **autre** compte (réinitialisation
+   * administrative).
+   *
+   * Aucune écriture locale : le mot de passe n'existe pas dans le domaine. Il
+   * traverse le service sans être lu, comparé, journalisé ni retourné, et le
+   * fournisseur en fait son affaire (empreinte, politique, révocation interne).
+   *
+   * Les sessions déjà ouvertes ne sont **pas** révoquées par cette opération :
+   * Supabase conserve les jetons en cours jusqu'à expiration. Ce n'est pas
+   * silencieux — la révocation immédiate d'un accès est la désactivation
+   * (`setActivation`), et le compte rendu le dit.
+   */
+  async setPassword(
+    actor: AdminProfile | undefined,
+    id: string,
+    data: SetAdminPasswordBody,
+  ): Promise<void> {
+    const author = this.currentProfile(actor);
+    const target = await this.requireProfile(id);
+
+    this.assertAllowed(author, "RESET_PASSWORD", asUserPolicyResource(target));
+
+    await this.identities.updatePassword(id, data.password);
+
+    // Journalisation **sans le secret** : acteur, cible, action. Rien d'autre.
+    logger.info(
+      { actorId: author.id, targetId: target.id },
+      "Mot de passe réinitialisé par un administrateur",
+    );
+  }
+
+  /**
+   * Change le mot de passe de **son propre** compte.
+   *
+   * Volontairement hors de `UserPolicy` : administrer son propre secret n'est
+   * pas administrer autrui, et Q-03 interdit à un `SUPER_ADMIN` de s'administrer
+   * lui-même — sans cette voie, le seul compte `SUPER_ADMIN` ne pourrait plus
+   * faire tourner son mot de passe, ce qui serait un verrouillage par excès de
+   * prudence.
+   *
+   * La garde reste réelle : la route exige un administrateur **actif**, et la
+   * cible est l'identité du jeton vérifié — jamais un identifiant reçu.
+   */
+  async changeOwnPassword(
+    actor: AdminProfile | undefined,
+    data: SetAdminPasswordBody,
+  ): Promise<void> {
+    const author = this.currentProfile(actor);
+
+    await this.identities.updatePassword(author.id, data.password);
+
+    logger.info({ actorId: author.id }, "Mot de passe personnel modifié");
+  }
+
+  /**
+   * Supprime définitivement un compte d'administration.
+   *
+   * Réservé au `SUPER_ADMIN` par `UserPolicy.DELETE` (arbitrage du
+   * commanditaire). Trois bornes sont vérifiées **avant** toute écriture : pas de
+   * compte `SUPER_ADMIN` pour cible (Q-03 — le dernier compte suprême est donc
+   * intouchable), pas de suppression de son propre compte, et la base refuse
+   * encore si le compte est l'auteur de droits d'accès média (`409`).
+   *
+   * ### Ordre des deux écritures — et pourquoi il est inversé
+   *
+   * Le profil est supprimé **avant** le compte d'authentification, contrairement
+   * à la création (où l'identité précède le profil). La raison est asymétrique :
+   * - profil d'abord : si le fournisseur échoue ensuite, il reste un compte
+   *   capable de s'authentifier mais **sans profil**, donc refusé partout par
+   *   `requireAdmin`. C'est dégradé, jamais dangereux — et l'adresse reste prise,
+   *   d'où un échec explicite et un signalement ;
+   * - identité d'abord : si la suppression du profil échouait ensuite
+   *   (référence `RESTRICT`), on aurait effacé l'authentification d'un compte
+   *   dont le profil, lui, subsiste et porte encore des droits.
+   *
+   * L'échec de la seconde étape est **rapporté**, jamais masqué.
+   */
+  async deleteUser(actor: AdminProfile | undefined, id: string): Promise<void> {
+    const author = this.currentProfile(actor);
+
+    if (author.id === id) {
+      // Refus explicite avant même la policy : le motif est lisible et ne
+      // dépend d'aucune donnée chargée.
+      throw new ForbiddenError();
+    }
+
+    const target = await this.requireProfile(id);
+
+    this.assertAllowed(author, "DELETE", asUserPolicyResource(target));
+
+    const removed = await this.adminProfiles.remove(id);
+    if (!removed) {
+      throw notFound(id);
+    }
+
+    try {
+      await this.identities.deleteUser(id);
+    } catch (error) {
+      logger.error(
+        { err: error, actorId: author.id, targetId: id },
+        "Profil supprimé mais compte d'authentification subsistant",
+      );
+      throw new InternalError(
+        "Le profil a été supprimé, mais le compte d'authentification n'a pas pu l'être : ce compte ne peut plus rien faire (plus de profil, donc plus aucun droit) et doit être supprimé manuellement chez le fournisseur d'identité.",
+        error,
+      );
+    }
+
+    logger.info(
+      {
+        actorId: author.id,
+        targetId: id,
+        targetUsername: target.username,
+        targetRole: target.role,
+      },
+      "Compte d'administration supprimé définitivement",
+    );
   }
 
   /**

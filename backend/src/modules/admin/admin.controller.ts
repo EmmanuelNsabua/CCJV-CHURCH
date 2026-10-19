@@ -4,7 +4,9 @@ import type {
   CreateAdminUserBody,
   ListAdminProfilesQuery,
   SetAdminActivationBody,
+  SetAdminPasswordBody,
   UpdateAdminAuthorizationBody,
+  UpdateAdminIdentityBody,
 } from "./admin.schema";
 import type { AdminService } from "./admin.service";
 import {
@@ -12,7 +14,7 @@ import {
   toAdminProfileSummaryDto,
 } from "./admin.serializer";
 import { validatedParams, validatedQuery } from "@/presentation/middlewares/validate";
-import { sendCollection, sendItem } from "@/shared/http/respond";
+import { sendCollection, sendItem, sendNoContent } from "@/shared/http/respond";
 
 /**
  * Contrôleurs HTTP de l'administration.
@@ -45,9 +47,18 @@ export function createAdminController(service: AdminService) {
     async listProfiles(req: Request, res: Response): Promise<void> {
       const { page, limit } = validatedQuery<ListAdminProfilesQuery>(req);
       const { items, total } = await service.listProfiles({ page, limit });
+
+      /*
+       * L'adresse de connexion vient du fournisseur d'identité, et seulement
+       * pour les profils de **cette** page : on ne lit pas un annuaire entier
+       * pour en afficher vingt. Une adresse non résolue reste `null` — la
+       * colonne est alors vide, ce qui est exact.
+       */
+      const emails = await service.findEmails(items);
+
       sendCollection(
         res,
-        items.map(toAdminProfileSummaryDto),
+        items.map((profile) => toAdminProfileSummaryDto(profile, emails.get(profile.id) ?? null)),
         page,
         limit,
         total,
@@ -87,6 +98,64 @@ export function createAdminController(service: AdminService) {
       const profile = await service.setActivation(req.admin, id, body);
 
       sendItem(res, toAdminProfileSummaryDto(profile));
+    },
+
+    /**
+     * `PATCH /admin/users/:id/identity` — nom d'utilisateur, nom affiché,
+     * adresse de connexion.
+     *
+     * La réponse ne contient **aucune** donnée d'authentification au-delà de
+     * l'adresse, quand elle vient d'être écrite : ni mot de passe, ni jeton.
+     */
+    async updateIdentity(req: Request, res: Response): Promise<void> {
+      const { id } = validatedParams<AdminUserParams>(req);
+      const body = req.body as UpdateAdminIdentityBody;
+      const profile = await service.updateIdentity(req.admin, id, body);
+
+      sendItem(res, toAdminProfileSummaryDto(profile, body.email ?? null));
+    },
+
+    /**
+     * `PATCH /admin/users/:id/password` — réinitialisation administrative.
+     *
+     * `204` **sans corps** : il n'y a rien à renvoyer. Un mot de passe ne
+     * revient jamais par l'API, ni celui saisi, ni un éventuel mot de passe
+     * généré.
+     */
+    async setPassword(req: Request, res: Response): Promise<void> {
+      const { id } = validatedParams<AdminUserParams>(req);
+      const body = req.body as SetAdminPasswordBody;
+      await service.setPassword(req.admin, id, body);
+
+      sendNoContent(res);
+    },
+
+    /**
+     * `PATCH /admin/me/password` — changement de son **propre** mot de passe.
+     *
+     * Aucun identifiant reçu : la cible est l'identité du jeton. `204` sans
+     * corps, pour la même raison qu'au-dessus.
+     */
+    async changeOwnPassword(req: Request, res: Response): Promise<void> {
+      const body = req.body as SetAdminPasswordBody;
+      await service.changeOwnPassword(req.admin, body);
+
+      sendNoContent(res);
+    },
+
+    /**
+     * `DELETE /admin/users/:id` — suppression **définitive** d'un compte
+     * (`SUPER_ADMIN` uniquement, arbitrage du commanditaire).
+     *
+     * `204` sans corps. Un `409` signale un compte encore auteur de droits
+     * d'accès média : la base refuse la suppression, et la réponse le dit au lieu
+     * de la présenter comme une panne.
+     */
+    async remove(req: Request, res: Response): Promise<void> {
+      const { id } = validatedParams<AdminUserParams>(req);
+      await service.deleteUser(req.admin, id);
+
+      sendNoContent(res);
     },
   };
 }

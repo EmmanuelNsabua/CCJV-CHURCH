@@ -1,252 +1,151 @@
-import Image from "next/image";
-import Link from "next/link";
-import { HeroBackdrop } from "@/components/composition/HeroBackdrop";
-import { MediaPage } from "@/components/archetypes/MediaPage";
-import { Prose } from "@/components/editorial/Prose";
-import { MediaFeature } from "@/components/editorial/MediaFeature";
-import { PhotoGallery } from "@/components/editorial/PhotoGallery";
-import { CrossLinks } from "@/components/editorial/CrossLinks";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
-import { getPublications, readOrUnavailable } from "@/lib/api/endpoints";
-import { images } from "@/data/images";
-import { formatLongDate, getYouTubeId } from "@/lib/utils";
+import type { Metadata } from "next";
+import {
+  getDepartments,
+  getEvents,
+  getPublications,
+  readOrUnavailable,
+} from "@/lib/api/endpoints";
 import { pageMetadata } from "@/lib/seo";
+import { MediaCatalog } from "@/features/mediatheque/MediaCatalog";
+import {
+  buildMediaCatalogue,
+  countByKind,
+  type MediaItem,
+} from "@/features/mediatheque/mediaCatalogue";
+import { CatalogRetry } from "@/features/mediatheque/CatalogRetry";
 
-export const metadata = pageMetadata({
+export const metadata: Metadata = pageMetadata({
   title: "Médiathèque",
   description:
-    "Photos et vidéos des moments vécus ensemble au Centre Chrétien Jésus ma Vie : cultes, célébrations et vie communautaire.",
+    "Photos et vidéos de la vie de la communauté au Centre Chrétien Jésus ma Vie : cultes, célébrations et rencontres, à parcourir et à revoir.",
   path: "/publications/mediatheque",
 });
 
+/**
+ * Page Médiathèque — **catalogue de médias**, pas page de présentation.
+ *
+ * ## D'où viennent les médias
+ *
+ * Uniquement de sources publiques déjà servies par l'API, sans nouvel endpoint
+ * et sans ouvrir le registre des médias (`/api/v1/media` reste strictement
+ * administratif, `docs/018` §6.2) :
+ *
+ * - galeries photographiques des départements (`GET /departments`) ;
+ * - galeries des événements (`GET /events`), avec leur date ;
+ * - publications de type `PHOTO` (`GET /publications?type=PHOTO`) ;
+ * - publications de type `VIDEO` hors rubrique `ENSEIGNEMENT`.
+ *
+ * Les enseignements, actualités rédigées, ressources PDF, témoignages et sujets
+ * de prière sont **hors périmètre** : aucun ne figure dans le catalogue.
+ *
+ * ## Panne ou absence
+ *
+ * Chaque lecture est évaluée séparément par `readOrUnavailable` : « l'API n'a
+ * pas répondu » n'est pas « il n'y a aucun média ». Une seule lecture en échec
+ * rend le catalogue indisponible plutôt que de l'afficher incomplet — une
+ * galerie partielle présentée comme complète serait un mensonge silencieux.
+ */
 export default async function MediathequePage() {
-  /*
-   * Les albums et la vidéo mise en avant sont **les publications réelles** de
-   * l'API : un album est une publication de type PHOTO accompagnée de son
-   * média, la vidéo est la dernière publication vidéo d'enseignement. Aucune
-   * image n'est empruntée à un autre contenu pour combler un média manquant.
-   */
-  const [photosRead, videosRead] = await Promise.all([
+  const [departmentsRead, eventsRead, photosRead, videosRead] = await Promise.all([
+    readOrUnavailable((options) => getDepartments(options)),
+    readOrUnavailable((options) => getEvents({ limit: 100 }, options)),
     readOrUnavailable((options) =>
-      getPublications({ type: "PHOTO", limit: 50 }, options),
+      getPublications({ type: "PHOTO", limit: 100 }, options),
     ),
     readOrUnavailable((options) =>
-      getPublications({ type: "VIDEO", category: "ENSEIGNEMENT", limit: 10 }, options),
+      getPublications({ type: "VIDEO", limit: 100 }, options),
     ),
   ]);
 
-  /** Albums publiés : les publications photo accompagnées d'un média réel. */
-  const albums =
-    photosRead.status === "ok"
-      ? photosRead.data.flatMap((publication) => {
-          /* L'API peut renvoyer la photo en `coverImage` plutôt qu'en `contentUrl`. */
-          const image = publication.coverImage ?? publication.contentUrl;
-          if (!image) return [];
+  const unavailable =
+    departmentsRead.status === "unreachable" ||
+    eventsRead.status === "unreachable" ||
+    photosRead.status === "unreachable" ||
+    videosRead.status === "unreachable";
 
-          return [
-            {
-              id: publication.id,
-              title: publication.title,
-              slug: publication.slug,
-              description: publication.description,
-              publishedAt: publication.publishedAt,
-              image,
-            },
-          ];
-        })
-      : [];
+  const items: MediaItem[] = unavailable
+    ? []
+    : buildMediaCatalogue({
+        departments: departmentsRead.status === "ok" ? departmentsRead.data : [],
+        events: eventsRead.status === "ok" ? eventsRead.data : [],
+        photoPublications: photosRead.status === "ok" ? photosRead.data : [],
+        videoPublications: videosRead.status === "ok" ? videosRead.data : [],
+      });
 
-  /** Vidéo mise en avant : le message vidéo publié le plus récent. */
-  const latestVideo =
-    videosRead.status === "ok"
-      ? videosRead.data.find((publication) => Boolean(publication.contentUrl))
-      : undefined;
-  const videoUrl = latestVideo?.contentUrl;
-
-  /*
-   * `MediaFeature` annonce une vidéo « à regarder sur YouTube » : elle n'est
-   * employée que si le média publié est réellement un lien YouTube. Une vidéo
-   * hébergée ailleurs est présentée par sa fiche.
-   */
-  const videoOnYouTube = videoUrl ? Boolean(getYouTubeId(videoUrl)) : false;
+  const { photos, videos } = countByKind(items);
+  const summary =
+    items.length === 0
+      ? null
+      : [
+          `${items.length} média${items.length > 1 ? "s" : ""}`,
+          photos > 0 ? `${photos} photo${photos > 1 ? "s" : ""}` : null,
+          videos > 0 ? `${videos} vidéo${videos > 1 ? "s" : ""}` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
 
   return (
-    <MediaPage
-      rhythm="standard"
-      hero={
-        <HeroBackdrop
-          title={
-            <>
-              Ce que nous avons <span className="italic text-ccjv-cream">vécu</span>.
-            </>
-          }
-          intro="Une communauté se souvient aussi par ce qu'elle a vu. Ces images sont faites pour être revues, pas seulement conservées."
-          image={images.communaute}
-        />
-      }
-      featured={
-        <>
-          <Prose className="mb-14 max-w-[62ch]" large>
-            <p>
-              La médiathèque rassemble deux manières de revoir : la vidéo d&apos;un
-              message, et les albums photographiques publiés après un moment
-              vécu ensemble.
-            </p>
-          </Prose>
+    <main className="bg-ccjv-offwhite text-ccjv-ink selection:bg-ccjv-green selection:text-white">
+      {/* Zone A — en-tête compact : il ne retarde pas l'accès au catalogue. */}
+      <section className="border-b border-ccjv-line px-6 pt-28 pb-8 sm:px-12 lg:px-20 lg:pt-32 lg:pb-10">
+        <div className="mx-auto w-full max-w-7xl">
+          <p className="font-sans text-[0.7rem] font-semibold tracking-[0.18em] text-ccjv-green uppercase">
+            Publications &amp; Médias
+          </p>
 
-          {videosRead.status === "unreachable" ? (
-            <ContentUnavailable resource="La vidéo à la une" />
-          ) : latestVideo && videoUrl && videoOnYouTube ? (
-            <MediaFeature
-              variant="hero"
-              href={videoUrl}
-              title={latestVideo.title}
-              excerpt={latestVideo.description}
-              author={latestVideo.author}
-              date={formatLongDate(latestVideo.publishedAt)}
-            />
-          ) : latestVideo ? (
-            /* Vidéo réelle non hébergée sur YouTube : présentée par sa fiche. */
-            <div className="border-t border-ccjv-line pt-10">
-              <p className="font-sans text-[0.7rem] font-semibold tracking-[0.2em] text-ccjv-green uppercase">
-                Dernier enseignement
+          <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2">
+            <h1 className="font-serif text-[clamp(2.1rem,1.4rem+2.4vw,3.3rem)] font-normal leading-[1.08] tracking-[-0.02em]">
+              Médiathèque
+            </h1>
+
+            {summary && (
+              <p className="font-sans text-[0.82rem] text-ccjv-ink-secondary">
+                {summary}
               </p>
-              <Link
-                href={`/publications/${latestVideo.slug}`}
-                className="group mt-5 block"
-              >
-                <h3 className="max-w-[30ch] font-serif text-[clamp(1.7rem,1rem+1.9vw,2.6rem)] leading-[1.12] transition-colors duration-[250ms] group-hover:text-ccjv-green">
-                  {latestVideo.title}
-                </h3>
-              </Link>
-              {latestVideo.description && (
-                <p className="mt-6 max-w-[60ch] text-[1.02rem] leading-[1.7] text-ccjv-ink-secondary">
-                  {latestVideo.description}
-                </p>
-              )}
-              <p className="mt-6 font-sans text-[0.88rem] text-ccjv-ink-secondary">
-                {[latestVideo.author, formatLongDate(latestVideo.publishedAt)]
-                  .filter(Boolean)
-                  .join(" · ")}
+            )}
+          </div>
+
+          <p className="mt-3 max-w-[62ch] font-sans text-[0.95rem] leading-relaxed text-ccjv-ink-secondary">
+            Parcourez les photos et les vidéos de la vie de la communauté :
+            cultes, célébrations, rencontres et temps de service.
+          </p>
+        </div>
+      </section>
+
+      {/* Zones B et C — commandes puis catalogue. */}
+      <section
+        aria-label="Catalogue des médias"
+        className="px-6 py-8 sm:px-12 lg:px-20 lg:py-10"
+      >
+        <div className="mx-auto w-full max-w-7xl">
+          {unavailable ? (
+            <div className="border border-ccjv-line bg-white px-6 py-12 text-center">
+              <p className="font-serif text-[1.15rem] text-ccjv-ink">
+                La médiathèque n&apos;a pas pu être chargée.
               </p>
-              <Link
-                href={`/publications/${latestVideo.slug}`}
-                className="group mt-8 inline-flex items-center gap-3 border border-ccjv-ink px-6 py-3 font-sans text-[0.9rem] font-medium transition-colors duration-[250ms] hover:border-ccjv-green hover:text-ccjv-green"
-              >
-                Voir la vidéo
-                <span aria-hidden="true" className="transition-transform duration-[250ms] group-hover:translate-x-1">
-                  →
-                </span>
-              </Link>
+              <p className="mx-auto mt-2 max-w-[52ch] font-sans text-[0.88rem] leading-relaxed text-ccjv-ink-secondary">
+                Le serveur n&apos;a pas répondu. Les médias restent intacts :
+                réessayez dans un instant.
+              </p>
+              <div className="mt-6">
+                <CatalogRetry />
+              </div>
+            </div>
+          ) : items.length === 0 ? (
+            <div className="border border-ccjv-line bg-white px-6 py-14 text-center">
+              <p className="font-serif text-[1.2rem] text-ccjv-ink">
+                La médiathèque ne contient pas encore de médias disponibles.
+              </p>
+              <p className="mx-auto mt-3 max-w-[54ch] font-sans text-[0.9rem] leading-relaxed text-ccjv-ink-secondary">
+                Les photographies et vidéos apparaîtront ici dès qu&apos;elles
+                seront publiées depuis le back-office.
+              </p>
             </div>
           ) : (
-            <EmptyState
-              title="Aucune vidéo pour le moment"
-              description="Les vidéos publiées depuis le back-office apparaîtront ici."
-            />
+            <MediaCatalog items={items} />
           )}
-        </>
-      }
-      galleryTitle="Galerie"
-      /*
-       * La bande « Galerie » ne montre que des médias réels (couvertures des
-       * albums). Quand il n'y en a aucun, elle est simplement omise : les états
-       * « vide » et « injoignable » sont portés une seule fois, par la section
-       * des albums, pour ne pas annoncer deux fois la même chose.
-       */
-      gallery={
-        albums.length > 0 ? (
-          <>
-            <PhotoGallery
-              variant="mosaic"
-              images={albums.slice(0, 5).map((album) => album.image)}
-              captions={albums.slice(0, 5).map((album) => album.title)}
-            />
-            {albums.length > 5 && (
-              <PhotoGallery
-                variant="columns"
-                className="mt-16 lg:mt-20"
-                images={albums.slice(5, 11).map((album) => album.image)}
-                captions={albums.slice(5, 11).map((album) => album.title)}
-              />
-            )}
-          </>
-        ) : undefined
-      }
-      collectionsTitle="Albums publiés"
-      collections={
-        photosRead.status === "unreachable" ? (
-          <ContentUnavailable resource="Les albums photo" />
-        ) : albums.length > 0 ? (
-          <ul className="border-t border-ccjv-line">
-            {albums.map((album) => (
-              <li key={album.id} className="border-b border-ccjv-line">
-                <Link
-                  href={`/publications/${album.slug}`}
-                  className="group grid grid-cols-1 gap-6 py-8 sm:grid-cols-12 sm:items-center sm:gap-8"
-                >
-                  <div className="sm:col-span-2">
-                    <div className="relative aspect-square overflow-hidden bg-ccjv-line">
-                      <Image
-                        src={album.image}
-                        alt=""
-                        fill
-                        sizes="(max-width: 640px) 100vw, 16vw"
-                        className="object-cover transition-transform duration-[550ms] ease-ccjv group-hover:scale-[1.03]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-7">
-                    <h3 className="font-serif text-[1.35rem] leading-snug transition-colors duration-[250ms] group-hover:text-ccjv-green">
-                      {album.title}
-                    </h3>
-                    {album.description && (
-                      <p className="mt-2 max-w-[62ch] font-sans text-[0.92rem] leading-relaxed text-ccjv-ink-secondary">
-                        {album.description}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="font-sans text-[0.85rem] text-ccjv-ink-secondary sm:col-span-3 sm:text-right">
-                    <time dateTime={album.publishedAt}>
-                      {formatLongDate(album.publishedAt)}
-                    </time>
-                    <span className="mt-2 block font-medium text-ccjv-green">
-                      Ouvrir l&apos;album →
-                    </span>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptyState
-            title="Aucun album publié"
-            description="Les albums publiés depuis le back-office apparaîtront ici."
-          />
-        )
-      }
-      related={
-        <>
-          <p className="font-sans text-xs font-semibold tracking-[0.18em] text-ccjv-green uppercase">
-            Continuer
-          </p>
-          <h2 className="mt-4 mb-8 text-[clamp(1.6rem,1rem+1.6vw,2.35rem)] leading-[1.16]">
-            Retrouver ce qui a été dit et partagé
-          </h2>
-          <CrossLinks
-            variant="inline"
-            items={[
-              { href: "/publications/enseignements", label: "Les enseignements" },
-              { href: "/publications/actualites", label: "Les actualités" },
-              { href: "/publications/ressources", label: "Les ressources" },
-              { href: "/vie-de-leglise/evenements", label: "L'agenda" },
-            ]}
-          />
-        </>
-      }
-    />
+        </div>
+      </section>
+    </main>
   );
 }

@@ -85,6 +85,14 @@ function fakeAdminProfiles(
     async setActive() {
       throw new Error("setActive ne doit pas être appelé par les middlewares");
     },
+    async updateProfile() {
+      throw new Error(
+        "updateProfile ne doit pas être appelé par les middlewares",
+      );
+    },
+    async remove() {
+      throw new Error("remove ne doit pas être appelé par les middlewares");
+    },
   };
 }
 

@@ -80,7 +80,19 @@ export type PolicyAction =
   /* Profils : création par niveau d'habilitation (D-03, D-04) */
   | "CREATE_SUPER_ADMIN"
   | "CREATE_ADMIN"
-  | "UPDATE_ROLE_SCOPE";
+  | "UPDATE_ROLE_SCOPE"
+  /*
+   * Profils : identité du compte et secret d'accès.
+   *
+   * Ces deux actions n'ont **aucune cellule** dans `docs/029` §2.1 : la
+   * matrice gelée n'énumère ni la correction des informations d'un compte, ni
+   * la réinitialisation d'un mot de passe. Elles sont déclarées ici pour que le
+   * refus soit **écrit** plutôt qu'obtenu par l'absence d'un verbe, et la policy
+   * les accorde selon l'hypothèse la plus restrictive cohérente (alignée sur la
+   * cellule 1.5), avec sa mention `pending` — à arbitrer en Phase 6.
+   */
+  | "UPDATE_IDENTITY"
+  | "RESET_PASSWORD";
 
 /**
  * Décision d'autorisation.

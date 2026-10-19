@@ -640,6 +640,33 @@ export interface AdminProfileRepository {
    * l'accès — au point qu'une réactivation ne saurait plus quel rôle rendre.
    */
   setActive(id: string, isActive: boolean): Promise<AdminProfile | null>;
+
+  /**
+   * Réécrit l'identité **applicative** d'un profil : nom d'utilisateur, nom
+   * affiché.
+   *
+   * À ne pas confondre avec `updateAuthorization` (qui redistribue un pouvoir)
+   * ni avec l'adresse de connexion (qui appartient au fournisseur d'identité).
+   * Corriger un libellé ne doit pas exiger la permission de changer un rôle, et
+   * inversement.
+   *
+   * `undefined` laisse le champ tel quel ; `null` efface explicitement le nom
+   * affiché. Renvoie `null` si le profil n'existe pas.
+   */
+  updateProfile(
+    id: string,
+    data: { username?: string; displayName?: string | null },
+  ): Promise<AdminProfile | null>;
+
+  /**
+   * Supprime **physiquement** un profil (`SUPER_ADMIN` uniquement).
+   *
+   * `false` si le profil n'existait pas. Une suppression retenue par une
+   * référence — `media_access.granted_by` est en `RESTRICT` — remonte comme un
+   * **conflit métier** (`409`), jamais comme une panne : l'appelant peut alors
+   * expliquer quoi faire.
+   */
+  remove(id: string): Promise<boolean>;
 }
 
 /* -------------------------------------------------------------------------- */

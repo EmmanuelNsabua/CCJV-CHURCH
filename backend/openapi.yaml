@@ -86,7 +86,7 @@ components:
           "$ref": "#/components/schemas/PaginationMeta"
     AdminProfileSummary:
       type: object
-      description: "Entrée de l'annuaire administratif : le profil courant complété de l'état d'activation et de la date de création."
+      description: "Entrée de l'annuaire administratif : le profil courant complété de l'état d'activation, de la date de création et de l'adresse de connexion."
       required:
         - id
         - username
@@ -94,6 +94,7 @@ components:
         - role
         - isActive
         - createdAt
+        - email
       properties:
         id:
           type: string
@@ -115,6 +116,11 @@ components:
         createdAt:
           type: string
           format: "date-time"
+        email:
+          type:
+            - string
+            - "null"
+          format: email
     AdminUserActivation:
       type: object
       description: "Activation ou désactivation (cellule 1.6). `isActive` porte le sens : désactiver et réactiver sont la **même** habilitation, et une route par direction laisserait croire à deux droits distincts."
@@ -177,6 +183,35 @@ components:
           type: string
           minLength: 12
           description: "Mot de passe **provisoire**, facultatif. S'il est omis, le serveur en génère un — qui n'est **jamais** renvoyé par l'API dans les deux cas. Aucun document n'arrête la remise du premier identifiant : c'est un point ouvert."
+    AdminUserIdentity:
+      type: object
+      description: "Correction de l'identité d'un compte. `username` et `displayName` vivent dans `admin_profiles`, `email` chez le fournisseur d'identité — deux écritures, deux autorités, donc **aucune transaction commune**. Au moins un champ est exigé : une requête vide n'est pas une modification. Le rôle et le périmètre ne figurent pas ici (cellule 1.5, autre permission)."
+      minProperties: 1
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+        displayName:
+          type:
+            - string
+            - "null"
+          maxLength: 120
+        email:
+          type: string
+          format: email
+          maxLength: 254
+    AdminUserPassword:
+      type: object
+      description: "Nouveau mot de passe. La valeur traverse le serveur **sans y être lue, journalisée, stockée ni renvoyée** : elle part vers l'API d'administration Supabase, qui l'empreinte elle-même. Aucun algorithme de hachage n'existe dans le projet, et la réponse est un `204` sans corps."
+      required:
+        - password
+      properties:
+        password:
+          type: string
+          minLength: 12
+          maxLength: 200
+          description: "12 caractères au minimum (borne basse de `docs/030` §5). La politique de complexité reste celle de Supabase : le fournisseur arbitre le refus."
     CommunityFace:
       type: object
       description: "Visage de la communauté (`community-face.serializer.ts`) : `name` ← `personName`."
@@ -296,6 +331,7 @@ components:
                 - SETTING_NOT_FOUND
                 - NOTIFICATION_NOT_FOUND
                 - PROFILE_NOT_FOUND
+                - RESOURCE_NOT_FOUND
                 - DUPLICATE_SLUG
                 - DUPLICATE_EMAIL
                 - CONFLICT
@@ -979,7 +1015,7 @@ components:
       properties:
         settings:
           type: object
-          description: "Objet clé/valeur. Clés écrivables : `site.name`, `site.acronym`, `site.location`, `site.foundedAt`, `site.ecodimFoundedAt`, `site.visionary`, `site.visionaryRole`, `site.address`, `site.addressLine1`, `site.addressLine2`, `site.addressLine3`, `site.scheduleAdults`, `site.scheduleChildren`, `site.whatsappNumber`, `site.whatsappHref`. Cette liste est fermée : toute autre clé est refusée en `VALIDATION_ERROR`."
+          description: "Objet clé/valeur. Clés écrivables : `site.name`, `site.acronym`, `site.location`, `site.foundedAt`, `site.ecodimFoundedAt`, `site.visionary`, `site.visionaryRole`, `site.address`, `site.addressLine1`, `site.addressLine2`, `site.addressLine3`, `site.scheduleAdults`, `site.scheduleChildren`, `site.whatsappNumber`, `site.whatsappHref`, `site.supportEmail`, `site.latitude`, `site.longitude`, `site.timezone`. Cette liste est fermée : toute autre clé est refusée en `VALIDATION_ERROR`."
           additionalProperties:
             type: string
         socialLinks:
@@ -1316,7 +1352,17 @@ paths:
                   type:
                     - string
                     - "null"
-                  maxLength: 5000
+                  maxLength: 1000
+                mission:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 10000
+                history:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 20000
                 responsibleName:
                   type:
                     - string
@@ -1352,6 +1398,37 @@ paths:
                     type: string
                     format: uuid
                   maxItems: 60
+                activities:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      title:
+                        type: string
+                        minLength: 2
+                        maxLength: 150
+                      description:
+                        type:
+                          - string
+                          - "null"
+                        maxLength: 3000
+                      imageMediaId:
+                        type:
+                          - string
+                          - "null"
+                        format: uuid
+                      position:
+                        type:
+                          - integer
+                          - "null"
+                        minimum: 0
+                        default: 0
+                    required:
+                      - title
+                  maxItems: 50
                 position:
                   type:
                     - integer
@@ -1452,7 +1529,17 @@ paths:
                   type:
                     - string
                     - "null"
-                  maxLength: 5000
+                  maxLength: 1000
+                mission:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 10000
+                history:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 20000
                 responsibleName:
                   type:
                     - string
@@ -1488,6 +1575,37 @@ paths:
                     type: string
                     format: uuid
                   maxItems: 60
+                activities:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      title:
+                        type: string
+                        minLength: 2
+                        maxLength: 150
+                      description:
+                        type:
+                          - string
+                          - "null"
+                        maxLength: 3000
+                      imageMediaId:
+                        type:
+                          - string
+                          - "null"
+                        format: uuid
+                      position:
+                        type:
+                          - integer
+                          - "null"
+                        minimum: 0
+                        default: 0
+                    required:
+                      - title
+                  maxItems: 50
                 position:
                   type:
                     - integer
@@ -1638,7 +1756,7 @@ paths:
               properties:
                 title:
                   type: string
-                  minLength: 3
+                  minLength: 2
                   maxLength: 150
                 description:
                   type:
@@ -1650,10 +1768,26 @@ paths:
                     - string
                     - "null"
                   maxLength: 500
+                startDate:
+                  type: string
+                  format: date
                 eventDate:
                   type: string
                   format: date
+                endDate:
+                  type: string
+                  format: date
+                startTime:
+                  type:
+                    - string
+                    - "null"
+                  pattern: "^([01]\\d|2[0-3]):[0-5]\\d(:[0-5]\\d)?$"
                 eventTime:
+                  type:
+                    - string
+                    - "null"
+                  pattern: "^([01]\\d|2[0-3]):[0-5]\\d(:[0-5]\\d)?$"
+                endTime:
                   type:
                     - string
                     - "null"
@@ -1673,11 +1807,22 @@ paths:
                     - string
                     - "null"
                   format: uuid
+                status:
+                  type: string
+                  enum:
+                    - DRAFT
+                    - PUBLISHED
+                    - CANCELLED
                 departmentId:
                   type:
                     - string
                     - "null"
                   format: uuid
+                visibilityScope:
+                  type: string
+                  enum:
+                    - DEPARTMENT
+                    - GLOBAL
                 practicalInfo:
                   type:
                     - array
@@ -1699,7 +1844,6 @@ paths:
                   maxLength: 180
               required:
                 - title
-                - eventDate
       responses:
         "201":
           description: "Ressource créée."
@@ -1787,7 +1931,7 @@ paths:
               properties:
                 title:
                   type: string
-                  minLength: 3
+                  minLength: 2
                   maxLength: 150
                 description:
                   type:
@@ -1799,10 +1943,26 @@ paths:
                     - string
                     - "null"
                   maxLength: 500
+                startDate:
+                  type: string
+                  format: date
                 eventDate:
                   type: string
                   format: date
+                endDate:
+                  type: string
+                  format: date
+                startTime:
+                  type:
+                    - string
+                    - "null"
+                  pattern: "^([01]\\d|2[0-3]):[0-5]\\d(:[0-5]\\d)?$"
                 eventTime:
+                  type:
+                    - string
+                    - "null"
+                  pattern: "^([01]\\d|2[0-3]):[0-5]\\d(:[0-5]\\d)?$"
+                endTime:
                   type:
                     - string
                     - "null"
@@ -1822,11 +1982,22 @@ paths:
                     - string
                     - "null"
                   format: uuid
+                status:
+                  type: string
+                  enum:
+                    - DRAFT
+                    - PUBLISHED
+                    - CANCELLED
                 departmentId:
                   type:
                     - string
                     - "null"
                   format: uuid
+                visibilityScope:
+                  type: string
+                  enum:
+                    - DEPARTMENT
+                    - GLOBAL
                 practicalInfo:
                   type:
                     - array
@@ -2042,7 +2213,10 @@ paths:
                 publishedAt:
                   type: string
                   format: date
-                  default: "2026-10-08"
+                  default: "2026-10-19"
+                departmentId:
+                  type: string
+                  format: uuid
                 slug:
                   type: string
                   minLength: 2
@@ -2051,6 +2225,7 @@ paths:
                 - title
                 - type
                 - category
+                - departmentId
       responses:
         "201":
           description: "Ressource créée."
@@ -2184,6 +2359,9 @@ paths:
                 publishedAt:
                   type: string
                   format: date
+                departmentId:
+                  type: string
+                  format: uuid
       responses:
         "200":
           description: "Ressource mise à jour."
@@ -2307,18 +2485,8 @@ paths:
                   maxLength: 120
                 role:
                   type: string
-                  minLength: 1
                   maxLength: 120
-                scope:
-                  type:
-                    - string
-                    - "null"
-                  maxLength: 120
-                bio:
-                  type:
-                    - string
-                    - "null"
-                  maxLength: 5000
+                  default: Responsable
                 photoMediaId:
                   type:
                     - string
@@ -2337,7 +2505,6 @@ paths:
                   maximum: 9999
               required:
                 - name
-                - role
       responses:
         "201":
           description: "Ressource créée."
@@ -2419,18 +2586,8 @@ paths:
                   maxLength: 120
                 role:
                   type: string
-                  minLength: 1
                   maxLength: 120
-                scope:
-                  type:
-                    - string
-                    - "null"
-                  maxLength: 120
-                bio:
-                  type:
-                    - string
-                    - "null"
-                  maxLength: 5000
+                  default: Responsable
                 photoMediaId:
                   type:
                     - string
@@ -2559,19 +2716,29 @@ paths:
             schema:
               type: object
               properties:
-                quote:
+                content:
                   type: string
                   minLength: 1
-                  maxLength: 2000
-                personName:
-                  type: string
-                  minLength: 1
-                  maxLength: 120
-                personRole:
+                  maxLength: 5000
+                authorName:
                   type:
                     - string
                     - "null"
                   maxLength: 120
+                isAnonymous:
+                  type: boolean
+                  default: false
+                status:
+                  type: string
+                  enum:
+                    - PENDING
+                    - PUBLISHED
+                    - REJECTED
+                    - ARCHIVED
+                  default: PENDING
+                isFeatured:
+                  type: boolean
+                  default: false
                 photoMediaId:
                   type:
                     - string
@@ -2584,8 +2751,7 @@ paths:
                   minimum: 0
                   maximum: 9999
               required:
-                - quote
-                - personName
+                - content
       responses:
         "201":
           description: "Ressource créée."
@@ -2661,24 +2827,29 @@ paths:
             schema:
               type: object
               properties:
-                quote:
+                content:
                   type: string
                   minLength: 1
-                  maxLength: 2000
-                personName:
-                  type: string
-                  minLength: 1
-                  maxLength: 120
-                personRole:
+                  maxLength: 5000
+                authorName:
                   type:
                     - string
                     - "null"
                   maxLength: 120
+                isAnonymous:
+                  type: boolean
+                isFeatured:
+                  type: boolean
                 photoMediaId:
                   type:
                     - string
                     - "null"
                   format: uuid
+                adminNotes:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 2000
                 position:
                   type:
                     - integer
@@ -3229,18 +3400,37 @@ paths:
             schema:
               type: object
               properties:
-                day:
-                  type: string
-                  minLength: 1
-                  maxLength: 20
                 title:
                   type: string
                   minLength: 1
                   maxLength: 120
+                day:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                days:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 30
+                  minItems: 1
+                startTime:
+                  type: string
+                  pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
+                endTime:
+                  type:
+                    - string
+                    - "null"
+                  pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
                 timeLabel:
                   type: string
                   minLength: 1
                   maxLength: 60
+                timeZone:
+                  type: string
+                  maxLength: 80
+                  default: "Africa/Lubumbashi"
                 audience:
                   type:
                     - string
@@ -3257,9 +3447,7 @@ paths:
                   maximum: 9999
                   default: 0
               required:
-                - day
                 - title
-                - timeLabel
       responses:
         "201":
           description: "Entrée créée."
@@ -3301,18 +3489,38 @@ paths:
             schema:
               type: object
               properties:
-                day:
-                  type: string
-                  minLength: 1
-                  maxLength: 20
                 title:
                   type: string
                   minLength: 1
                   maxLength: 120
+                day:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                days:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 30
+                  minItems: 1
+                startTime:
+                  type:
+                    - string
+                    - "null"
+                  pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
+                endTime:
+                  type:
+                    - string
+                    - "null"
+                  pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
                 timeLabel:
                   type: string
                   minLength: 1
                   maxLength: 60
+                timeZone:
+                  type: string
+                  maxLength: 80
                 audience:
                   type:
                     - string
@@ -3320,14 +3528,12 @@ paths:
                   maxLength: 120
                 isConfirmed:
                   type: boolean
-                  default: false
                 position:
                   type:
                     - integer
                     - "null"
                   minimum: 0
                   maximum: 9999
-                  default: 0
       responses:
         "200":
           description: "Entrée mise à jour."
@@ -3422,6 +3628,10 @@ paths:
             schema:
               type: object
               properties:
+                platform:
+                  type: string
+                  minLength: 1
+                  maxLength: 40
                 label:
                   type: string
                   minLength: 1
@@ -3429,6 +3639,9 @@ paths:
                 href:
                   type: string
                   format: uri
+                isActive:
+                  type: boolean
+                  default: true
                 position:
                   type:
                     - integer
@@ -3480,6 +3693,12 @@ paths:
             schema:
               type: object
               properties:
+                platform:
+                  type:
+                    - string
+                    - "null"
+                  minLength: 1
+                  maxLength: 40
                 label:
                   type: string
                   minLength: 1
@@ -3487,13 +3706,14 @@ paths:
                 href:
                   type: string
                   format: uri
+                isActive:
+                  type: boolean
                 position:
                   type:
                     - integer
                     - "null"
                   minimum: 0
                   maximum: 9999
-                  default: 0
       responses:
         "200":
           description: "Lien mis à jour."
@@ -3592,7 +3812,6 @@ paths:
                   type: object
                   additionalProperties:
                     type: string
-                    minLength: 1
                     maxLength: 500
               required:
                 - settings
@@ -4528,7 +4747,7 @@ paths:
       tags:
         - admin
       summary: "Lister les profils administratifs"
-      description: "Annuaire administratif, avec l'état d'activation et la date de création de chaque profil. Collection paginée, sans filtre serveur. Réservé au `SUPER_ADMIN` : le périmètre de lecture de l'`ADMIN` n'est pas arbitré (docs/029 Q-02), et le refus par défaut s'applique (docs/029 §4.3)."
+      description: "Annuaire administratif, avec l'état d'activation, la date de création et l'adresse de connexion de chaque profil. Collection paginée, sans filtre serveur.\n\n**Cellule 1.4 — arbitrée** : ouverte au `SUPER_ADMIN` **et à l'`ADMIN`** (Q-02 tranchée par le commanditaire). Lire l'annuaire n'autorise pas à administrer les comptes qu'on y trouve : les cellules 1.5 et 1.6 restent bornées aux responsables de département pour un acteur `ADMIN`, et XD-03 lui interdit toute action contre un `SUPER_ADMIN`."
       security:
         - bearerAuth: []
       parameters:
@@ -4606,7 +4825,7 @@ paths:
       tags:
         - admin
       summary: "Réécrire l'habilitation d'un compte"
-      description: "Rôle, périmètre et rattachement. Réservé au `SUPER_ADMIN` : le périmètre de l'`ADMIN` sur cette action n'est pas arbitré (docs/029 Q-02), et administrer un compte `SUPER_ADMIN` ne l'est pas davantage (Q-03) — les deux refus sont donc appliqués."
+      description: "Rôle, périmètre et rattachement.\n\n**Cellule 1.5 — arbitrée** : ouverte au `SUPER_ADMIN` **et, pour les responsables de département seulement, à l'`ADMIN`** (Q-02 tranchée). Pour un acteur `ADMIN` : la cible doit être un `DEPARTMENT_MANAGER` et le rôle écrit doit rester `DEPARTMENT_MANAGER` — promouvoir vers un rôle qu'il ne détient pas serait s'attribuer un pouvoir par personne interposée (D-03, D-04). Administrer un compte `SUPER_ADMIN` reste refusé à tous (XD-03, Q-03)."
       security:
         - bearerAuth: []
       parameters:
@@ -4648,7 +4867,7 @@ paths:
       tags:
         - admin
       summary: "Désactiver ou réactiver un compte"
-      description: "La révocation est **immédiate** (D-14) : le profil est mis à jour avant le fournisseur d'identité, parce que c'est `is_active` que la chaîne d'accès relit à chaque requête — donc ce qui invalide les jetons déjà émis. Une désactivation ne touche pas au rôle : réactiver rend le compte tel qu'il était. Aucune route ne supprime un compte (cellule 1.8, Q-24)."
+      description: "La révocation est **immédiate** (D-14) : le profil est mis à jour avant le fournisseur d'identité, parce que c'est `is_active` que la chaîne d'accès relit à chaque requête — donc ce qui invalide les jetons déjà émis. Une désactivation ne touche pas au rôle : réactiver rend le compte tel qu'il était.\n\n**Cellule 1.6 — arbitrée** : ouverte au `SUPER_ADMIN` **et, pour les responsables de département seulement, à l'`ADMIN`** (Q-A4 tranchée). Personne ne désactive son propre compte : ce serait un verrouillage. Pour supprimer définitivement un compte, voir `DELETE /admin/users/{id}`."
       security:
         - bearerAuth: []
       parameters:
@@ -4680,6 +4899,150 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         "404":
           "$ref": "#/components/responses/NotFound"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/admin/users/{id}":
+    delete:
+      operationId: adminUsersDelete
+      tags:
+        - admin
+      summary: "Supprimer définitivement un compte"
+      description: "**Suppression physique et irréversible** du profil et du compte d'authentification — à ne pas confondre avec la désactivation.\n\n**Cellule 1.8 — arbitrée** : réservée au **`SUPER_ADMIN`** (Q-24 tranchée par le commanditaire). Trois bornes s'appliquent : aucun compte `SUPER_ADMIN` ne peut être supprimé (Q-03 — le dernier accès d'administration est donc protégé), personne ne supprime son propre compte, et un compte encore **auteur de droits d'accès média** ne peut pas disparaître (`media_access.granted_by` est en `RESTRICT`) : la réponse est alors `409`, avec la consigne de retirer ces autorisations.\n\nOrdre des écritures : profil d'abord, compte d'authentification ensuite. Si la seconde échoue, la réponse le dit explicitement — le compte subsistant ne peut plus rien faire (aucun profil, donc aucun droit)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "Identifiant `admin_profiles.id` du compte visé."
+      responses:
+        "204":
+          description: "Compte supprimé. Aucun corps."
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/admin/users/{id}/identity":
+    patch:
+      operationId: adminUsersUpdateIdentity
+      tags:
+        - admin
+      summary: "Corriger l'identité d'un compte"
+      description: "Nom d'utilisateur, nom affiché et adresse de connexion. **Aucune cellule de `docs/029` §2.1** ne couvre cette opération : l'hypothèse retenue est la plus restrictive cohérente (alignée sur la cellule 1.5, donc `SUPER_ADMIN`), déclarée `pending` dans `UserPolicy`. Les exclusions existantes s'appliquent — XD-03 (un `ADMIN` n'administre pas un `SUPER_ADMIN`) et Q-03 (un `SUPER_ADMIN` n'administre pas un pair).\n\nL'adresse est écrite **avant** l'identité applicative : le fournisseur est seul à pouvoir refuser pour un motif métier (adresse déjà prise). En cas d'échec de la seconde écriture, la réponse **le dit** — l'adresse a changé, le profil non."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "Identifiant `admin_profiles.id` du compte visé."
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/AdminUserIdentity"
+      responses:
+        "200":
+          description: "Profil mis à jour."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminProfileSummary"
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/admin/users/{id}/password":
+    patch:
+      operationId: adminUsersSetPassword
+      tags:
+        - admin
+      summary: "Réinitialiser le mot de passe d'un compte"
+      description: "Réinitialisation **administrative** : aucun courriel n'est envoyé, la valeur est transmise par HTTPS au backend puis à l'API d'administration Supabase, qui l'empreinte. Aucun hachage n'est calculé par l'application, et le secret ne figure ni dans une réponse, ni dans un journal, ni en base. Réponse `204` sans corps.\n\nLes sessions déjà ouvertes ne sont **pas** révoquées : un jeton reste valide jusqu'à expiration. Pour couper un accès immédiatement, utilisez la désactivation."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "Identifiant `admin_profiles.id` du compte visé."
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/AdminUserPassword"
+      responses:
+        "204":
+          description: "Mot de passe redéfini. Aucun corps."
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "429":
+          "$ref": "#/components/responses/RateLimited"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/admin/me/password":
+    patch:
+      operationId: adminChangeOwnPassword
+      tags:
+        - admin
+      summary: "Changer son propre mot de passe"
+      description: "Aucun identifiant n'est reçu : la cible est l'identité du **jeton vérifié**. Volontairement hors de `UserPolicy` — administrer son propre secret n'est pas administrer autrui — et indispensable : Q-03 interdit à un `SUPER_ADMIN` d'administrer un compte `SUPER_ADMIN`, y compris le sien, ce qui laisserait le compte suprême sans moyen de faire tourner son mot de passe. La garde reste réelle : administrateur **actif**. Réponse `204` sans corps."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/AdminUserPassword"
+      responses:
+        "204":
+          description: "Mot de passe modifié. Aucun corps."
+        "400":
+          "$ref": "#/components/responses/ValidationError"
+        "401":
+          "$ref": "#/components/responses/AuthenticationRequired"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
         "429":
           "$ref": "#/components/responses/RateLimited"
         "500":

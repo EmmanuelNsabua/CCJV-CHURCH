@@ -55,6 +55,40 @@ export interface AdminIdentityProvider {
   createUser(identity: IdentityToCreate): Promise<CreatedIdentity>;
 
   /**
+   * Remplace l'adresse de connexion d'un compte.
+   *
+   * Le fournisseur reste l'autorité sur l'unicité : une adresse déjà prise
+   * remonte comme `DUPLICATE_EMAIL` (409), jamais comme une panne.
+   *
+   * ⚠️ **Le changement n'est pas instantané par construction.** Supabase peut
+   * exiger une confirmation sur la nouvelle adresse ; l'appelant ne doit donc
+   * pas annoncer « la connexion se fait désormais avec cette adresse » sans
+   * vérifier ce que la configuration du projet impose (voir la note de
+   * `setPassword` et le compte rendu d'implémentation).
+   */
+  updateEmail(id: string, email: string): Promise<void>;
+
+  /**
+   * Définit un nouveau mot de passe.
+   *
+   * **Aucun algorithme de hachage n'est écrit ici ni ailleurs dans le projet** :
+   * la valeur part telle quelle vers l'API d'administration, qui la traite et
+   * n'en conserve qu'une empreinte. Elle n'est jamais relue, jamais journalisée,
+   * jamais renvoyée.
+   */
+  updatePassword(id: string, password: string): Promise<void>;
+
+  /**
+   * Adresses de connexion des comptes demandés (`id` → adresse).
+   *
+   * L'adresse vit **uniquement** chez le fournisseur : `admin_profiles` ne la
+   * porte pas. Cette lecture est tolérante — un échec renvoie une table
+   * partielle et n'empêche pas d'afficher l'annuaire, car une adresse manquante
+   * est une gêne, pas un incident.
+   */
+  findEmails(ids: readonly string[]): Promise<Map<string, string>>;
+
+  /**
    * Désactive (`isActive = false`) ou réactive un compte.
    *
    * `docs/028` D-03 ne parle que de **désactivation** et de **révocation**,

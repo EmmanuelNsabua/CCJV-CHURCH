@@ -170,18 +170,45 @@ can(user, action, resource)
 
 ## 2.1 Users — `admin_profiles`
 
+> **Arbitrage du 19/10/2026 — le commanditaire a tranché Q-02, Q-A4 et Q-24.**
+>
+> | Question | Décision |
+> | --- | --- |
+> | **Q-02** (lecture de l'annuaire par l'`ADMIN`) | **Ouverte à l'`ADMIN`** — cellule 1.4. |
+> | **Q-02** (modification rôle / périmètre par l'`ADMIN`) | **Ouverte à l'`ADMIN`, bornée aux responsables de département** — cellule 1.5. |
+> | **Q-A4** (désactivation par l'`ADMIN`) | **Ouverte à l'`ADMIN`, bornée aux responsables de département** — cellule 1.6. |
+> | **Q-24** (suppression physique d'un compte) | **Réservée au `SUPER_ADMIN`** — cellule 1.8. |
+>
+> Les bornes ne sont pas négociables dans cet arbitrage et découlent de **D-04**,
+> qui n'est pas modifié : « l'`ADMIN` n'est *inférieur*, il est **différent** ».
+> Un `ADMIN` n'administre ni un pair `ADMIN`, ni un `SUPER_ADMIN` (XD-03), et il
+> ne peut pas écrire un rôle qu'il ne détient pas — promouvoir un responsable en
+> `ADMIN` serait s'attribuer un pouvoir par personne interposée. Personne
+> n'administre **son propre** compte (désactivation, suppression) : ce serait un
+> verrouillage. Implémenté dans `UserPolicy`
+> (`refusePeerAdministrationByAdmin`, `refuseSelfAdministration`).
+
 | # | Action | `SUPER_ADMIN` GLOBAL | `ADMIN` GLOBAL | `DEPARTMENT_MANAGER` DEPT | Visiteur | Fondement |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1.1 | `CREATE` compte `ADMIN` | `✔` | `✘` | `✘` | `✘` | D-03 (création et révocation des comptes `ADMIN`) ; D-04 (l'`ADMIN` ne peut pas administrer un `SUPER_ADMIN` **ni créer d'`ADMIN`**) |
 | 1.2 | `CREATE` compte `DEPARTMENT_MANAGER` | `✔` | `✔` | `✘` | `✘` | D-03 ; **D-04** (« création des comptes de responsables ») |
 | 1.3 | `CREATE` compte `SUPER_ADMIN` | `✔` | `✘` | `✘` | `✘` | D-03 ; **D-04** ; D-05 |
-| 1.4 | `READ` annuaire administratif | `✔` | `?` Q-02 | `✘` | `✘` | D-03 ; le périmètre de lecture de l'`ADMIN` n'est pas énoncé |
-| 1.5 | `UPDATE` rôle / scope d'un compte | `✔` | `?` Q-02 | `✘` | `✘` | D-03 (« gestion des rôles et scopes » — réservée au `SUPER_ADMIN`) |
-| 1.6 | `DEACTIVATE` / `REVOKE` un compte `ADMIN` ou `DEPARTMENT_MANAGER` | `✔` | `?` 028/Q-A4 | `✘` | `✘` | D-03 (« désactivation et révocation ») ; **028/Q-A4 reste ouverte** pour l'`ADMIN` |
-| 1.7 | `ADMINISTER` (modifier / désactiver) un compte `SUPER_ADMIN` | `?` Q-03 | `✘` | `✘` | `✘` | **D-04** pour l'`ADMIN` ; 028 ne dit pas si un `SUPER_ADMIN` peut en administrer un autre (ni lui-même) |
-| 1.8 | `DELETE` (suppression physique d'un compte) | `?` Q-24 | `?` Q-24 | `✘` | `✘` | D-03 ne dit que « désactivation » et « révocation » ; 028/Q-API2 non tranchée |
+| 1.4 | `READ` annuaire administratif | `✔` | **`✔`** *(Q-02 arbitrée)* | `✘` | `✘` | D-03 ; **arbitrage du commanditaire (19/10/2026)** : lire n'est pas administrer |
+| 1.5 | `UPDATE` rôle / scope d'un compte | `✔` | **`✔` sur un `DEPARTMENT_MANAGER` seulement, et vers `DEPARTMENT_MANAGER` seulement** *(Q-02 arbitrée)* | `✘` | `✘` | D-03 ; **D-04** (l'`ADMIN` gère les responsables, pas les rôles système) ; arbitrage du commanditaire |
+| 1.6 | `DEACTIVATE` / `REVOKE` un compte `ADMIN` ou `DEPARTMENT_MANAGER` | `✔` | **`✔` sur un `DEPARTMENT_MANAGER` seulement** *(Q-A4 arbitrée)* | `✘` | `✘` | D-03 ; **D-04** ; arbitrage du commanditaire. Jamais sur son propre compte (verrouillage) |
+| 1.7 | `ADMINISTER` (modifier / désactiver) un compte `SUPER_ADMIN` | `?` Q-03 | `✘` | `✘` | `✘` | **D-04** pour l'`ADMIN` ; 028 ne dit pas si un `SUPER_ADMIN` peut en administrer un autre (ni lui-même) — **refus par défaut maintenu**, ce qui protège le dernier accès d'administration |
+| 1.8 | `DELETE` (suppression physique d'un compte) | **`✔`** *(Q-24 arbitrée ; jamais un `SUPER_ADMIN`, jamais soi-même)* | `✘` | `✘` | `✘` | Arbitrage du commanditaire (19/10/2026). Retenue par `media_access.granted_by` (`RESTRICT`, `409`) ; les autres références d'auteur sont en `SET NULL` |
 
-**Refus explicites dans ce tableau : 19.**
+**Refus explicites dans ce tableau : 20.**
+
+> **Note d'implémentation — deux actions hors matrice.** La correction de
+> l'identité d'un compte (`UPDATE_IDENTITY`) et la réinitialisation
+> administrative d'un mot de passe (`RESET_PASSWORD`) ne figurent dans aucune
+> cellule : elles sont accordées au `SUPER_ADMIN` seul, par alignement sur 1.5 et
+> 1.6, et restent marquées `pending` dans le code en attendant une cellule
+> explicite. Le changement de **son propre** mot de passe
+> (`PATCH /admin/me/password`) n'est pas une administration d'autrui : il ne
+> requiert que d'être un administrateur actif.
 
 ## 2.2 Departments — `departments`
 
@@ -567,8 +594,10 @@ décision de 028 ni 024 ne les ait nommées.
 | P-07 | `UserPolicy` | `AdminProfile` | `canCreateSuperAdmin` | `SUPER_ADMIN` uniquement | D-03, D-04 |
 | | | | `canCreateAdmin` | `SUPER_ADMIN` uniquement | D-03 |
 | | | | `canCreateManager` | `SUPER_ADMIN` · `ADMIN` | **D-04** |
-| | | | `canReadProfiles` / `canUpdateRoleScope` | `SUPER_ADMIN` ; `ADMIN` : `?` (Q-02) | D-03 |
-| | | | `canDeactivate` | `SUPER_ADMIN` ; `ADMIN` : `?` (028/Q-A4) | D-03 |
+| | | | `canReadProfiles` | `SUPER_ADMIN` ; **`ADMIN` `✔`** (Q-02 arbitrée) | D-03 ; arbitrage du commanditaire |
+| | | | `canUpdateRoleScope` | `SUPER_ADMIN` ; **`ADMIN` `✔` sur un `DEPARTMENT_MANAGER`, vers `DEPARTMENT_MANAGER`** (Q-02 arbitrée) | D-03, D-04 ; arbitrage du commanditaire |
+| | | | `canDeactivate` | `SUPER_ADMIN` ; **`ADMIN` `✔` sur un `DEPARTMENT_MANAGER`** (Q-A4 arbitrée) | D-03, D-04 ; arbitrage du commanditaire |
+| | | | `canDelete` | **`SUPER_ADMIN` uniquement** (Q-24 arbitrée) ; jamais un `SUPER_ADMIN` ni soi-même | Arbitrage du commanditaire ; `media_access.granted_by` en `RESTRICT` |
 | | | | `canAdministerTarget` | **`false` si la cible est `SUPER_ADMIN` et l'acteur `ADMIN`** | **D-04** |
 | | | | `assertSingleDepartment` | Un `DEPARTMENT_MANAGER` porte **un** `department_id` non nul | **D-02** |
 
@@ -997,7 +1026,7 @@ explicitement.
 | # | Question | Origine | Ressources concernées | Bloque |
 | --- | --- | --- | --- | --- |
 | **Q-01** | Le modèle est-il **fermé par défaut** — tout couple (rôle, ressource, action) non énuméré est-il refusé ? | Aucune décision de D-01 à D-26 ne l'énonce | **Toutes** | Toutes les cellules `✘*` |
-| **Q-02** | Quel est le périmètre exact de l'`ADMIN` sur `Users` : lecture de l'annuaire, modification d'un rôle/scope, désactivation d'un `ADMIN` ? | D-04 ne mentionne que « la création des comptes de responsables » | 1.4, 1.5, 1.6 | P-07 |
+| **Q-02** | Quel est le périmètre exact de l'`ADMIN` sur `Users` : lecture de l'annuaire, modification d'un rôle/scope, désactivation d'un `ADMIN` ? — **TRANCHÉE le 19/10/2026** : lecture `✔`, modification d'habilitation et désactivation `✔` **sur les responsables de département uniquement** (ni un pair `ADMIN`, ni un `SUPER_ADMIN`, jamais soi-même) | D-04 ne mentionne que « la création des comptes de responsables » | 1.4, 1.5, 1.6 | P-07 |
 | **Q-03** | Un `SUPER_ADMIN` peut-il administrer **un autre** `SUPER_ADMIN` ? peut-il se désactiver lui-même ? combien de `SUPER_ADMIN` peuvent exister (D-05 parle d'« un compte distinct ») ? | D-03 / D-05, silencieux | 1.7 | P-07 |
 | **Q-04** | Un responsable peut-il **lire** les publications et événements d'un autre département dans le back-office ? | 028/Q-P4, étendue aux événements | 3.2, 4.2 | P-01, P-03 |
 | **Q-05** | Qui édite la page `[Département]` (D-23 la déclare éditable **sans nommer le rôle**) et les informations métier d'un département ? | D-23, D-04 | 2.3, 7.2, 7.3 | P-04, P-05 |
@@ -1019,7 +1048,7 @@ explicitement.
 | **Q-21** | Le `Scope` est-il porté par l'**utilisateur** ou par la **ressource** ? | 021 §16 : « dépend du modèle RBAC final » | §1.2 entier | Modèle de données |
 | **Q-22** | Quel code pour « authentifié auprès du fournisseur d'identité mais sans profil administratif » : `UNAUTHENTICATED_ADMIN` (déclaré, jamais émis) ou `FORBIDDEN` (émis aujourd'hui) ? | 028/Q-API1 ; OpenAPI le documente déjà comme un écart | N-32 | Codes d'erreur |
 | **Q-23** | Un accès hors périmètre à une ressource **existante** doit-il répondre `403 FORBIDDEN` ou `404 NOT_FOUND` (non-divulgation de l'existence) ? | Aucune décision de 028 | N-08, N-09, N-24 | P-01 → P-05 |
-| **Q-24** | Modèle de suppression par ressource : définitive ou réversible (`soft delete`) ? | 028/Q-API2 | 1.8, 3.5, 4.5, 8.5, 11.5 → 15.4 | Toutes les policies |
+| **Q-24** | Modèle de suppression par ressource : définitive ou réversible (`soft delete`) ? — **TRANCHÉE le 19/10/2026 pour `Users`** : suppression **définitive**, réservée au `SUPER_ADMIN` (cellule 1.8). Les autres ressources restent ouvertes. | 028/Q-API2 | 1.8, 3.5, 4.5, 8.5, 11.5 → 15.4 | Toutes les policies |
 | **Q-25** | États d'une `PrayerRequest` : `PENDING`/`ARCHIVED` (021 §12.2, I8) ou `NEW`/`PRAYED` (code actuel) ? 028 ne mentionne aucun état. | 028 silencieuse ; code divergent | 8.4 | P-06 |
 | **Q-26** | Structure de `MediaAccess` : trois droits ? un par relation ? qui a accordé, quand ? | 021 §20.3 : « à définir » | 6.1 → 6.5 | Modèle de données |
 | **Q-27** | Code HTTP de la violation « média non autorisé pour le département de la publication » : `403` (autorisation) ou `400`/`422` (règle métier) ? | 021 §11 pose la règle ; 028 ne dit pas comment elle se traduit | N-17, N-20 | P-02 |

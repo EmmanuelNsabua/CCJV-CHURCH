@@ -367,6 +367,74 @@ describe("Profils — D-04 : l'ADMIN n'est pas inférieur, il est différent", (
     expect(evaluate(UserPolicy, admin, "CREATE", target("DEPARTMENT_MANAGER")).allowed).toBe(true);
   });
 
+  /**
+   * Cellules **1.4, 1.5, 1.6 et 1.8 arbitrées par le commanditaire**.
+   *
+   * L'`ADMIN` gagne la lecture de l'annuaire, la modification d'habilitation et la
+   * suspension — **sur les responsables de département uniquement**. Le
+   * `SUPER_ADMIN` gagne la suppression physique. Ce bloc est le garde-fou de cet
+   * arbitrage : si quelqu'un rouvre ou referme une de ces cellules sans le dire,
+   * c'est ici que ça se voit.
+   */
+  describe("Arbitrage du commanditaire — ADMIN élargi, suppression au SUPER_ADMIN", () => {
+    const toManagerOf = (departmentId: string) => ({
+      id: "t",
+      current: state("DEPARTMENT_MANAGER"),
+      requested: {
+        role: "DEPARTMENT_MANAGER" as AdminRole,
+        scope: "DEPARTMENT" as AdminScope,
+        departmentId,
+      },
+    });
+
+    it("1.4 — l'ADMIN lit l'annuaire (Q-02 tranchée)", () => {
+      expect(evaluate(UserPolicy, admin, "READ").allowed).toBe(true);
+      expect(evaluate(UserPolicy, superAdmin, "READ").allowed).toBe(true);
+      expect(evaluate(UserPolicy, managerA, "READ").allowed).toBe(false);
+    });
+
+    it("1.5 — l'ADMIN déplace un responsable, sans pouvoir le promouvoir", () => {
+      expect(
+        evaluate(UserPolicy, admin, "UPDATE_ROLE_SCOPE", toManagerOf(DEPARTMENT_B)).allowed,
+      ).toBe(true);
+
+      const promote = {
+        id: "t",
+        current: state("DEPARTMENT_MANAGER"),
+        requested: state("ADMIN"),
+      };
+      expect(evaluate(UserPolicy, admin, "UPDATE_ROLE_SCOPE", promote).allowed).toBe(false);
+    });
+
+    it("1.5 — l'ADMIN n'administre pas un pair ADMIN", () => {
+      const peer = { id: "t", current: state("ADMIN"), requested: state("ADMIN") };
+      expect(evaluate(UserPolicy, admin, "UPDATE_ROLE_SCOPE", peer).allowed).toBe(false);
+    });
+
+    it("1.6 — l'ADMIN suspend un responsable, pas un pair ni lui-même", () => {
+      expect(evaluate(UserPolicy, admin, "DEACTIVATE", target("DEPARTMENT_MANAGER")).allowed).toBe(true);
+      expect(evaluate(UserPolicy, admin, "DEACTIVATE", target("ADMIN")).allowed).toBe(false);
+
+      const self = { id: admin.id, current: state("ADMIN") };
+      expect(evaluate(UserPolicy, admin, "DEACTIVATE", self).allowed).toBe(false);
+    });
+
+    it("1.8 — la suppression est réservée au SUPER_ADMIN, et jamais de soi-même", () => {
+      expect(evaluate(UserPolicy, superAdmin, "DELETE", target("DEPARTMENT_MANAGER")).allowed).toBe(true);
+      expect(evaluate(UserPolicy, superAdmin, "DELETE", target("ADMIN")).allowed).toBe(true);
+
+      // Q-03 : le dernier accès d'administration reste protégé.
+      expect(evaluate(UserPolicy, superAdmin, "DELETE", target("SUPER_ADMIN")).allowed).toBe(false);
+
+      const selfDelete = { id: superAdmin.id, current: state("SUPER_ADMIN") };
+      expect(evaluate(UserPolicy, superAdmin, "DELETE", selfDelete).allowed).toBe(false);
+
+      // Ni l'ADMIN ni le responsable ne suppriment quoi que ce soit.
+      expect(evaluate(UserPolicy, admin, "DELETE", target("DEPARTMENT_MANAGER")).allowed).toBe(false);
+      expect(evaluate(UserPolicy, managerA, "DELETE", target("DEPARTMENT_MANAGER")).allowed).toBe(false);
+    });
+  });
+
   it("D-02 — un responsable sans département est refusé avant toute écriture", () => {
     const incoherent = { id: "t", current: { role: "DEPARTMENT_MANAGER" as AdminRole, scope: "DEPARTMENT" as AdminScope, departmentId: null } };
     expect(evaluate(UserPolicy, superAdmin, "CREATE", incoherent).allowed).toBe(false);

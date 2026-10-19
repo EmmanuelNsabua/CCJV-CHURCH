@@ -126,33 +126,39 @@ export const UserPolicy = createPolicy<UserPolicyResource>(
     },
 
     /**
-     * `canReadProfiles` — `SUPER_ADMIN` ; **`ADMIN` : Q-02** non tranchée →
-     * refus (`docs/029` §4.3, défaut `✘`).
+     * `canReadProfiles` — `SUPER_ADMIN` · **`ADMIN` (arbitrage du commanditaire)**.
      *
-     * Refuser à l'`ADMIN` l'énumération des profils ne l'empêche pas de gérer
-     * les responsables qu'il crée : `GET /admin/me` lit le profil courant, et
-     * l'administration d'un compte précis est une décision sur **instance**
-     * (`UPDATE_ROLE_SCOPE`, `DEACTIVATE`), pas une énumération. La question Q-02
-     * porte bien sur la **liste**, et c'est cette lecture-là qui reste fermée.
+     * La cellule 1.4 de `docs/029` §2.1 portait `ADMIN : ? (Q-02)`. **Q-02 est
+     * tranchée en faveur de l'`ADMIN`** : il consulte l'annuaire.
+     *
+     * Ce que cette ouverture ne donne pas : administrer un compte trouvé dans la
+     * liste. XD-03 exclut toujours toute action de l'`ADMIN` contre un
+     * `SUPER_ADMIN`, et les deux actions d'administration restent bornées aux
+     * responsables de département (`refusePeerAdministrationByAdmin`). Lire n'est
+     * pas administrer : c'est la distinction que les cellules 1.4 et 1.5
+     * expriment séparément.
      */
     READ: {
-      roles: ["SUPER_ADMIN"],
+      roles: ["SUPER_ADMIN", "ADMIN"],
       scopes: ["GLOBAL"],
-      pending: "docs/029 Q-02 (lecture des profils par l'ADMIN)",
     },
 
     /**
-     * `canUpdateRoleScope` — `SUPER_ADMIN` ; **`ADMIN` : Q-02** → refus.
+     * `canUpdateRoleScope` — `SUPER_ADMIN` · **`ADMIN` sur les responsables**
+     * (arbitrage du commanditaire ; la cellule 1.5 portait `ADMIN : ? (Q-02)`).
      *
-     * Modifier le rôle ou le périmètre d'un compte, c'est redistribuer des
-     * pouvoirs. Tant que Q-02 n'est pas arbitrée, l'`ADMIN` ne le fait pas — et
-     * l'exclusion XD-03 garantit qu'il ne pourrait de toute façon pas viser un
-     * `SUPER_ADMIN`.
+     * L'ouverture est **bornée par D-04**, qui n'est pas modifiée : « l'`ADMIN`
+     * n'est pas *inférieur*, il est **différent** ». Il gère les responsables de
+     * département, et rien d'autre. Pour un acteur `ADMIN` :
+     * - la **cible** doit être un `DEPARTMENT_MANAGER` (ni un pair, ni un
+     *   `SUPER_ADMIN`, que XD-03 exclut de toute façon) ;
+     * - le rôle **écrit** doit rester `DEPARTMENT_MANAGER` : promouvoir vers un
+     *   rôle qu'il ne détient pas serait s'attribuer un pouvoir par personne
+     *   interposée (D-03, mission §5).
      */
     UPDATE_ROLE_SCOPE: {
-      roles: ["SUPER_ADMIN"],
+      roles: ["SUPER_ADMIN", "ADMIN"],
       scopes: ["GLOBAL"],
-      pending: "docs/029 Q-02 · Q-03",
       resource: (admin, resource) => {
         // L'exclusion est évaluée sur l'état **actuel** de la cible : c'est
         // administrer un compte `SUPER_ADMIN` qui est en cause, pas le rôle
@@ -161,6 +167,10 @@ export const UserPolicy = createPolicy<UserPolicyResource>(
         // exact que la séparation `current` / `requested` ferme.
         const untranched = refuseSuperAdminTargetBySuperAdmin(admin, resource);
         if (!untranched.allowed) return untranched;
+
+        const peer = refusePeerAdministrationByAdmin(admin, resource);
+        if (!peer.allowed) return peer;
+
         return assertCoherentProfile(resource);
       },
     },
@@ -179,23 +189,97 @@ export const UserPolicy = createPolicy<UserPolicyResource>(
      * consulte la base à chaque appel plutôt que de faire confiance au jeton.
      */
     DEACTIVATE: {
+      roles: ["SUPER_ADMIN", "ADMIN"],
+      scopes: ["GLOBAL"],
+      resource: (admin, resource) => {
+        const untranched = refuseSuperAdminTargetBySuperAdmin(admin, resource);
+        if (!untranched.allowed) return untranched;
+
+        const peer = refusePeerAdministrationByAdmin(admin, resource);
+        if (!peer.allowed) return peer;
+
+        return refuseSelfAdministration(admin, resource);
+      },
+    },
+
+    /**
+     * `canUpdateIdentity` — **cellule absente de `docs/029` §2.1**.
+     *
+     * Ni la matrice gelée ni `docs/028` n'énumèrent la correction des
+     * informations d'un compte (nom d'utilisateur, nom affiché, adresse de
+     * connexion). Le vide est donc traité selon la règle du projet — refus par
+     * défaut (`docs/029` §4.3) — et **aligné sur la cellule la plus proche** :
+     * 1.5 (`UPDATE` rôle / scope), réservée au `SUPER_ADMIN`. Modifier l'identité
+     * d'un compte, c'est toucher à qui peut se connecter : cela relève de la
+     * même gouvernance que les rôles (X5).
+     *
+     * Les deux exclusions existantes s'appliquent sans être recopiées : XD-03
+     * (l'`ADMIN` n'administre pas un `SUPER_ADMIN`) précède la table, et Q-03
+     * (un `SUPER_ADMIN` n'administre pas un autre `SUPER_ADMIN`) est posée sur
+     * la ressource.
+     */
+    UPDATE_IDENTITY: {
       roles: ["SUPER_ADMIN"],
       scopes: ["GLOBAL"],
-      pending: "docs/028 Q-A4 · docs/029 Q-03",
+      pending:
+        "docs/029 — aucune cellule pour la modification d'identité ; hypothèse alignée sur la cellule 1.5 (SUPER_ADMIN), à arbitrer en Phase 6",
       resource: refuseSuperAdminTargetBySuperAdmin,
     },
 
     /**
-     * `DELETE` — **refus pour tous**.
+     * `canResetPassword` — **cellule absente de `docs/029` §2.1**.
      *
-     * Aucune décision n'autorise la suppression physique d'un profil, et
-     * plusieurs l'excluent : `media_access.granted_by` est en `RESTRICT`,
-     * `audit_log.actor_user_id` en `SET NULL` « parce qu'un journal doit
-     * survivre » (`docs/032` §4.3), et D-03 ne parle que de désactivation. La
-     * ligne est écrite pour rendre ce refus **visible** au lieu de le laisser
-     * dépendre de l'absence d'une action dans le vocabulaire.
+     * Définir le mot de passe d'un **autre** compte est l'acte d'administration
+     * le plus direct sur un accès : il est réservé au `SUPER_ADMIN`, par
+     * cohérence avec 1.5 et 1.6, et refusé par défaut puisqu'aucun document ne
+     * l'attribue.
+     *
+     * Ce que cette action ne couvre **pas** : le changement de son **propre**
+     * mot de passe, qui n'est pas une administration d'autrui. Ce parcours-là
+     * (`PATCH /admin/me/password`) n'exige aucune permission supplémentaire
+     * au-delà d'être un administrateur actif, et il est volontairement
+     * distinct : sans lui, Q-03 rendrait impossible la rotation du secret du
+     * seul compte `SUPER_ADMIN` — donc un verrouillage.
      */
-    DELETE: { roles: [], pending: "docs/028 D-03 — désactivation, jamais suppression physique" },
+    RESET_PASSWORD: {
+      roles: ["SUPER_ADMIN"],
+      scopes: ["GLOBAL"],
+      pending:
+        "docs/029 — aucune cellule pour la réinitialisation administrative du mot de passe ; hypothèse alignée sur les cellules 1.5 et 1.6, à arbitrer en Phase 6",
+      resource: refuseSuperAdminTargetBySuperAdmin,
+    },
+
+    /**
+     * `DELETE` — **suppression physique, `SUPER_ADMIN` uniquement**
+     * (arbitrage du commanditaire ; la cellule 1.8 portait `?  (Q-24)`).
+     *
+     * L'arbitrage ouvre la suppression **au seul `SUPER_ADMIN`** : `ADMIN` et
+     * responsable restent refusés. Trois bornes l'accompagnent, et aucune n'est
+     * décorative :
+     *
+     * - **pas de compte `SUPER_ADMIN` pour cible** : Q-03 reste en vigueur, donc
+     *   le dernier compte suprême ne peut pas être supprimé — la protection
+     *   contre le verrouillage découle de la règle existante, elle n'est pas
+     *   réinventée ;
+     * - **pas de suppression de son propre compte** : l'exploitant se couperait
+     *   l'administration dans le même geste ;
+     * - **`media_access.granted_by` est en `RESTRICT`** : un compte qui a accordé
+     *   des droits sur des médias ne peut pas disparaître, la base le refuse
+     *   (traduit en `409` par le repository). Effacer l'auteur rendrait
+     *   l'autorisation inattribuable — `docs/032` §3.4.
+     *
+     * La suppression n'est **jamais** une désactivation déguisée : elle efface
+     * le profil et le compte d'authentification, sans retour possible.
+     */
+    DELETE: {
+      roles: ["SUPER_ADMIN"],
+      scopes: ["GLOBAL"],
+      resource: (admin, resource) => {
+        const untranched = refuseSuperAdminTargetBySuperAdmin(admin, resource);
+        if (!untranched.allowed) return untranched;
+        return refuseSelfAdministration(admin, resource);
+      },
+    },
   },
   /**
    * **XD-03 — l'`ADMIN` ne peut pas administrer un `SUPER_ADMIN`.**
@@ -273,6 +357,70 @@ function refuseSuperAdminTargetBySuperAdmin(
   if (admin.role === "SUPER_ADMIN" && resource?.current.role === "SUPER_ADMIN") {
     return deny(
       "docs/029 Q-03 : administrer un compte SUPER_ADMIN depuis l'application n'est pas tranché — refus par défaut (docs/029 §4.3)",
+    );
+  }
+  return allow();
+}
+
+/**
+ * Un `ADMIN` n'administre que des **responsables de département** — D-04.
+ *
+ * L'ouverture des cellules 1.5 et 1.6 à l'`ADMIN` (arbitrage du commanditaire)
+ * ne fait pas de lui un administrateur d'administrateurs : « l'`ADMIN` n'est pas
+ * *inférieur*, il est **différent** ». Deux bornes en découlent, et elles sont
+ * vérifiées ici, une fois :
+ *
+ * 1. la **cible** doit être un `DEPARTMENT_MANAGER` — un pair `ADMIN` ne
+ *    s'administre pas, un `SUPER_ADMIN` est déjà exclu par XD-03 ;
+ * 2. le rôle **écrit** doit rester `DEPARTMENT_MANAGER` — promouvoir vers un
+ *    rôle que l'acteur ne détient pas serait s'attribuer un pouvoir par personne
+ *    interposée (D-03, mission §5).
+ *
+ * Les autres rôles d'acteur ne sont pas concernés : cette fonction ne restreint
+ * que l'`ADMIN`, exactement comme `refuseSuperAdminTargetBySuperAdmin`.
+ */
+function refusePeerAdministrationByAdmin(
+  admin: AdminProfile,
+  resource: UserPolicyResource | undefined,
+): AuthorizationDecision {
+  if (admin.role !== "ADMIN" || !resource) return allow();
+
+  // `current`, jamais `requested` : ce qui est en cause, c'est le compte visé.
+  if (resource.current.role !== "DEPARTMENT_MANAGER") {
+    return deny(
+      "docs/028 D-04 : un ADMIN n'administre que les responsables de département (ni un pair ADMIN, ni un SUPER_ADMIN)",
+    );
+  }
+
+  const written = resource.requested ?? resource.current;
+  if (written.role !== "DEPARTMENT_MANAGER") {
+    return deny(
+      "docs/028 D-03/D-04 : un ADMIN ne peut pas attribuer un rôle qu'il ne détient pas — il ne crée ni n'administre d'ADMIN",
+    );
+  }
+
+  return allow();
+}
+
+/**
+ * Personne n'administre **son propre** compte par ces actions.
+ *
+ * Désactiver ou supprimer son propre compte, c'est se retirer l'accès
+ * d'administration dans le geste même — un verrouillage, pas une décision. Pour
+ * un `SUPER_ADMIN`, Q-03 le refusait déjà ; la règle est ici rendue **explicite
+ * et générale**, afin qu'elle ne dépende pas d'un détour par Q-03.
+ *
+ * Le changement de **son propre mot de passe** ne passe pas par cette policy : il
+ * a sa route dédiée (`PATCH /admin/me/password`), et c'est précisément ce qui
+ * permet au compte suprême de faire tourner son secret.
+ */
+function refuseSelfAdministration(
+  admin: AdminProfile,
+  resource: UserPolicyResource | undefined,
+): AuthorizationDecision {
+  if (resource && admin.id === resource.id) {
+    return deny(
+      "Administrer son propre compte couperait l'accès d'administration : opération refusée (le mot de passe personnel a sa propre route)",
     );
   }
   return allow();
