@@ -9,6 +9,7 @@ import {
   createDepartmentSchema,
   departmentIdOrSlugSchema,
   listDepartmentQuerySchema,
+  saveDepartmentActivitiesSchema,
   updateDepartmentSchema,
 } from "./department.schema";
 import type { DepartmentService } from "./department.service";
@@ -38,6 +39,21 @@ export function createDepartmentRouter(deps: DepartmentRouterDeps): Router {
 
   // --- Lecture publique -----------------------------------------------------
   router.get("/", validate({ query: listDepartmentQuerySchema }), controller.list);
+
+  /*
+   * `/archives` est déclaré **avant** `/:idOrSlug` : sans cela, « archives »
+   * serait capté comme un slug et la route répondrait `DEPARTMENT_NOT_FOUND`.
+   * Elle est administratrice — un instantané contient la fiche entière, y
+   * compris ce qui a été retiré du public.
+   */
+  router.get(
+    "/archives",
+    ...admin,
+    authorize(DepartmentPolicy, "READ"),
+    validate({ query: listDepartmentQuerySchema }),
+    controller.archives,
+  );
+
   router.get(
     "/:idOrSlug",
     validate({ params: departmentIdOrSlugSchema }),
@@ -61,6 +77,16 @@ export function createDepartmentRouter(deps: DepartmentRouterDeps): Router {
       body: updateDepartmentSchema,
     }),
     controller.update,
+  );
+  router.put(
+    "/:idOrSlug/activities",
+    ...admin,
+    authorize(DepartmentPolicy, "UPDATE"),
+    validate({
+      params: departmentIdOrSlugSchema,
+      body: saveDepartmentActivitiesSchema,
+    }),
+    controller.saveActivities,
   );
   router.post(
     "/:idOrSlug/archive",

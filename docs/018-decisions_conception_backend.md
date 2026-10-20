@@ -251,7 +251,23 @@ donnée administrative, ni `prayer_requests`.
   libre.
 - **Identifiant** : `:idOrSlug` accepte un UUID **ou** un slug, ce qui permet au
   frontend d'utiliser ses URL actuelles (`/publications/[slug]`) sans requête
-  supplémentaire.
+  supplémentaire. Deux modules font exception sur le **nom** du paramètre, pas
+  sur son sens : `enseignements` et `resources` nomment `:id` toutes leurs routes
+  (la lecture y accepte toujours un UUID ou un slug), parce qu'un contrat
+  OpenAPI ne peut pas porter deux gabarits équivalents (`{id}` et `{idOrSlug}`)
+  pour la même URL.
+- **Slug — arbitrage du 23/10/2026 : une adresse, pas une identité.** Un slug
+  explicite déjà pris est désormais **suffixé** (`mon-titre`, `mon-titre-2`,
+  `mon-titre-3`…) au lieu d'être refusé en `409 DUPLICATE_SLUG`. Motif : les
+  titres éditoriaux ne doivent pas être contraints par l'URL (deux « Culte du
+  dimanche », deux « Enseignement du mercredi » sont légitimes). L'identité
+  canonique reste l'`id` UUID — les routes `:idOrSlug` acceptent les deux — et
+  le slug reste lisible pour le référencement. Le code `DUPLICATE_SLUG` subsiste
+  dans `docs/004` §26 pour mémoire, mais **aucune route applicative ne le lève
+  plus** : le seul cas résiduel serait une collision concurrente sur
+  `publications.slug`, protégée par son index unique. Un slug **UUID brut**
+  n'a pas été retenu : il rendrait les URL illisibles sans rien apporter, la
+  base identifiant déjà chaque ressource par un UUID.
 
 ---
 
@@ -283,7 +299,7 @@ sont conçus pour accueillir des rôles fins sans réécriture (`docs/004` §24)
 
 - **Bucket** : `ccjv-media` (public en lecture, écriture serveur uniquement).
 - **Dossiers** : `events/`, `departments/`, `publications/`, `leaders/`,
-  `testimonies/`, `community/`, `pages/` — un préfixe par usage.
+  `testimonies/`, `community/`, `pages/`, `resources/` — un préfixe par usage.
 - **Types autorisés** : `image/jpeg`, `image/png`, `image/webp`, `image/avif`.
   **Taille max : 5 Mo.**
 - **Vérification par signature binaire** (*magic bytes*), pas seulement par
@@ -293,6 +309,27 @@ sont conçus pour accueillir des rôles fins sans réécriture (`docs/004` §24)
 - **Suppression** : refuse par défaut si le média est référencé (intégrité), sauf
   `?force=true` explicite.
 - Le `SUPABASE_SERVICE_ROLE_KEY` ne quitte **jamais** le serveur (`docs/004` §33).
+
+### 8.1 Exception documentaire : PDF et dossier `resources/` (arbitrage du 23/10/2026)
+
+L'espace **Ressources** promet des documents téléchargeables ; le stockage, lui,
+n'acceptait que des images. Le formulaire de dépôt envoyait donc un PDF vers
+`pages/` et recevait `415 INVALID_FILE_TYPE` : la fonctionnalité n'a jamais pu
+servir.
+
+Décision retenue — **exception portée par le dossier, pas élargissement
+global** :
+
+- `resources/` est le **seul** dossier qui accepte `application/pdf` (magic
+  bytes `%PDF-`), et il n'accepte **que** cela : une photo n'y a pas de sens,
+  la fiche annonçant un document.
+- Tous les autres dossiers restent strictement image. Un PDF dans `events/` est
+  refusé comme avant : le site y attend une illustration.
+- **Plafonds distincts** : 5 Mo pour les images (les pages publiques n'ont rien
+  à gagner d'une photo plus lourde), `MAX_UPLOAD_BYTES` — porté à 20 Mo — pour
+  les documents, un PDF de brochure dépassant régulièrement 5 Mo.
+- Les dimensions (`width`/`height`) restent `NULL` pour un document : elles ne
+  sont mesurées que sur une image.
 
 ---
 

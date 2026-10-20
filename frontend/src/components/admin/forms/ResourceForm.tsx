@@ -46,12 +46,15 @@ export function ResourceForm({
 
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("folder", "pages");
+    // `resources` : seul dossier du Storage qui accepte un document. Le dossier
+    // `pages` n'admet que des images et renvoyait « type de fichier non
+    // autorisé » (415) pour tout PDF.
+    formData.append("folder", "resources");
     formData.append("alt", file.name);
 
     setIsUploading(true);
     try {
-      const res = await uploadAdminMedia(formData);
+      const res = await uploadAdminMedia(formData, "resources");
       setFileUrl(res.url);
       if (!name) {
         // Pré-remplir le nom avec le nom de fichier sans extension si vide

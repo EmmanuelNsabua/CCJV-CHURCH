@@ -8,7 +8,6 @@ import type {
 import { EventPolicy } from "@/presentation/policies";
 import { logger } from "@/infrastructure/logger";
 import {
-  DuplicateSlugError,
   ForbiddenError,
   NotFoundError,
   ValidationError,
@@ -312,18 +311,18 @@ export class EventService {
     }
   }
 
-  /** Slug explicite refusé s'il est déjà pris, sinon dérivé du titre. */
+  /**
+   * Slug définitif : slug explicite **suffixé** s'il est déjà pris, sinon
+   * dérivé du titre.
+   *
+   * Deux événements peuvent porter le même intitulé (« Culte de la Pentecôte »
+   * revient chaque année) : c'est la date qui les distingue, pas l'URL.
+   */
   private async resolveSlug(title: string, requested?: string): Promise<string> {
     const explicit = requested === undefined ? "" : slugify(requested);
+    const base = explicit.length > 0 ? explicit : title;
 
-    if (explicit.length > 0) {
-      if (await this.events.slugExists(explicit)) {
-        throw new DuplicateSlugError(explicit);
-      }
-      return explicit;
-    }
-
-    return uniqueSlug(title, (candidate) => this.events.slugExists(candidate));
+    return uniqueSlug(base, (candidate) => this.events.slugExists(candidate));
   }
 }
 

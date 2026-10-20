@@ -582,6 +582,23 @@ describe("Pages et paramètres — des refus qui ne dépendent d'aucun rôle", (
     expect(evaluate(DepartmentPolicy, admin, "UPDATE_STRUCTURE", { id: DEPARTMENT_A }).allowed).toBe(true);
   });
 
+  it("cellule 2.6 — supprimer un département est ouvert aux rôles globaux, jamais à un responsable", () => {
+    // Arbitrage du commanditaire du 23/10/2026 : la suppression sort de Q-B3
+    // (qui ne porte plus que sur la désactivation sans suppression).
+    expect(evaluate(DepartmentPolicy, superAdmin, "DELETE", { id: DEPARTMENT_A }).allowed).toBe(true);
+    expect(evaluate(DepartmentPolicy, admin, "DELETE", { id: DEPARTMENT_A }).allowed).toBe(true);
+
+    // Un responsable ne supprime pas le périmètre auquel il est rattaché, même
+    // le sien : `DELETE` exige le scope `GLOBAL`.
+    expect(evaluate(DepartmentPolicy, managerA, "DELETE", { id: DEPARTMENT_A }).allowed).toBe(false);
+
+    // Plus aucune question ouverte n'accompagne cette ligne.
+    expect(evaluate(DepartmentPolicy, superAdmin, "DELETE", { id: DEPARTMENT_A }).pending).toBeUndefined();
+
+    // La désactivation, elle, reste non tranchée (Q-B3) et refusée à tous.
+    expect(evaluate(DepartmentPolicy, admin, "DEACTIVATE", { id: DEPARTMENT_A }).allowed).toBe(false);
+  });
+
   it("D-02 — un responsable ne lit que SON département", () => {
     expect(evaluate(DepartmentPolicy, managerA, "READ", { id: DEPARTMENT_A }).allowed).toBe(true);
     expect(evaluate(DepartmentPolicy, managerA, "READ", { id: DEPARTMENT_B }).allowed).toBe(false);

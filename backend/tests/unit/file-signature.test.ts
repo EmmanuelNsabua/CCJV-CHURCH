@@ -1,8 +1,10 @@
 import { describe, expect, it } from "@jest/globals";
 import {
   ACCEPTED_IMAGE_MIME_TYPES,
+  detectDocumentMimeType,
   detectImageMimeType,
   extensionForMimeType,
+  isImageMimeType,
   readImageDimensions,
 } from "@/shared/utils/file-signature";
 import type { AcceptedImageMimeType } from "@/shared/utils/file-signature";
@@ -270,5 +272,43 @@ describe("readImageDimensions", () => {
     for (const mimeType of ACCEPTED_IMAGE_MIME_TYPES) {
       expect(() => readImageDimensions(buffers[mimeType], mimeType)).not.toThrow();
     }
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Documents (PDF) — dossier `resources` uniquement                          */
+/* -------------------------------------------------------------------------- */
+
+describe("file-signature — document PDF", () => {
+  /** PDF minimal : l'en-tête normalisé suffit à l'identification. */
+  function pdfBuffer(version = "1.7"): Buffer {
+    return Buffer.concat([
+      Buffer.from(`%PDF-${version}\n`, "latin1"),
+      Buffer.from("1 0 obj\n<< /Type /Catalog >>\nendobj\n", "latin1"),
+      Buffer.from("%%EOF", "latin1"),
+    ]);
+  }
+
+  it("reconnaît un PDF à ses octets, quelle que soit la version", () => {
+    expect(detectDocumentMimeType(pdfBuffer("1.4"))).toBe("application/pdf");
+    expect(detectDocumentMimeType(pdfBuffer("1.7"))).toBe("application/pdf");
+    expect(detectDocumentMimeType(pdfBuffer("2.0"))).toBe("application/pdf");
+  });
+
+  it("ne reconnaît pas un fichier qui se contente de commencer par « PDF »", () => {
+    expect(detectDocumentMimeType(Buffer.from("PDF-1.7 mais sans pourcent", "latin1"))).toBeNull();
+    expect(detectDocumentMimeType(Buffer.from("%PDX-1.7", "latin1"))).toBeNull();
+    expect(detectDocumentMimeType(Buffer.alloc(0))).toBeNull();
+  });
+
+  it("ne confond pas une image avec un document, ni l'inverse", () => {
+    expect(detectDocumentMimeType(pngBuffer())).toBeNull();
+    expect(detectImageMimeType(pdfBuffer())).toBeNull();
+  });
+
+  it("donne l'extension pdf et ne classe pas un PDF parmi les images", () => {
+    expect(extensionForMimeType("application/pdf")).toBe("pdf");
+    expect(isImageMimeType("application/pdf")).toBe(false);
+    expect(isImageMimeType("image/png")).toBe(true);
   });
 });

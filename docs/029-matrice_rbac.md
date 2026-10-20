@@ -218,8 +218,8 @@ can(user, action, resource)
 | 2.2 | `READ` son département | `✔` | `✔` | `✔` (tout autre département : `✘`) | `?` Q-20 | D-02 (un seul département) ; D-06 (périmètre = « son département ») |
 | 2.3 | `UPDATE` informations métier | `✔` | `✔` | `?` Q-05 | `✘` | D-03 ; D-04 ; 028 n'attribue pas la modification des informations d'un département à son responsable |
 | 2.4 | `UPDATE` propriétés structurelles (`slug`, ordre d'affichage, structure de navigation, identifiants techniques, règles de visibilité globales, configuration système) | `✔` | `✔` | `✘` | `✘` | 020 §11 (« Il ne peut toutefois pas modifier les propriétés structurelles… »), **non infirmé** par 028 |
-| 2.5 | `DEACTIVATE` sans supprimer | `?` 028/Q-B3 | `?` 028/Q-B3 | `✘` | `✘` | 028/Q-B3 explicitement ouverte |
-| 2.6 | `DELETE` | `?` 028/Q-B3 | `?` 028/Q-B3 | `✘` | `✘` | Idem ; D-08 impose une stratégie de conservation avant toute suppression de données historiques |
+| 2.5 | `DEACTIVATE` sans supprimer | `?` 028/Q-B3 | `?` 028/Q-B3 | `✘` | `✘` | 028/Q-B3 explicitement ouverte — **la question ne porte plus que sur ce cas** |
+| 2.6 | `DELETE` | `✔` | `✔` | `✘` | `✘` | **Arbitrage du commanditaire du 23/10/2026** : la suppression sort de Q-B3 et revient aux rôles globaux (`scope` `GLOBAL` exigé, comme 2.1). Le garde-fou de **D-08** est tenu par le code : `archiveAndDelete()` écrit l'instantané complet dans `department_archives` **dans la même transaction** que la suppression |
 | 2.7 | `ADMINISTER` les capacités / politiques du département (D-25) | `?` Q-06 | `?` Q-06 | `?` Q-06 | `✘` | D-25 place `capabilities / policies` sur `Department` **sans nommer le rôle qui les édite** — voir **Q-06**, vecteur d'escalade |
 | 2.8 | `READ` la portée événementielle du département (`visibility_scope` dérivé) | `✔` | `✔` | `✔` (le sien) | `✔` (effet public) | D-25 (« capacité événementielle globale »), D-26 |
 
@@ -457,7 +457,7 @@ can(user, action, resource)
 | Lignes d'action | **99** |
 | Cellules de décision (`17 ressources × 99 actions × 4 colonnes`) | **396** |
 | **Refus explicites** | **158** |
-| Mentions « non tranché » (cellules `?` et annotations de périmètre) | **122** |
+| Mentions « non tranché » (cellules `?` et annotations de périmètre) | **120** (122 avant l'arbitrage du 23/10/2026 sur la cellule 2.6) |
 | Actions interdites à **tous** les rôles (règles de ressource) | 7.4, 7.5, 7.6, 8.6, 3.8, 4.8, 6.5 |
 
 ---
@@ -580,7 +580,8 @@ décision de 028 ni 024 ne les ait nommées.
 | | | | `canRead` | `SUPER_ADMIN` · `ADMIN` · `MANAGER` (le sien) | D-02 |
 | | | | `canUpdateBusinessInfo` | `SUPER_ADMIN` · `ADMIN` · `MANAGER` : `?` (Q-05) | — |
 | | | | `canUpdateStructuralProps` | `SUPER_ADMIN` · `ADMIN` — **`false` pour `MANAGER`** | 020 §11 |
-| | | | `canDeactivate` / `canDelete` | `?` pour tous (028/Q-B3) | D-08 |
+| | | | `canDeactivate` | `?` pour tous (028/Q-B3) | D-08 |
+| | | | `canDelete` | **`SUPER_ADMIN` · `ADMIN`** (`scope` `GLOBAL`) — cellule 2.6, arbitrage du 23/10/2026 | D-08 (conservation assurée par `archiveAndDelete`) |
 | | | | `canEditCapabilities` | `?` pour tous (Q-06) — voir §5.3 | **D-25** |
 | P-05 | `PagePolicy` | `StaticPage` | `canRead` | `SUPER_ADMIN` · `ADMIN` · `MANAGER` : `?` (Q-05) | D-04 |
 | | | | `canUpdateContent` | `SUPER_ADMIN` · `ADMIN` · `MANAGER` : `?` (`[Département]`, Q-05) | **D-23** |
@@ -1007,7 +1008,7 @@ explicitement.
 | # | Question (028 §10) | Lot | Impact sur cette matrice |
 | --- | --- | --- | --- |
 | **Q-A4** | Un `ADMIN` peut-il désactiver un autre `ADMIN` ? (et un `SUPER_ADMIN` ?) | 1 | Cellule 1.6 (`?`), 1.7 |
-| **Q-B3** | Un département peut-il être désactivé sans être supprimé ? | 2 | Cellules 2.5, 2.6 (`?`) |
+| **Q-B3** | Un département peut-il être désactivé sans être supprimé ? | 2 | Cellule 2.5 (`?`) — **la suppression (2.6) est tranchée** : `SUPER_ADMIN` · `ADMIN` `GLOBAL`, arbitrage du 23/10/2026 |
 | **Q-EV2** | Un Responsable Presse peut-il créer un événement pour un autre département ? | 6 | Cellule 4.1 (`?`), N-26 |
 | **Q-EV3** | Les événements ont-ils un état brouillon/publié, ou sont-ils publiés à la création ? | 6 | Cellule 4.7 (`?`) |
 | **Q-P3** | La règle des 3 s'applique-t-elle par département, ou par département + type ? | 4 | N'affecte pas l'action `PUBLISH` (l'archivage est automatique), affecte le test P-02 |

@@ -23,6 +23,7 @@ export const MEDIA_FOLDERS = [
   "testimonies",
   "community",
   "pages",
+  "resources",
 ] as const satisfies readonly StorageFolder[];
 
 export const mediaFolderSchema = z.enum(MEDIA_FOLDERS, "Dossier de destination invalide");

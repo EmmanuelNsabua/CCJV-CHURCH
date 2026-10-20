@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paginationQuerySchema } from "@/shared/http/pagination";
 
 export const resourceSchema = z.object({
   id: z.string().uuid(),
@@ -28,10 +29,16 @@ export const replaceResourceFileSchema = z.object({
   file: z.string().min(1, "Le nouveau fichier PDF est obligatoire"),
 });
 
-export const resourceListQuerySchema = z.object({
-  page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(100).default(20),
-  search: z.string().optional(),
+/**
+ * *Query* de la collection publique.
+ *
+ * `paginationQuerySchema.extend(...)` et non un `z.object` neuf : la stricteur
+ * de la pagination commune est ainsi préservée (`shared/http/pagination.ts`
+ * §convention), et un paramètre non reconnu est refusé en `400` au lieu d'être
+ * silencieusement ignoré — comme sur toutes les autres collections.
+ */
+export const resourceListQuerySchema = paginationQuerySchema.extend({
+  search: z.string().trim().optional(),
 });
 
 export type CreateResourceInput = z.infer<typeof createResourceSchema>;

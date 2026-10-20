@@ -266,6 +266,8 @@ export function LeaderModal({
         onSelect={handleSelectMedia}
         title="Choisir la photo du responsable"
         initialFilter="image"
+        // Un portrait est une image : un PDF ou une vidéo n'a rien à faire ici.
+        accept={["image"]}
       />
     </>
   );

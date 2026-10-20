@@ -69,6 +69,14 @@
       "description": "Registre des médias téléversés. Entièrement administratif : aucune de ces routes n'est publique."
     },
     {
+      "name": "teachings",
+      "description": "Enseignements (sermons) : métadonnées, références bibliques et médias. Lecture publique restreinte aux publications ; écriture réservée aux rôles globaux. Chemin documenté : `/enseignements` (alias `/teachings`)."
+    },
+    {
+      "name": "resources",
+      "description": "Documents PDF téléchargeables de l'espace Ressources. Lecture publique, écriture réservée aux rôles globaux. Chemin documenté : `/resources` (alias `/ressources`)."
+    },
+    {
       "name": "prayer-requests",
       "description": "Demandes de prière. Dépôt public rate-limité ; toute lecture est réservée à l'administration."
     },
@@ -313,6 +321,65 @@
           }
         }
       },
+      "BiblicalReference": {
+        "type": "object",
+        "description": "Référence biblique d'un enseignement (`teaching.serializer.ts`). `endChapter` et `endVerse` valent `null` pour un verset isolé. `formatted` est calculé par le serveur : le client n'a pas à recomposer « Jean 3:16 » lui-même.",
+        "required": [
+          "id",
+          "book",
+          "startChapter",
+          "startVerse",
+          "endChapter",
+          "endVerse",
+          "position",
+          "formatted"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "book": {
+            "type": "string"
+          },
+          "startChapter": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "startVerse": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "endChapter": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "endVerse": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "position": {
+            "type": "integer"
+          },
+          "formatted": {
+            "type": "string",
+            "description": "Ex. `Jean 3:16`, `Psaume 23:1–6`, `Romains 8:1–11:36`."
+          }
+        }
+      },
+      "BiblicalReferenceCollection": {
+        "type": "array",
+        "description": "Réponse de `PUT /enseignements/{id}/references-bibliques` : la liste **relue depuis la base**, pas l'écho du corps envoyé.",
+        "items": {
+          "$ref": "#/components/schemas/BiblicalReference"
+        }
+      },
       "CommunityFace": {
         "type": "object",
         "description": "Visage de la communauté (`community-face.serializer.ts`) : `name` ← `personName`.",
@@ -411,6 +478,128 @@
           },
           "tagline": {
             "type": "string"
+          }
+        }
+      },
+      "DepartmentActivity": {
+        "type": "object",
+        "description": "Activité d'un département (`department.serializer.ts` → `activities`). Les champs facultatifs sont **omis** lorsqu'ils sont nuls.",
+        "required": [
+          "id",
+          "title",
+          "position"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "imageMediaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "URL publique résolue du média de l'activité."
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "DepartmentActivityCollection": {
+        "type": "object",
+        "description": "Réponse de `PUT /departments/{idOrSlug}/activities` : la collection **relue depuis la base**, jamais l'écho du corps envoyé.",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepartmentActivity"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
+        }
+      },
+      "DepartmentArchive": {
+        "type": "object",
+        "description": "Archive d'un département supprimé (`departmentArchives`). `snapshot` est l'instantané complet de la fiche au moment de la suppression, transmis tel quel.",
+        "required": [
+          "id",
+          "originalDepartmentId",
+          "name",
+          "slug",
+          "snapshot",
+          "archivedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "originalDepartmentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "`id` du département supprimé ; il n'existe plus dans `departments`."
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "snapshot": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Fiche complète au moment de la suppression : champs, activités, responsables et références de médias."
+          },
+          "archivedBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Auteur de la suppression, `null` si l'information n'était pas fournie."
+          },
+          "archivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "DepartmentArchiveCollection": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepartmentArchive"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMeta"
           }
         }
       },
@@ -757,6 +946,7 @@
               "testimonies",
               "community",
               "pages",
+              "resources",
               null
             ],
             "description": "Premier segment du chemin, ou `null`."
@@ -1267,6 +1457,67 @@
           }
         }
       },
+      "Resource": {
+        "type": "object",
+        "description": "Document téléchargeable de l'espace Ressources. L'entité du domaine est renvoyée **sans sérialiseur dédié** : les dates sortent donc au format ISO-8601 via la sérialisation JSON, et `file` est l'URL publique du PDF déjà téléversé dans le dossier `resources` du Storage.",
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "description",
+          "file",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "file": {
+            "type": "string",
+            "description": "URL du PDF. Le service refuse (`VALIDATION_ERROR`) une valeur qui ne désigne pas un `.pdf` — une ressource sans document n'a pas de sens."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ResourceCollection": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Resource"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
+        }
+      },
       "ScheduleEntry": {
         "type": "object",
         "description": "Entrée du rythme hebdomadaire (`schedule.serializer.ts`). `timeLabel` est un libellé libre (« 16h30 – 18h30 », « Dans la nuit »), pas une heure.",
@@ -1526,6 +1777,177 @@
           }
         }
       },
+      "Teaching": {
+        "type": "object",
+        "description": "Enseignement / sermon (`teaching.serializer.ts`). `slug` peut être `null` (l'adresse publique n'est alors pas disponible). `status` est **stocké**, contrairement au statut calculé des événements.",
+        "required": [
+          "id",
+          "title",
+          "slug",
+          "speakerName",
+          "preachedAt",
+          "summary",
+          "description",
+          "status",
+          "publishedAt",
+          "createdAt",
+          "updatedAt",
+          "biblicalReferences",
+          "medias"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "slug": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "speakerName": {
+            "type": "string"
+          },
+          "preachedAt": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de prédication `AAAA-MM-JJ` — jamais un objet `Date`."
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "PUBLISHED",
+              "ARCHIVED"
+            ]
+          },
+          "publishedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "`null` tant que l'enseignement n'a jamais été publié."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "biblicalReferences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BiblicalReference"
+            }
+          },
+          "medias": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeachingMedia"
+            }
+          },
+          "primaryMedia": {
+            "$ref": "#/components/schemas/TeachingMedia"
+          }
+        }
+      },
+      "TeachingCollection": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Teaching"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
+        }
+      },
+      "TeachingMedia": {
+        "type": "object",
+        "description": "Média attaché à un enseignement (`teaching.serializer.ts`). `role` décide de l'usage : `VIDEO` (le message), `AUDIO` (la version podcast), `THUMBNAIL` (l'illustration). Un média `isPrimary` est celui que la page publique met en avant.",
+        "required": [
+          "id",
+          "mediaId",
+          "role",
+          "isPrimary",
+          "position"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lien `teaching_media`, pas le média."
+          },
+          "mediaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "VIDEO",
+              "AUDIO",
+              "THUMBNAIL"
+            ]
+          },
+          "isPrimary": {
+            "type": "boolean"
+          },
+          "position": {
+            "type": "integer"
+          },
+          "url": {
+            "type": "string",
+            "description": "URL publique résolue du média."
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "alt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "TeachingMediaCollection": {
+        "type": "array",
+        "description": "Réponse de `PUT /enseignements/{id}/medias` : la liste **relue depuis la base**.",
+        "items": {
+          "$ref": "#/components/schemas/TeachingMedia"
+        }
+      },
       "Testimony": {
         "type": "object",
         "description": "Témoignage (`testimony.serializer.ts`) : `name` ← `personName`, `role` ← `personRole`, `photo` ← `photoUrl`.",
@@ -1606,7 +2028,8 @@
               "leaders",
               "testimonies",
               "community",
-              "pages"
+              "pages",
+              "resources"
             ],
             "description": "Dossier de destination dans le bucket. Liste fermée : un dossier hors de cette liste produit un 400, il ne vient jamais d'une chaîne libre."
           },
@@ -1727,16 +2150,6 @@
           }
         }
       },
-      "DuplicateSlug": {
-        "description": "`DUPLICATE_SLUG` — le slug explicite fourni est déjà utilisé. Un slug imposé par un administrateur est une intention, pas une suggestion : il n'est jamais suffixé automatiquement. `details: { slug }`.",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/ErrorResponse"
-            }
-          }
-        }
-      },
       "Conflict": {
         "description": "`CONFLICT` — conflit métier. `details` précise la cause (par exemple `{ total, usages }` pour un média encore référencé, `{ key }` pour une clé de verset déjà prise).",
         "content": {
@@ -1758,7 +2171,7 @@
         }
       },
       "InvalidFileType": {
-        "description": "`INVALID_FILE_TYPE` — le type **réel** du fichier, déduit de ses octets, n'est pas une image acceptée. Un fichier vide produit la même réponse. `details: { accepted }`.",
+        "description": "`INVALID_FILE_TYPE` — le type **réel** du fichier, déduit de ses octets, n'est pas accepté **pour le dossier visé** : les dossiers d'images (`events`, `departments`, `publications`, `leaders`, `testimonies`, `community`, `pages`) n'acceptent que JPEG, PNG, WEBP et AVIF ; seul `resources` accepte un PDF. Un fichier vide produit la même réponse. `details: { accepted }` contient la liste du dossier demandé.",
         "content": {
           "application/json": {
             "schema": {
@@ -1876,7 +2289,7 @@
           "departments"
         ],
         "summary": "Créer un département",
-        "description": "Administration (`ADMIN` ou `SUPER_ADMIN`, jamais un responsable — D-03, D-04). Le slug est dérivé du nom et suffixé jusqu'à être libre ; un slug explicite déjà pris est refusé en `DUPLICATE_SLUG`.",
+        "description": "Administration (`ADMIN` ou `SUPER_ADMIN`, jamais un responsable — D-03, D-04). Le slug est dérivé du nom et suffixé jusqu'à être libre ; un slug explicite déjà pris est lui aussi **suffixé** (`-2`, `-3`…) au lieu d'être refusé : l'identité du département est son `id` UUID, le slug n'est qu'une adresse lisible.",
         "security": [
           {
             "bearerAuth": []
@@ -2047,9 +2460,6 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
-          },
-          "409": {
-            "$ref": "#/components/responses/DuplicateSlug"
           },
           "429": {
             "$ref": "#/components/responses/RateLimited"
@@ -2321,7 +2731,7 @@
           "departments"
         ],
         "summary": "Supprimer un département",
-        "description": "Administration. Les événements rattachés ne sont pas supprimés : la clé étrangère `events.department_id` est `onDelete: set null`, ils redeviennent généraux.",
+        "description": "Administration : `SUPER_ADMIN` ou `ADMIN` en scope `GLOBAL` (cellule 2.6, **arbitrage du 23/10/2026**). La suppression est toujours **précédée d'un archivage** : l'instantané complet de la fiche est écrit dans `department_archives` dans la même transaction (D-08), puis l'entité active, ses activités et sa galerie sont supprimées. Les événements rattachés ne sont pas supprimés : la clé étrangère `events.department_id` est `onDelete: set null`, ils redeviennent généraux.",
         "security": [
           {
             "bearerAuth": []
@@ -2355,6 +2765,280 @@
           },
           "404": {
             "description": "DEPARTMENT_NOT_FOUND — aucun département ne correspond à l'identifiant ou au slug fourni. `details` absent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/departments/archives": {
+      "get": {
+        "operationId": "departmentsListArchives",
+        "tags": [
+          "departments"
+        ],
+        "summary": "Lister les archives de départements",
+        "description": "Administration (`SUPER_ADMIN`, `ADMIN`, ou `DEPARTMENT_MANAGER` rattaché — `DepartmentPolicy.READ`). Collection paginée, antéchronologique : la dernière suppression archivée arrive en premier. Chaque entrée porte l'instantané complet de la fiche au moment de sa suppression.\n\nCette route est déclarée **avant** `/{idOrSlug}` : sans cela, le littéral `archives` serait interprété comme un slug.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Numéro de page (commence à 1). Valeur hors bornes ⇒ 400 VALIDATION_ERROR.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Taille de page (1 à 100 inclus). Valeur hors bornes ⇒ 400 VALIDATION_ERROR.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Archives conservées, de la plus récente à la plus ancienne.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentArchiveCollection"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/departments/{idOrSlug}/activities": {
+      "put": {
+        "operationId": "departmentsSaveActivities",
+        "tags": [
+          "departments"
+        ],
+        "summary": "Remplacer les activités d'un département",
+        "description": "Administration (`ADMIN` ou `SUPER_ADMIN`). Remplacement **total** : la liste envoyée devient l'état des activités, **dans son ordre**, et les activités absentes du corps sont supprimées — la transaction efface puis réinsère. L'opération est idempotente : rejouer le même corps laisse la même collection. La réponse est la collection **relue depuis la base**, ce qui fournit les `id` et `imageUrl` définitifs des activités créées.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "idOrSlug",
+            "in": "path",
+            "required": true,
+            "description": "Identifiant UUID **ou** slug du département.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "activities": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "title": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 150
+                        },
+                        "description": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 3000
+                        },
+                        "imageMediaId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "uuid"
+                        },
+                        "position": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 0,
+                          "default": 0
+                        }
+                      },
+                      "required": [
+                        "title"
+                      ]
+                    },
+                    "maxItems": 50
+                  }
+                },
+                "required": [
+                  "activities"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Activités enregistrées, relues depuis la base.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentActivityCollection"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "`DEPARTMENT_NOT_FOUND` — aucun département ne correspond à l'identifiant ou au slug fourni. `details` absent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/departments/{idOrSlug}/archive": {
+      "post": {
+        "operationId": "departmentsArchive",
+        "tags": [
+          "departments"
+        ],
+        "summary": "Archiver puis supprimer un département",
+        "description": "Administration : `SUPER_ADMIN` ou `ADMIN` en scope `GLOBAL` — **même action `DELETE`** que `DELETE /departments/{idOrSlug}` (cellule 2.6, arbitrage du 23/10/2026), mais la réponse porte l'archive créée au lieu d'un `204`.\n\nC'est la route qu'emploient les deux parcours de suppression du back-office : elle conserve un instantané complet de la fiche (champs, activités, responsables, références médias) dans `department_archives`, dans la même transaction que la suppression (D-08). Le motif est facultatif et reste horodaté avec l'auteur.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "idOrSlug",
+            "in": "path",
+            "required": true,
+            "description": "Identifiant UUID **ou** slug du département.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Département archivé puis supprimé ; l'archive est renvoyée.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentArchive"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "`DEPARTMENT_NOT_FOUND` — aucun département ne correspond à l'identifiant ou au slug fourni. `details` absent.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2643,9 +3327,6 @@
                 }
               }
             }
-          },
-          "409": {
-            "$ref": "#/components/responses/DuplicateSlug"
           },
           "429": {
             "$ref": "#/components/responses/RateLimited"
@@ -3149,7 +3830,7 @@
                   "publishedAt": {
                     "type": "string",
                     "format": "date",
-                    "default": "2026-10-19"
+                    "default": "2026-10-20"
                   },
                   "departmentId": {
                     "type": "string",
@@ -3190,9 +3871,6 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
-          },
-          "409": {
-            "$ref": "#/components/responses/DuplicateSlug"
           },
           "429": {
             "$ref": "#/components/responses/RateLimited"
@@ -4558,6 +5236,1213 @@
         }
       }
     },
+    "/api/v1/enseignements": {
+      "get": {
+        "operationId": "teachingsList",
+        "tags": [
+          "teachings"
+        ],
+        "summary": "Lister les enseignements",
+        "description": "Collection paginée, ouverte. **Alias** : `GET /teachings` (même controller).\n\nUn jeton d'administration valide dans `Authorization` élargit la lecture aux brouillons et aux archives ; sans jeton, seuls les enseignements `PUBLISHED` sortent. Le jeton est **facultatif** ici : son absence n'est pas une erreur, elle restreint.\n\n`status` et `search` sont les seuls filtres reconnus, et la *query* est stricte : tout autre paramètre — `?sort=…` compris — est refusé en `400 VALIDATION_ERROR`.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Numéro de page (commence à 1). Valeur hors bornes ⇒ 400 VALIDATION_ERROR.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Taille de page (1 à 100 inclus). Valeur hors bornes ⇒ 400 VALIDATION_ERROR.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Ne renvoyer que les enseignements dans cet état. Un demandeur non administrateur n'obtient de toute façon que les `PUBLISHED`.\n\n`ARCHIVED` correspond à un enseignement retiré du public mais conservé.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "PUBLISHED",
+                "ARCHIVED"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "Recherche textuelle sur le titre et le nom de l'orateur (insensible à la casse).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Enseignements correspondants.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeachingCollection"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "teachingsCreate",
+        "tags": [
+          "teachings"
+        ],
+        "summary": "Créer un enseignement",
+        "description": "Administration (`SUPER_ADMIN`, `ADMIN` — `TeachingPolicy`). Créé en `DRAFT` par défaut : la publication est une transition distincte (`POST /{id}/publish`), qui exige au moins un média.\n\n`slug` est facultatif. S'il est omis, il est dérivé du titre ; s'il est déjà pris, il est **suffixé** (`-2`, `-3`…) : deux enseignements peuvent porter le même titre, seule l'adresse publique est rendue unique.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "slug": {
+                    "type": "string",
+                    "maxLength": 220
+                  },
+                  "speakerName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 150
+                  },
+                  "preachedAt": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "summary": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 1000
+                  },
+                  "description": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "DRAFT",
+                      "PUBLISHED",
+                      "ARCHIVED"
+                    ]
+                  }
+                },
+                "required": [
+                  "title",
+                  "speakerName",
+                  "preachedAt"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Enseignement créé, en brouillon.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Teaching"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/enseignements/{id}": {
+      "get": {
+        "operationId": "teachingsGet",
+        "tags": [
+          "teachings"
+        ],
+        "summary": "Lire un enseignement",
+        "description": "Accepte un UUID ou un slug. **Alias** : `GET /teachings/{id}`. Un enseignement non publié reste accessible si la requête porte un jeton d'administration ; sinon il est traité comme introuvable (`404`).",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Identifiant de l'enseignement. Les **écritures** exigent un UUID ; la **lecture** accepte un UUID **ou** un slug (le paramètre porte `id` parce qu'un contrat OpenAPI ne peut pas porter deux gabarits équivalents).",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Enseignement trouvé.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Teaching"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "404": {
+            "description": "`TEACHING_NOT_FOUND` — aucun enseignement ne correspond, ou il n'est pas publié et la requête n'est pas administratrice.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "teachingsUpdate",
+        "tags": [
+          "teachings"
+        ],
+        "summary": "Mettre à jour les métadonnées d'un enseignement",
+        "description": "Administration. Mise à jour partielle. `status` n'est **jamais écrit tel quel** : une demande de `PUBLISHED` emprunte la transition contrôlée de `publish()` (même règle de média, même horodatage de `publishedAt`) ; re-enregistrer un enseignement déjà publié ne change pas sa date de publication.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Identifiant de l'enseignement. Les **écritures** exigent un UUID ; la **lecture** accepte un UUID **ou** un slug (le paramètre porte `id` parce qu'un contrat OpenAPI ne peut pas porter deux gabarits équivalents).",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "slug": {
+                    "type": "string",
+                    "maxLength": 220
+                  },
+                  "speakerName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 150
+                  },
+                  "preachedAt": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "summary": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 1000
+                  },
+                  "description": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "DRAFT",
+                      "PUBLISHED",
+                      "ARCHIVED"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Enseignement mis à jour.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Teaching"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "`TEACHING_NOT_FOUND` — identifiant inconnu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "teachingsDelete",
+        "tags": [
+          "teachings"
+        ],
+        "summary": "Supprimer un enseignement",
+        "description": "Administration. Suppression définitive, sans effet de bord sur les médias référencés (le registre `media` les conserve).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Identifiant de l'enseignement. Les **écritures** exigent un UUID ; la **lecture** accepte un UUID **ou** un slug (le paramètre porte `id` parce qu'un contrat OpenAPI ne peut pas porter deux gabarits équivalents).",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Enseignement supprimé ; aucun corps renvoyé."
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "`TEACHING_NOT_FOUND` — identifiant inconnu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/enseignements/{id}/references-bibliques": {
+      "put": {
+        "operationId": "teachingsUpdateBiblicalReferences",
+        "tags": [
+          "teachings"
+        ],
+        "summary": "Remplacer les références bibliques",
+        "description": "Administration. Remplacement **total** de la collection, dans une transaction : la liste envoyée devient l'état des références, dans son ordre. Les `id` de liaison sont régénérés — seul `formatted` compte pour l'affichage.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Identifiant de l'enseignement. Les **écritures** exigent un UUID ; la **lecture** accepte un UUID **ou** un slug (le paramètre porte `id` parce qu'un contrat OpenAPI ne peut pas porter deux gabarits équivalents).",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "references": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "book": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "startChapter": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "startVerse": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "endChapter": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "exclusiveMinimum": 0
+                        },
+                        "endVerse": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "exclusiveMinimum": 0
+                        },
+                        "position": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "book",
+                        "startChapter",
+                        "startVerse"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "references"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Références enregistrées, relues depuis la base.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BiblicalReferenceCollection"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "`TEACHING_NOT_FOUND` — identifiant inconnu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/enseignements/{id}/medias": {
+      "put": {
+        "operationId": "teachingsUpdateMedias",
+        "tags": [
+          "teachings"
+        ],
+        "summary": "Remplacer les médias d'un enseignement",
+        "description": "Administration. Remplacement **total** : chaque entrée associe un média existant à un `role` (`VIDEO`, `AUDIO`, `THUMBNAIL`) et indique s'il est principal. Les fichiers eux-mêmes se téléversent d'abord via `POST /media` — cette route ne fait que les référencer.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Identifiant de l'enseignement. Les **écritures** exigent un UUID ; la **lecture** accepte un UUID **ou** un slug (le paramètre porte `id` parce qu'un contrat OpenAPI ne peut pas porter deux gabarits équivalents).",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "medias": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "mediaId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "VIDEO",
+                            "AUDIO",
+                            "THUMBNAIL"
+                          ]
+                        },
+                        "isPrimary": {
+                          "type": "boolean",
+                          "default": false
+                        },
+                        "position": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "mediaId",
+                        "role"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "medias"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Médias attachés, relus depuis la base.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeachingMediaCollection"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "`TEACHING_NOT_FOUND` — identifiant inconnu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/enseignements/{id}/publish": {
+      "post": {
+        "operationId": "teachingsPublish",
+        "tags": [
+          "teachings"
+        ],
+        "summary": "Publier un enseignement",
+        "description": "Administration. `DRAFT → PUBLISHED`, avec deux règles vérifiées par le service : les métadonnées doivent être complètes et **au moins un média** doit être attaché. `publishedAt` est horodaté par le serveur — jamais fourni par le client.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Identifiant de l'enseignement. Les **écritures** exigent un UUID ; la **lecture** accepte un UUID **ou** un slug (le paramètre porte `id` parce qu'un contrat OpenAPI ne peut pas porter deux gabarits équivalents).",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Enseignement publié.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Teaching"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`VALIDATION_ERROR` — métadonnées incomplètes ou aucun média : un enseignement publié sans média n'aurait rien à montrer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "`TEACHING_NOT_FOUND` — identifiant inconnu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/enseignements/{id}/archive": {
+      "post": {
+        "operationId": "teachingsArchive",
+        "tags": [
+          "teachings"
+        ],
+        "summary": "Archiver un enseignement",
+        "description": "Administration. Retire l'enseignement du public sans le supprimer : il reste consultable par un administrateur et réapparaît si l'on republie. Aucun corps n'est attendu.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Identifiant de l'enseignement. Les **écritures** exigent un UUID ; la **lecture** accepte un UUID **ou** un slug (le paramètre porte `id` parce qu'un contrat OpenAPI ne peut pas porter deux gabarits équivalents).",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Enseignement archivé.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Teaching"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "`TEACHING_NOT_FOUND` — identifiant inconnu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/resources": {
+      "get": {
+        "operationId": "resourcesList",
+        "tags": [
+          "resources"
+        ],
+        "summary": "Lister les ressources",
+        "description": "Collection **publique** paginée. **Alias** : `GET /ressources`.\n\n`search` est le seul filtre reconnu ; la *query* est stricte, donc tout autre paramètre est refusé en `400 VALIDATION_ERROR`.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Numéro de page (commence à 1). Valeur hors bornes ⇒ 400 VALIDATION_ERROR.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Taille de page (1 à 100 inclus). Valeur hors bornes ⇒ 400 VALIDATION_ERROR.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "Recherche textuelle sur le nom de la ressource.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ressources disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceCollection"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "resourcesCreate",
+        "tags": [
+          "resources"
+        ],
+        "summary": "Créer une ressource",
+        "description": "Administration (`SUPER_ADMIN`, `ADMIN` — `ResourcePolicy`). La ressource est **publiée immédiatement** : il n'existe pas d'état brouillon pour un document.\n\nLe PDF se téléverse d'abord via `POST /media` avec `folder=resources` (seul dossier qui accepte un PDF, jusqu'à 20 Mo), puis son URL publique est fournie ici. Le service refuse (`VALIDATION_ERROR`) une valeur qui ne désigne pas un `.pdf` : une ressource sans document n'a pas de sens.\n\n`slug` est facultatif ; dérivé du nom s'il est omis, **suffixé** s'il est déjà pris.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "slug": {
+                    "type": "string",
+                    "maxLength": 220
+                  },
+                  "description": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 2000
+                  },
+                  "file": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "name",
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Ressource créée et publiée.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Resource"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`VALIDATION_ERROR` — `name` vide, ou `file` qui ne désigne pas un fichier `.pdf`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/resources/{id}": {
+      "get": {
+        "operationId": "resourcesGet",
+        "tags": [
+          "resources"
+        ],
+        "summary": "Lire une ressource",
+        "description": "Accepte un UUID ou un slug. **Alias** : `GET /ressources/{id}`.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Identifiant de la ressource. Les écritures exigent un UUID ; la **lecture** accepte un UUID **ou** un slug (le paramètre porte `id` pour que le contrat n'ait qu'un seul gabarit d'URL par route).",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ressource trouvée.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Resource"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "404": {
+            "description": "`RESOURCE_NOT_FOUND` — aucune ressource ne correspond à l'identifiant ou au slug.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "resourcesUpdate",
+        "tags": [
+          "resources"
+        ],
+        "summary": "Mettre à jour une ressource",
+        "description": "Administration. Mise à jour partielle des métadonnées ; `file` peut aussi y être remplacé, avec la même exigence de PDF. Pour ne changer **que** le document, préférer `PUT /{id}/file`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Identifiant de la ressource. Les écritures exigent un UUID ; la **lecture** accepte un UUID **ou** un slug (le paramètre porte `id` pour que le contrat n'ait qu'un seul gabarit d'URL par route).",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "slug": {
+                    "type": "string",
+                    "maxLength": 220
+                  },
+                  "description": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 2000
+                  },
+                  "file": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ressource mise à jour.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Resource"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "`RESOURCE_NOT_FOUND` — identifiant inconnu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "resourcesDelete",
+        "tags": [
+          "resources"
+        ],
+        "summary": "Supprimer une ressource",
+        "description": "Administration. Suppression définitive de la fiche ; le fichier reste dans le Storage et peut être purgé depuis la médiathèque.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Identifiant de la ressource. Les écritures exigent un UUID ; la **lecture** accepte un UUID **ou** un slug (le paramètre porte `id` pour que le contrat n'ait qu'un seul gabarit d'URL par route).",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Ressource supprimée ; aucun corps renvoyé."
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "`RESOURCE_NOT_FOUND` — identifiant inconnu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/resources/{id}/file": {
+      "put": {
+        "operationId": "resourcesReplaceFile",
+        "tags": [
+          "resources"
+        ],
+        "summary": "Remplacer le PDF d'une ressource",
+        "description": "Administration. Remplace le seul document : le nom, le slug et la description sont conservés — c'est le geste « nouvelle édition du même document » (mise à jour du guide de l'année), qui ne doit pas changer l'adresse publique.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Identifiant de la ressource. Les écritures exigent un UUID ; la **lecture** accepte un UUID **ou** un slug (le paramètre porte `id` pour que le contrat n'ait qu'un seul gabarit d'URL par route).",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Document remplacé.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Resource"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`VALIDATION_ERROR` — `file` absent ou ne désignant pas un `.pdf`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "`RESOURCE_NOT_FOUND` — identifiant inconnu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/api/v1/scriptures": {
       "get": {
         "operationId": "scripturesList",
@@ -5821,7 +7706,7 @@
           "media"
         ],
         "summary": "Téléverser un média",
-        "description": "Administration. Corps `multipart/form-data` : un champ fichier `file` et un champ texte `folder`, plus un `alt` facultatif.\n\nLe téléversement est fait **en mémoire** (`multer.memoryStorage()`) : rien n'est jamais écrit sur le disque du serveur, éphémère sur l'hébergement. Type et taille sont contrôlés par `StorageService` à partir des **octets** du fichier — jamais du `Content-Type` ni du nom de fichier envoyés par le client — et le nom du fichier stocké est généré par le serveur (UUID + extension), ce qui élimine les traversées de chemin et les collisions.",
+        "description": "Administration. Corps `multipart/form-data` : un champ fichier `file` et un champ texte `folder`, plus un `alt` facultatif.\n\nLe téléversement est fait **en mémoire** (`multer.memoryStorage()`) : rien n'est jamais écrit sur le disque du serveur, éphémère sur l'hébergement. Type et taille sont contrôlés par `StorageService` à partir des **octets** du fichier — jamais du `Content-Type` ni du nom de fichier envoyés par le client — et le nom du fichier stocké est généré par le serveur (UUID + extension), ce qui élimine les traversées de chemin et les collisions.\n\nLes types acceptés dépendent du **dossier** : `resources` n'accepte que des PDF (documents téléchargeables de l'espace Ressources, jusqu'à 20 Mo) ; tous les autres dossiers n'acceptent que des images, plafonnées à 5 Mo. Un PDF envoyé dans un dossier d'images — ou une photo envoyée dans `resources` — est refusé en `415`.",
         "security": [
           {
             "bearerAuth": []

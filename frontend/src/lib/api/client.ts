@@ -19,8 +19,24 @@
 
 import { unstable_rethrow } from "next/navigation";
 
-/** Au-delà de ce délai, on considère que l'API ne répondra pas. */
+/**
+ * Au-delà de ce délai, on considère que l'API ne répondra pas.
+ *
+ * Cette valeur est celle des **lectures** : une page publique doit basculer vers
+ * son état « indisponible » vite plutôt que de faire attendre le visiteur.
+ */
 const DEFAULT_TIMEOUT_MS = 5_000;
+
+/**
+ * Fenêtre accordée aux **écritures** (`POST`, `PATCH`, `PUT`, `DELETE`).
+ *
+ * Une écriture n'est pas une lecture : le serveur valide, contrôle les règles
+ * métier puis écrit — et parfois téléverse d'abord dans le Storage. Couper à
+ * 5 s provoquait des « échecs » sur des enregistrements qui aboutissaient
+ * ensuite côté serveur, ce qui est le pire des deux mondes : l'utilisateur
+ * rejoue une opération déjà appliquée.
+ */
+const DEFAULT_MUTATION_TIMEOUT_MS = 15_000;
 
 /** Durée de mise en cache Next appliquée par défaut aux lectures publiques. */
 const PUBLIC_REVALIDATE_SECONDS = 60;
@@ -47,7 +63,13 @@ export interface ApiFetchOptions extends Omit<RequestInit, "body" | "signal"> {
    * Par défaut : 60 s sur les lectures publiques, aucun cache sinon.
    */
   revalidate?: number | false;
-  /** Délai maximal en millisecondes (5 000 par défaut). */
+  /**
+   * Délai maximal en millisecondes.
+   *
+   * Par défaut : 5 000 pour une lecture, 15 000 pour une écriture (voir
+   * `DEFAULT_TIMEOUT_MS` / `DEFAULT_MUTATION_TIMEOUT_MS`). Un téléversement de
+   * fichier mérite une valeur explicite plus large encore.
+   */
   timeoutMs?: number;
   /** Jeton d'authentification Bearer explicite (optionnel si le provider global est configuré). */
   token?: string | null;
@@ -294,7 +316,7 @@ async function request<T>(
 ): Promise<T | null> {
   const {
     revalidate,
-    timeoutMs = DEFAULT_TIMEOUT_MS,
+    timeoutMs,
     signal,
     headers,
     body,
@@ -316,6 +338,8 @@ async function request<T>(
   const method = (rest.method ?? "GET").toUpperCase();
   const isRead = method === "GET" || method === "HEAD";
   const cacheRevalidate = revalidate ?? (isRead ? PUBLIC_REVALIDATE_SECONDS : 0);
+  const effectiveTimeoutMs =
+    timeoutMs ?? (isRead ? DEFAULT_TIMEOUT_MS : DEFAULT_MUTATION_TIMEOUT_MS);
 
   const reqHeaders: Record<string, string> = {
     Accept: "application/json",
@@ -339,7 +363,7 @@ async function request<T>(
     if (serialized !== undefined) init.body = serialized;
   }
 
-  init.signal = resolveSignal(timeoutMs, signal);
+  init.signal = resolveSignal(effectiveTimeoutMs, signal);
 
   let response: Response;
   try {

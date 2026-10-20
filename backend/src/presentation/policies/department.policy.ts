@@ -106,17 +106,43 @@ export const DepartmentPolicy = createPolicy<DepartmentPolicyResource>("Departme
   UPDATE_STRUCTURE: { roles: ["SUPER_ADMIN", "ADMIN"], scopes: ["GLOBAL"] },
 
   /**
-   * `canDeactivate` / `canDelete` — **refus pour tous** : Q-B3 non tranchée
-   * (D-08).
+   * `canDeactivate` — **refus pour tous** : Q-B3 non tranchée (D-08).
    *
-   * Les deux lignes sont écrites en `roles: []` plutôt que laissées absentes, et
-   * la nuance compte : une action absente tomberait dans le refus par défaut du
-   * moteur, indiscernable d'une action jamais conçue. Ici, la ligne existe pour
-   * porter la **question ouverte** — quiconque relit la table voit qu'une
-   * décision manque, au lieu de conclure que le cas n'existe pas.
+   * La question ouverte ne porte plus que sur la **désactivation sans
+   * suppression** : la suppression, elle, a été arbitrée (voir `DELETE`
+   * ci-dessous). La ligne reste écrite en `roles: []` plutôt que laissée
+   * absente, pour que la question reste visible : une action absente tomberait
+   * dans le refus par défaut du moteur, indiscernable d'une action jamais
+   * conçue.
    */
   DEACTIVATE: { roles: [], pending: "docs/028 Q-B3 (désactivation d'un département)" },
-  DELETE: { roles: [], pending: "docs/028 Q-B3 · D-08" },
+
+  /**
+   * `canDelete` — **`SUPER_ADMIN` · `ADMIN`**, scope `GLOBAL` exigé
+   * (cellule 2.6 ; arbitrage du commanditaire du 23/10/2026).
+   *
+   * Jusqu'ici la ligne était refusée **à tout le monde** au motif que Q-B3 était
+   * ouverte. Or Q-B3 porte sur la *désactivation sans suppression* ; la
+   * suppression n'avait été laissée en `?` que par association. Le résultat
+   * était concret : le back-office propose « Archiver et supprimer », la route
+   * `DELETE /departments/:idOrSlug` et `POST /departments/:idOrSlug/archive`
+   * exigent cette action, et le serveur répondait `403` à `SUPER_ADMIN`
+   * lui-même.
+   *
+   * Le garde-fou de **D-08** n'est pas dans la policy, il est dans
+   * `DepartmentRepository.archiveAndDelete()` : l'instantané complet de la fiche
+   * (champs, activités, responsables, références médias) est écrit dans
+   * `department_archives` **dans la même transaction** que la suppression. La
+   * conservation est donc vérifiable en base, pas seulement promise.
+   *
+   * Pourquoi `DEPARTMENT_MANAGER` reste exclu : sa ligne de `CREATE` exige déjà
+   * `GLOBAL` parce que créer un département revient à créer un périmètre
+   * d'autorisation. Supprimer est plus fort encore — le responsable effacerait
+   * le périmètre auquel il est rattaché, et `archived_by` lui en attribuerait la
+   * trace. Le rôle est donc absent, et le scope `GLOBAL` est exigé en plus du
+   * rôle, exactement comme pour `CREATE`.
+   */
+  DELETE: { roles: ["SUPER_ADMIN", "ADMIN"], scopes: ["GLOBAL"] },
 
   /**
    * `canEditCapabilities` — **`SUPER_ADMIN` · `ADMIN`** (réponse du commanditaire).

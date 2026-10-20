@@ -74,7 +74,7 @@ provoquer une erreur obscure à la première requête.
 | `API_VERSION` | Préfixe d'API (`/api/v1`) | `v1` |
 | `CORS_ORIGIN` | Origines autorisées, séparées par des virgules | `http://localhost:3000` |
 | `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` | Limitation globale | `60000` / `120` |
-| `MAX_UPLOAD_BYTES` | Taille maximale d'un téléversement | `5242880` (5 Mo) |
+| `MAX_UPLOAD_BYTES` | Plafond absolu d'un téléversement (images plafonnées à 5 Mo, documents à cette valeur) | `20971520` (20 Mo) |
 | `LOG_LEVEL` | `fatal`…`silent` | `info` |
 
 Aucun secret n'est versionné : `.env` est ignoré par Git et exclu de l'image

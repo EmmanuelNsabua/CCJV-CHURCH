@@ -3,11 +3,7 @@ import type {
   ListResult,
   PublicationRepository,
 } from "@/domain/repositories";
-import {
-  DuplicateSlugError,
-  NotFoundError,
-  ValidationError,
-} from "@/shared/errors/app-error";
+import { NotFoundError, ValidationError } from "@/shared/errors/app-error";
 import { toOffset } from "@/shared/http/pagination";
 import { slugify, uniqueSlug } from "@/shared/utils/slug";
 import type {
@@ -169,18 +165,19 @@ export class PublicationService {
     return publication;
   }
 
-  /** Slug explicite refusé s'il est déjà pris, sinon dérivé du titre. */
+  /**
+   * Slug définitif : slug explicite **suffixé** s'il est déjà pris, sinon
+   * dérivé du titre.
+   *
+   * Le slug est une adresse, pas une identité : deux publications peuvent
+   * porter le même titre. Refuser l'enregistrement sur un doublon de slug
+   * obligeait à renommer une publication pour une contrainte d'URL.
+   */
   private async resolveSlug(title: string, requested?: string): Promise<string> {
     const explicit = requested === undefined ? "" : slugify(requested);
+    const base = explicit.length > 0 ? explicit : title;
 
-    if (explicit.length > 0) {
-      if (await this.publications.slugExists(explicit)) {
-        throw new DuplicateSlugError(explicit);
-      }
-      return explicit;
-    }
-
-    return uniqueSlug(title, (candidate) =>
+    return uniqueSlug(base, (candidate) =>
       this.publications.slugExists(candidate),
     );
   }

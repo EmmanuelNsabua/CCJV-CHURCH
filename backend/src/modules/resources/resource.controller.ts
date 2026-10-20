@@ -17,10 +17,6 @@ export interface ResourceIdParams {
   id: string;
 }
 
-export interface ResourceIdOrSlugParams {
-  idOrSlug: string;
-}
-
 export function createResourceController(service: ResourceService) {
   return {
     async list(req: Request, res: Response): Promise<void> {
@@ -33,8 +29,10 @@ export function createResourceController(service: ResourceService) {
     },
 
     async get(req: Request, res: Response): Promise<void> {
-      const { idOrSlug } = validatedParams<ResourceIdOrSlugParams>(req);
-      const resource = await service.get(idOrSlug);
+      // `id` porte un UUID **ou** un slug : c'est `ResourceService.get` qui
+      // distingue les deux formes.
+      const { id } = validatedParams<ResourceIdParams>(req);
+      const resource = await service.get(id);
       sendItem(res, resource);
     },
 

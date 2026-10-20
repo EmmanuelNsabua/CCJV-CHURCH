@@ -7,7 +7,9 @@
  * l'interdit explicitement — « Ne jamais faire confiance au nom ou au MIME type
  * fourni uniquement par le client ».
  *
- * On ne reconnaît que les formats réellement acceptés pour les photos CCJV.
+ * On ne reconnaît que les formats réellement acceptés par le site : les photos
+ * de la vie de l'église (JPEG, PNG, WEBP, AVIF) et les documents PDF déposés
+ * dans la médiathèque pour l'espace Ressources.
  */
 
 export const ACCEPTED_IMAGE_MIME_TYPES = [
@@ -18,6 +20,24 @@ export const ACCEPTED_IMAGE_MIME_TYPES = [
 ] as const;
 
 export type AcceptedImageMimeType = (typeof ACCEPTED_IMAGE_MIME_TYPES)[number];
+
+/**
+ * Types acceptés pour un **document téléchargeable** (ressources PDF).
+ *
+ * Un PDF n'est pas une photo : il n'a ni dimensions ni usage de couverture. Il
+ * relève donc d'une liste distincte, que le dossier de destination décide
+ * (voir `StorageService`). Mélanger les deux listes autoriserait un PDF à la
+ * place d'une image d'événement, et inversement.
+ */
+export const ACCEPTED_DOCUMENT_MIME_TYPES = ["application/pdf"] as const;
+
+export type AcceptedDocumentMimeType =
+  (typeof ACCEPTED_DOCUMENT_MIME_TYPES)[number];
+
+/** Tout type que le stockage sait accueillir, tous dossiers confondus. */
+export type AcceptedUploadMimeType =
+  | AcceptedImageMimeType
+  | AcceptedDocumentMimeType;
 
 function startsWith(buffer: Buffer, bytes: readonly number[], offset = 0): boolean {
   if (buffer.length < offset + bytes.length) return false;
@@ -56,7 +76,7 @@ export function detectImageMimeType(buffer: Buffer): AcceptedImageMimeType | nul
 }
 
 /** Extension canonique associée à un type MIME détecté. */
-export function extensionForMimeType(mimeType: AcceptedImageMimeType): string {
+export function extensionForMimeType(mimeType: AcceptedUploadMimeType): string {
   switch (mimeType) {
     case "image/jpeg":
       return "jpg";
@@ -66,7 +86,30 @@ export function extensionForMimeType(mimeType: AcceptedImageMimeType): string {
       return "webp";
     case "image/avif":
       return "avif";
+    case "application/pdf":
+      return "pdf";
   }
+}
+
+/** Ce type détecté est-il une image (donc mesure-t-il des dimensions) ? */
+export function isImageMimeType(
+  mimeType: AcceptedUploadMimeType,
+): mimeType is AcceptedImageMimeType {
+  return (ACCEPTED_IMAGE_MIME_TYPES as readonly string[]).includes(mimeType);
+}
+
+/**
+ * Retourne le type MIME de document déduit du contenu, ou `null`.
+ *
+ * PDF : l'en-tête normalisé est `%PDF-` suivi du numéro de version (`%PDF-1.7`).
+ * Les octets sont lus, pas l'extension : un `.pdf` renommé est refusé, et un
+ * PDF renommé en `.jpg` est reconnu pour ce qu'il est.
+ */
+export function detectDocumentMimeType(
+  buffer: Buffer,
+): AcceptedDocumentMimeType | null {
+  if (asciiAt(buffer, 0, "%PDF-")) return "application/pdf";
+  return null;
 }
 
 /** Dimensions d'une image, lues depuis son en-tête — sans dépendance externe. */

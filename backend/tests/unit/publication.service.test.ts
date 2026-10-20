@@ -730,18 +730,16 @@ describe("PublicationService — slug", () => {
     expect(created.slug).toBe("enseignement-du-mercredi-2");
   });
 
-  it("refuse un slug explicite déjà pris (DUPLICATE_SLUG, 409)", async () => {
+  it("suffixe un slug explicite déjà pris au lieu de refuser la publication", async () => {
     const { repository } = fakePublicationRepository([
       publicationFixture({ slug: "enseignement-du-mercredi" }),
     ]);
     const service = new PublicationService(repository);
 
-    const error = expectAppError(
-      await capture(service.create(body({ slug: "Enseignement du mercredi" }))),
-      "DUPLICATE_SLUG",
-      409,
+    const created = await service.create(
+      body({ slug: "Enseignement du mercredi" }),
     );
 
-    expect(error.details).toEqual({ slug: "enseignement-du-mercredi" });
+    expect(created.slug).toBe("enseignement-du-mercredi-2");
   });
 });

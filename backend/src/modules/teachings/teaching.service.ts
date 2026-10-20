@@ -20,12 +20,8 @@ import type {
   TeachingListQuery,
   UpdateTeachingBody,
 } from "./teaching.schema";
-import {
-  DuplicateSlugError,
-  NotFoundError,
-  ValidationError,
-} from "@/shared/errors/app-error";
-import { slugify } from "@/shared/utils/slug";
+import { NotFoundError, ValidationError } from "@/shared/errors/app-error";
+import { slugify, uniqueSlug } from "@/shared/utils/slug";
 
 export class TeachingNotFoundError extends NotFoundError {
   constructor(idOrSlug: string) {
@@ -123,11 +119,7 @@ export class TeachingService {
       preachedAt: body.preachedAt,
     });
 
-    const slug = body.slug?.trim()
-      ? slugify(body.slug.trim())
-      : body.title?.trim()
-        ? slugify(body.title.trim())
-        : null;
+    const slug = await this.resolveSlug(body.title.trim(), body.slug);
 
     return this.repo.create({
       title: body.title.trim(),
@@ -165,12 +157,17 @@ export class TeachingService {
       preachedAt: body.preachedAt,
     });
 
+    /*
+     * Slug : `undefined` = ne pas toucher à l'adresse existante ; `null` = la
+     * vider explicitement ; sinon un slug libre, suffixé s'il est pris. Le
+     * slug de **sa propre** ligne n'est pas un conflit (`exceptId`).
+     */
     const slug =
-      body.slug !== undefined
-        ? body.slug?.trim()
-          ? slugify(body.slug.trim())
-          : null
-        : undefined;
+      body.slug === undefined
+        ? undefined
+        : body.slug?.trim()
+          ? await this.resolveSlug(body.slug.trim(), body.slug, id)
+          : null;
 
     const requestsPublication = body.status === "PUBLISHED";
     const publishingNow = requestsPublication && existing.status !== "PUBLISHED";
@@ -290,5 +287,32 @@ export class TeachingService {
     }
 
     await this.repo.delete(id);
+  }
+
+  /**
+   * Slug définitif d'un enseignement.
+   *
+   * Dérivé du titre (ou du slug demandé), puis **suffixé** tant qu'il est pris
+   * (`-2`, `-3`…). Deux enseignements peuvent porter le même titre — c'est même
+   * fréquent, un message étant souvent prêché à nouveau — et refuser
+   * l'enregistrement pour cette raison revenait à interdire de nommer un
+   * enseignement comme son prédécesseur. L'identité reste l'`id` UUID.
+   *
+   * `exceptId` : la ligne en cours de modification ne se déclare pas en conflit
+   * avec elle-même.
+   */
+  private async resolveSlug(
+    title: string,
+    requested?: string,
+    exceptId?: string,
+  ): Promise<string | null> {
+    const base =
+      requested !== undefined && requested.trim().length > 0 ? requested : title;
+    const normalized = slugify(base);
+    if (normalized.length === 0) return null;
+
+    return uniqueSlug(normalized, (candidate) =>
+      this.repo.slugExists(candidate, exceptId),
+    );
   }
 }

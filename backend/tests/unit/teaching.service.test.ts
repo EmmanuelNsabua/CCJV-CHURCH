@@ -53,6 +53,13 @@ class InMemoryTeachingRepository implements TeachingRepository {
     return null;
   }
 
+  async slugExists(slug: string, exceptId?: string): Promise<boolean> {
+    for (const t of this.items.values()) {
+      if (t.slug === slug && t.id !== exceptId) return true;
+    }
+    return false;
+  }
+
   async list(filter: TeachingFilter): Promise<{ items: Teaching[]; total: number }> {
     let result = Array.from(this.items.values());
     if (filter.status) {
@@ -271,7 +278,7 @@ describe("TeachingService — Tests unitaires métier", () => {
       expect(created.status).toBe("DRAFT");
     });
 
-    it("autorise un slug identique ou personnalisé non unique", async () => {
+    it("suffixe un slug personnalisé déjà pris (l'adresse reste unique)", async () => {
       teachingRepo.items.set(
         "existing-id",
         teachingFixture({ id: "existing-id", slug: "mon-slug" }),
@@ -283,7 +290,8 @@ describe("TeachingService — Tests unitaires métier", () => {
         speakerName: "Pasteur",
         preachedAt: "2026-05-10",
       });
-      expect(created.slug).toBe("mon-slug");
+      // Le titre reste libre : c'est l'adresse qui est rendue unique.
+      expect(created.slug).toBe("mon-slug-2");
     });
   });
 

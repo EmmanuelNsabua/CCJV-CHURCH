@@ -263,6 +263,13 @@ export interface DepartmentRepository {
     id: string,
     options: { archivedBy?: string | null; reason?: string | null },
   ): Promise<DepartmentArchive>;
+  /**
+   * Archives conservées des départements supprimés.
+   *
+   * Lecture seule et paginée : la table grandit à chaque suppression et
+   * contient des instantanés complets, donc jamais de lecture « tout » .
+   */
+  listArchives(options: ListOptions): Promise<ListResult<DepartmentArchive>>;
   remove(id: string): Promise<boolean>;
   listActivities(departmentId: string): Promise<DepartmentActivity[]>;
   saveActivities(
@@ -719,6 +726,14 @@ export interface TeachingFilter {
 export interface TeachingRepository {
   findById(id: string): Promise<Teaching | null>;
   findBySlug(slug: string): Promise<Teaching | null>;
+  /**
+   * Un slug est-il déjà utilisé ?
+   *
+   * `exceptId` exclut la ligne en cours de mise à jour. `teachings.slug` n'est
+   * pas unique en base (deux enseignements peuvent porter le même titre) : le
+   * service est donc seul garant de l'unicité de l'**adresse**.
+   */
+  slugExists(slug: string, exceptId?: string): Promise<boolean>;
   list(filter?: TeachingFilter): Promise<{ items: Teaching[]; total: number }>;
   create(data: CreateTeachingInput): Promise<Teaching>;
   update(id: string, data: UpdateTeachingInput): Promise<Teaching>;

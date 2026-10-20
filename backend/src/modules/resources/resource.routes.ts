@@ -22,8 +22,17 @@ const idParamSchema = z.object({
   id: z.string().uuid("L'identifiant doit être un UUID valide"),
 });
 
+/**
+ * Paramètre de lecture : UUID **ou** slug.
+ *
+ * Le paramètre s'appelle `id` comme celui des écritures, et non `idOrSlug` :
+ * un contrat OpenAPI ne peut pas porter deux gabarits équivalents
+ * (`/resources/{id}` et `/resources/{idOrSlug}` désignent la même URL), et
+ * l'ambiguïté ferait diverger la documentation de la réalité. La valeur, elle,
+ * accepte bien les deux formes — c'est `ResourceService.get` qui tranche.
+ */
 const idOrSlugParamSchema = z.object({
-  idOrSlug: z.string().min(1),
+  id: z.string().min(1),
 });
 
 export function createResourceRouter(deps: ResourceRouterDeps): Router {
@@ -33,7 +42,7 @@ export function createResourceRouter(deps: ResourceRouterDeps): Router {
 
   // --- Routes publiques (sans authentification) -----------------------------
   router.get("/", validate({ query: resourceListQuerySchema }), controller.list);
-  router.get("/:idOrSlug", validate({ params: idOrSlugParamSchema }), controller.get);
+  router.get("/:id", validate({ params: idOrSlugParamSchema }), controller.get);
 
   // --- Routes d'administration ----------------------------------------------
   router.post(

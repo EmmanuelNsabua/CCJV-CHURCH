@@ -1,10 +1,6 @@
 import type { Resource } from "@/domain/entities";
 import type { ListResult, ResourceRepository } from "@/domain/repositories";
-import {
-  DuplicateSlugError,
-  NotFoundError,
-  ValidationError,
-} from "@/shared/errors/app-error";
+import { NotFoundError, ValidationError } from "@/shared/errors/app-error";
 import { toOffset } from "@/shared/http/pagination";
 import { slugify, uniqueSlug } from "@/shared/utils/slug";
 import type {
@@ -136,16 +132,18 @@ export class ResourceService {
     }
   }
 
+  /**
+   * Slug définitif : slug explicite **suffixé** s'il est déjà pris, sinon
+   * dérivé du nom.
+   *
+   * Une ressource est identifiée par son `id` UUID ; le slug n'est que son
+   * adresse publique. Un doublon ne doit donc jamais empêcher le dépôt d'un
+   * document.
+   */
   private async resolveSlug(name: string, requestedSlug?: string): Promise<string> {
-    if (requestedSlug) {
-      const normalized = slugify(requestedSlug);
-      const exists = await this.resources.slugExists(normalized);
-      if (exists) {
-        throw new DuplicateSlugError(normalized);
-      }
-      return normalized;
-    }
+    const explicit = requestedSlug ? slugify(requestedSlug) : "";
+    const base = explicit.length > 0 ? explicit : slugify(name);
 
-    return uniqueSlug(slugify(name), (slug) => this.resources.slugExists(slug));
+    return uniqueSlug(base, (slug) => this.resources.slugExists(slug));
   }
 }

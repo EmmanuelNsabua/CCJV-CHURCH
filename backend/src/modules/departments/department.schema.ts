@@ -9,7 +9,7 @@ import {
  *
  * Ils décrivent uniquement la **forme** des entrées HTTP. Les règles métier
  * (unicité de slug, cohérence de contenu) vivent dans le service : Zod ne sait
- * pas interroger la base et ne doit pas décider d'un `DUPLICATE_SLUG`.
+ * pas interroger la base et ne décide donc jamais d'un slug libre.
  */
 
 /**
@@ -89,6 +89,25 @@ export const departmentActivitySchema = z.object({
 export type DepartmentActivityInputDto = z.infer<typeof departmentActivitySchema>;
 
 /**
+ * Corps de `PUT /departments/:idOrSlug/activities`.
+ *
+ * Remplacement **total** de la collection : le repository supprime puis
+ * réinsère dans une seule transaction, ce qui garantit l'ordre d'affichage et
+ * ne laisse aucun orphelin. La borne haute est la même qu'à la création
+ * (`activities`, plus haut) : deux routes qui écrivent la même table ne
+ * peuvent pas se contredire sur ce qu'elles acceptent.
+ */
+export const saveDepartmentActivitiesSchema = z.object({
+  activities: z
+    .array(departmentActivitySchema)
+    .max(50, "Un département ne peut pas afficher plus de 50 activités"),
+});
+
+export type SaveDepartmentActivitiesBody = z.infer<
+  typeof saveDepartmentActivitiesSchema
+>;
+
+/**
  * Champs communs à la création et à la mise à jour.
  *
  * `nullish()` et non `optional()` : un administrateur doit pouvoir **vider** un
@@ -141,9 +160,9 @@ const departmentFields = {
 export const createDepartmentSchema = z.object({
   ...departmentFields,
   /**
-   * Slug explicite, facultatif. S'il est déjà pris, le service lève
-   * `DUPLICATE_SLUG` au lieu de le suffixer automatiquement : un slug imposé
-   * par un administrateur est une intention, pas une suggestion.
+   * Slug explicite, facultatif. S'il est déjà pris, il est **suffixé**
+   * (`-2`, `-3`…) au lieu d'être refusé : le titre reste libre, seule l'adresse
+   * est rendue unique. L'identité du département est son `id` UUID.
    */
   slug: z
     .string()

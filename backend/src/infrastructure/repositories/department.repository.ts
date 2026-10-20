@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, ne } from "drizzle-orm";
 import type {
   Department,
   DepartmentActivity,
@@ -245,6 +245,43 @@ export class DrizzleDepartmentRepository implements DepartmentRepository {
     }
 
     return this.findById(id);
+  }
+
+  /**
+   * Archives des départements supprimés — lecture seule.
+   *
+   * Deux requêtes fixes (une page + un total), jamais une par ligne : la table
+   * ne fait que croître, chaque suppression y ajoutant un instantané complet
+   * (`snapshot`). Le tri est antéchronologique — la dernière archivée est celle
+   * qui intéresse l'administrateur.
+   */
+  async listArchives({
+    limit,
+    offset,
+  }: ListOptions): Promise<ListResult<DepartmentArchive>> {
+    const [rows, totals] = await Promise.all([
+      this.db
+        .select()
+        .from(departmentArchives)
+        .orderBy(desc(departmentArchives.archivedAt))
+        .limit(limit)
+        .offset(offset),
+      this.db.select({ total: count() }).from(departmentArchives),
+    ]);
+
+    return {
+      items: rows.map((row) => ({
+        id: row.id,
+        originalDepartmentId: row.originalDepartmentId,
+        name: row.name,
+        slug: row.slug,
+        snapshot: (row.snapshot ?? {}) as Record<string, unknown>,
+        archivedBy: row.archivedBy,
+        archivedAt: row.archivedAt,
+        reason: row.reason,
+      })),
+      total: totals[0]?.total ?? 0,
+    };
   }
 
   async listActivities(departmentId: string): Promise<DepartmentActivity[]> {

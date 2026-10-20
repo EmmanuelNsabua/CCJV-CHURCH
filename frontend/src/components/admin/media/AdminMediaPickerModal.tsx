@@ -18,14 +18,34 @@ import {
 import { Input } from "@/components/admin/forms/Input";
 import { Button } from "@/components/ui/Button";
 import { listAdminMedia } from "@/lib/api/endpoints";
+import {
+  isMediaAccepted,
+  MEDIA_KIND_LABELS,
+  type MediaAccept,
+  type MediaKind,
+} from "@/lib/media-kind";
 import type { AdminMediaItem } from "@/lib/api/types";
+
+/** Filtre de la barre d'onglets : « tous » ou une nature précise. */
+type MediaFilter = "ALL" | Exclude<MediaKind, "document">;
+
+const ALL_FILTERS: readonly MediaFilter[] = ["ALL", "video", "image", "audio"];
 
 export interface AdminMediaPickerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (media: AdminMediaItem) => void;
   title?: string;
-  initialFilter?: "ALL" | "video" | "image" | "audio";
+  initialFilter?: MediaFilter;
+  /**
+   * Types que le champ appelant accepte.
+   *
+   * Omis ⇒ médiathèque complète. Fourni ⇒ les autres fichiers ne sont **pas
+   * proposés du tout** : ni dans la liste, ni via les onglets. C'est une règle
+   * du champ, pas une préférence d'affichage — un PDF sélectionné là où le site
+   * attend une couverture produirait une image cassée côté public.
+   */
+  accept?: MediaAccept;
 }
 
 export function AdminMediaPickerModal({
@@ -34,35 +54,90 @@ export function AdminMediaPickerModal({
   onSelect,
   title = "Visualiseur et Importation du Stockage (Bucket)",
   initialFilter = "ALL",
+  accept,
 }: AdminMediaPickerModalProps) {
   const [mediaList, setMediaList] = useState<AdminMediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState<"ALL" | "video" | "image" | "audio">(initialFilter);
+  const [filterType, setFilterType] = useState<MediaFilter>(initialFilter);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [inspectingMedia, setInspectingMedia] = useState<AdminMediaItem | null>(null);
 
+  /**
+   * Clé **stable** des types acceptés.
+   *
+   * Un appelant écrit naturellement `accept={["image"]}`, c'est-à-dire un
+   * tableau neuf à chaque rendu. Dépendre de son identité ferait rejouer
+   * l'effet de chargement à chaque rendu — une boucle de requêtes tant que le
+   * modal est ouvert. La clé, elle, ne change que si la **règle** change.
+   */
+  const acceptKey = useMemo(
+    () => (accept && accept.length > 0 ? [...accept].sort().join(",") : ""),
+    [accept],
+  );
+
+  const acceptKinds = useMemo<MediaAccept | undefined>(
+    () => (acceptKey === "" ? undefined : (acceptKey.split(",") as MediaKind[])),
+    [acceptKey],
+  );
+
+  /**
+   * Onglets proposés : ceux du champ restreint, ou les quatre.
+   *
+   * « Tous » n'a de sens que si plusieurs natures sont acceptées — offrir un
+   * onglet qui ne peut rien montrer serait un piège, pas une option.
+   */
+  const availableFilters = useMemo<readonly MediaFilter[]>(() => {
+    if (!acceptKinds) return ALL_FILTERS;
+    const restreints = ALL_FILTERS.filter(
+      (filtre) => filtre !== "ALL" && acceptKinds.includes(filtre as MediaKind),
+    );
+    if (restreints.length === 0) return ["ALL"];
+    return restreints.length > 1 ? ["ALL", ...restreints] : restreints;
+  }, [acceptKinds]);
+
   useEffect(() => {
-    if (isOpen) {
-      setIsLoading(true);
-      listAdminMedia({ limit: 100 })
-        .then((res) => {
-          setMediaList(res.data || []);
-        })
-        .catch((err) => {
-          console.warn("[AdminMediaPickerModal] Erreur chargement médias :", err);
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-      setFilterType(initialFilter);
-      setSearch("");
-      setInspectingMedia(null);
-    }
-  }, [isOpen, initialFilter]);
+    if (!isOpen) return;
+    // Un `initialFilter` incompatible avec le champ retombe sur un filtre permis.
+    const filtreInitial = availableFilters.includes(initialFilter)
+      ? initialFilter
+      : availableFilters[0] ?? "ALL";
+
+    setIsLoading(true);
+    listAdminMedia({ limit: 100 })
+      .then((res) => {
+        setMediaList(res.data || []);
+      })
+      .catch((err) => {
+        console.warn("[AdminMediaPickerModal] Erreur chargement médias :", err);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+    setFilterType(filtreInitial);
+    setSearch("");
+    setInspectingMedia(null);
+  }, [isOpen, initialFilter, availableFilters]);
+
+  /**
+   * Libellé de la restriction, ou `null` si le champ accepte tout.
+   *
+   * Sert à **dire** la contrainte : un sélecteur qui n'affiche que des images
+   * sans expliquer pourquoi ressemble à une médiathèque vide.
+   */
+  const restrictionLabel = useMemo(() => {
+    if (!acceptKinds) return null;
+    const natures = availableFilters.filter((filtre) => filtre !== "ALL");
+    if (natures.length === 0) return null;
+    return natures.map((filtre) => MEDIA_KIND_LABELS[filtre]).join(" / ");
+  }, [acceptKinds, availableFilters]);
 
   const filteredItems = useMemo(() => {
     return mediaList.filter((item) => {
+      // Règle du champ, appliquée avant tout : un média d'une nature refusée
+      // n'apparaît pas, même avec le filtre « Tous ».
+      if (!isMediaAccepted(item.mimeType, acceptKinds)) return false;
+
       const matchSearch =
         search.trim() === "" ||
         item.filename.toLowerCase().includes(search.toLowerCase()) ||
@@ -79,7 +154,7 @@ export function AdminMediaPickerModal({
 
       return matchSearch && matchType;
     });
-  }, [mediaList, search, filterType]);
+  }, [mediaList, search, filterType, acceptKinds]);
 
   if (!isOpen) return null;
 
@@ -94,7 +169,9 @@ export function AdminMediaPickerModal({
               {title}
             </h3>
             <p className="text-xs text-ccjv-ink-secondary mt-0.5">
-              Visualisez fidèlement vos fichiers (Images, Vidéos, Audios, Textes) avant de les sélectionner.
+              {restrictionLabel
+                ? `Seuls les fichiers de type « ${restrictionLabel} » sont proposés pour ce champ.`
+                : "Visualisez fidèlement vos fichiers (Images, Vidéos, Audios, Documents) avant de les sélectionner."}
             </p>
           </div>
           <button
@@ -116,52 +193,24 @@ export function AdminMediaPickerModal({
               className="text-xs flex-1 sm:max-w-xs"
             />
 
-            {/* Onglets / Filtre de type */}
+            {/* Onglets / Filtre de type — dérivés des types acceptés par le champ */}
             <div className="flex items-center border border-ccjv-border bg-white text-xs">
-              <button
-                type="button"
-                onClick={() => setFilterType("ALL")}
-                className={`px-2.5 py-1 transition-colors ${
-                  filterType === "ALL"
-                    ? "bg-ccjv-ink text-white font-medium"
-                    : "text-ccjv-ink-secondary hover:text-ccjv-ink"
-                }`}
-              >
-                Tous
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilterType("video")}
-                className={`px-2.5 py-1 transition-colors border-l border-ccjv-border ${
-                  filterType === "video"
-                    ? "bg-ccjv-ink text-white font-medium"
-                    : "text-ccjv-ink-secondary hover:text-ccjv-ink"
-                }`}
-              >
-                Vidéos
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilterType("image")}
-                className={`px-2.5 py-1 transition-colors border-l border-ccjv-border ${
-                  filterType === "image"
-                    ? "bg-ccjv-ink text-white font-medium"
-                    : "text-ccjv-ink-secondary hover:text-ccjv-ink"
-                }`}
-              >
-                Images
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilterType("audio")}
-                className={`px-2.5 py-1 transition-colors border-l border-ccjv-border ${
-                  filterType === "audio"
-                    ? "bg-ccjv-ink text-white font-medium"
-                    : "text-ccjv-ink-secondary hover:text-ccjv-ink"
-                }`}
-              >
-                Audios
-              </button>
+              {availableFilters.map((filtre, index) => (
+                <button
+                  key={filtre}
+                  type="button"
+                  onClick={() => setFilterType(filtre)}
+                  className={`px-2.5 py-1 transition-colors ${
+                    index > 0 ? "border-l border-ccjv-border" : ""
+                  } ${
+                    filterType === filtre
+                      ? "bg-ccjv-ink text-white font-medium"
+                      : "text-ccjv-ink-secondary hover:text-ccjv-ink"
+                  }`}
+                >
+                  {filtre === "ALL" ? "Tous" : MEDIA_KIND_LABELS[filtre]}
+                </button>
+              ))}
             </div>
           </div>
 

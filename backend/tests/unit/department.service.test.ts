@@ -15,8 +15,8 @@ import { AppError, isAppError } from "@/shared/errors/app-error";
  * les URL du site. Trois comportements sont fixés ici :
  *
  * - dérivé du nom et **suffixé** tant qu'il n'est pas libre ;
- * - un slug **explicite** déjà pris est refusé (`DUPLICATE_SLUG`, 409) au lieu
- *   d'être silencieusement transformé ;
+ * - un slug **explicite** déjà pris est suffixé lui aussi (`-2`, `-3`…) : le
+ *   slug est une adresse, l'identité du département reste son `id` UUID ;
  * - un identifiant inconnu produit `NotFoundError` / `DEPARTMENT_NOT_FOUND`
  *   (404) sur `get`, `update` et `remove`.
  */
@@ -144,6 +144,10 @@ function fakeDepartmentRepository(seed: readonly Department[] = []) {
       };
     },
 
+    async listArchives() {
+      return { items: [], total: 0 };
+    },
+
     async listActivities() {
       return [];
     },
@@ -229,35 +233,31 @@ describe("DepartmentService — slug unique", () => {
     expect(created.slug).toBe("chorale-voix-d-esperance");
   });
 
-  it("refuse un slug explicite déjà pris (DUPLICATE_SLUG, 409)", async () => {
+  it("suffixe un slug explicite déjà pris au lieu de refuser la création", async () => {
     const { repository, store } = fakeDepartmentRepository([
       departmentFixture({ slug: "chorale" }),
     ]);
     const service = new DepartmentService(repository);
 
-    const error = expectAppError(
-      await capture(service.create(body({ slug: "Chorale" }))),
-      "DUPLICATE_SLUG",
-      409,
-    );
+    const created = await service.create(body({ slug: "Chorale" }));
 
-    expect(error.details).toEqual({ slug: "chorale" });
-    expect(error.message).toContain("chorale");
-    // Aucun département n'a été créé.
-    expect(store.size).toBe(1);
+    expect(created.slug).toBe("chorale-2");
+    // La création a bien eu lieu : un doublon de slug n'est plus un refus.
+    expect(store.size).toBe(2);
   });
 
-  it("ne suffixe pas un slug explicite : l'intention est refusée, pas corrigée", async () => {
+  it("suffixe un slug explicite : l'intention est conservée, l'adresse rendue unique", async () => {
     const { repository } = fakeDepartmentRepository([
       departmentFixture({ slug: "chorale" }),
     ]);
     const slugExists = jest.spyOn(repository, "slugExists");
     const service = new DepartmentService(repository);
 
-    await capture(service.create(body({ slug: "chorale" })));
+    await service.create(body({ slug: "chorale" }));
 
-    expect(slugExists).toHaveBeenCalledTimes(1);
-    expect(slugExists).toHaveBeenCalledWith("chorale");
+    // Le premier candidat reste le slug demandé, puis `chorale-2`.
+    expect(slugExists).toHaveBeenNthCalledWith(1, "chorale");
+    expect(slugExists).toHaveBeenNthCalledWith(2, "chorale-2");
   });
 
   it("transmet le slug calculé séparément de l'entrée de création", async () => {

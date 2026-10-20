@@ -19,8 +19,8 @@ import { AppError, isAppError } from "@/shared/errors/app-error";
  * `domain/repositories` : aucun appel réseau, aucune écriture. Trois
  * invariants sont couverts ici :
  *
- * 1. le slug est dérivé du titre et suffixé en cas de collision, mais un slug
- *    **explicite** déjà pris est refusé (`DUPLICATE_SLUG`) ;
+ * 1. le slug est dérivé du titre et suffixé en cas de collision, y compris
+ *    lorsqu'il est **explicite** ;
  * 2. un `departmentId` inexistant produit `DEPARTMENT_NOT_FOUND` avant toute
  *    écriture ;
  * 3. le **statut n'est jamais calculé ni transmis** par le service : il reste
@@ -207,6 +207,9 @@ function fakeDepartmentRepository(exists: boolean): DepartmentRepository {
     async archiveAndDelete() {
       return nonSollicite();
     },
+    async listArchives() {
+      return nonSollicite();
+    },
     async listActivities() {
       return nonSollicite();
     },
@@ -290,35 +293,31 @@ describe("EventService — génération du slug", () => {
     expect(created.slug).toBe("culte-special-2026");
   });
 
-  it("refuse un slug explicite déjà utilisé (DUPLICATE_SLUG, 409)", async () => {
+  it("suffixe un slug explicite déjà pris au lieu de refuser la création", async () => {
     const { repository, store } = fakeEventRepository([
       eventFixture({ slug: "culte-du-dimanche" }),
     ]);
     const service = new EventService(repository, fakeDepartmentRepository(true));
 
-    const failure = await service
-      .create(body({ slug: "culte-du-dimanche" }))
-      .catch((error: unknown) => error);
+    const created = await service.create(body({ slug: "culte-du-dimanche" }));
 
-    const error = expectAppError(failure, "DUPLICATE_SLUG", 409);
-    expect(error.details).toEqual({ slug: "culte-du-dimanche" });
-    // Aucun événement n'a été ajouté.
-    expect(store.size).toBe(1);
+    expect(created.slug).toBe("culte-du-dimanche-2");
+    // L'événement a bien été ajouté : un doublon de slug n'est plus un refus.
+    expect(store.size).toBe(2);
   });
 
-  it("ne confond pas un slug explicite refusé avec une génération automatique", async () => {
+  it("cherche une variante libre pour un slug explicite déjà pris", async () => {
     const { repository } = fakeEventRepository([
       eventFixture({ slug: "culte-du-dimanche" }),
     ]);
     const slugExists = jest.spyOn(repository, "slugExists");
     const service = new EventService(repository, fakeDepartmentRepository(true));
 
-    await service.create(body({ slug: "culte-du-dimanche" })).catch(() => null);
+    await service.create(body({ slug: "culte-du-dimanche" }));
 
-    // Un slug imposé est une intention : on vérifie qu'il est pris, on ne
-    // cherche pas de variante.
-    expect(slugExists).toHaveBeenCalledTimes(1);
-    expect(slugExists).toHaveBeenCalledWith("culte-du-dimanche");
+    // Le slug demandé reste le premier candidat, la variante vient ensuite.
+    expect(slugExists).toHaveBeenNthCalledWith(1, "culte-du-dimanche");
+    expect(slugExists).toHaveBeenNthCalledWith(2, "culte-du-dimanche-2");
   });
 });
 

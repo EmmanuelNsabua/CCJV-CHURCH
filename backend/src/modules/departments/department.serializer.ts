@@ -1,4 +1,4 @@
-import type { Department } from "@/domain/entities";
+import type { Department, DepartmentArchive } from "@/domain/entities";
 
 /**
  * Représentation API d'un département.
@@ -48,6 +48,39 @@ export interface DepartmentDto {
   position?: number;
   createdAt?: string;
   updatedAt?: string;
+}
+
+/**
+ * Représentation API d'une archive de département.
+ *
+ * Calquée sur `frontend/src/types` (`DepartmentArchive`) : l'instantané est
+ * transmis **tel quel**, sans réécriture des champs qu'il contient — c'est une
+ * pièce justificative, la réécrire la rendrait infidèle.
+ */
+export interface DepartmentArchiveDto {
+  id: string;
+  originalDepartmentId: string;
+  name: string;
+  slug: string;
+  snapshot: Record<string, unknown>;
+  archivedBy?: string | null;
+  archivedAt: string;
+  reason?: string | null;
+}
+
+export function toDepartmentArchiveDto(
+  archive: DepartmentArchive,
+): DepartmentArchiveDto {
+  return {
+    id: archive.id,
+    originalDepartmentId: archive.originalDepartmentId,
+    name: archive.name,
+    slug: archive.slug,
+    snapshot: archive.snapshot,
+    archivedBy: archive.archivedBy,
+    archivedAt: archive.archivedAt.toISOString(),
+    reason: archive.reason,
+  };
 }
 
 export function toDepartmentDto(department: Department): DepartmentDto {

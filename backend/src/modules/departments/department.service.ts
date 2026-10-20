@@ -3,10 +3,7 @@ import type {
   DepartmentRepository,
   ListResult,
 } from "@/domain/repositories";
-import {
-  DuplicateSlugError,
-  NotFoundError,
-} from "@/shared/errors/app-error";
+import { NotFoundError } from "@/shared/errors/app-error";
 import { toOffset } from "@/shared/http/pagination";
 import { slugify, uniqueSlug } from "@/shared/utils/slug";
 import type {
@@ -90,6 +87,21 @@ export class DepartmentService {
     }
   }
 
+  /**
+   * Archives conservées des départements supprimés (`GET /departments/archives`).
+   *
+   * Lecture administratrice : un instantané contient l'intégralité de la fiche
+   * (missions, activités, responsables), y compris des données retirées du
+   * public. Aucune agrégation n'est faite ici — la pagination est celle de la
+   * base.
+   */
+  async listArchives(query: { page: number; limit: number }) {
+    return this.departments.listArchives({
+      limit: query.limit,
+      offset: toOffset(query.page, query.limit),
+    });
+  }
+
   async listActivities(idOrSlug: string) {
     const existing = await this.require(idOrSlug);
     return this.departments.listActivities(existing.id);
@@ -117,8 +129,12 @@ export class DepartmentService {
   /**
    * Slug définitif de la ressource.
    *
-   * - slug explicite : refusé s'il est déjà utilisé (`DUPLICATE_SLUG`) ;
-   * - sinon : dérivé du nom et suffixé jusqu'à être libre.
+   * Un slug explicite est une **préférence de lisibilité**, pas une réservation :
+   * s'il est déjà pris, il est suffixé (`-2`, `-3`…) exactement comme un slug
+   * dérivé du nom. Deux départements peuvent donc légitimement s'intituler de
+   * la même façon ; l'identité canonique reste l'`id` UUID, et le slug n'est
+   * qu'une adresse. Refuser la création pour un doublon de slug revenait à
+   * laisser l'URL décider du contenu éditorial.
    *
    * `slugExists` interroge la base à chaque candidat : un tableau en mémoire
    * produirait des collisions entre instances du serveur.
@@ -128,14 +144,10 @@ export class DepartmentService {
     requested?: string,
   ): Promise<string> {
     const explicit = requested === undefined ? "" : slugify(requested);
+    const base = explicit.length > 0 ? explicit : name;
 
-    if (explicit.length > 0) {
-      if (await this.departments.slugExists(explicit)) {
-        throw new DuplicateSlugError(explicit);
-      }
-      return explicit;
-    }
-
-    return uniqueSlug(name, (candidate) => this.departments.slugExists(candidate));
+    return uniqueSlug(base, (candidate) =>
+      this.departments.slugExists(candidate),
+    );
   }
 }

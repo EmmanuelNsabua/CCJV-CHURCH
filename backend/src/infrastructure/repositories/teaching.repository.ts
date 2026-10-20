@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import type {
   BiblicalReference,
   Teaching,
@@ -139,6 +139,29 @@ export class DrizzleTeachingRepository implements TeachingRepository {
 
     if (!row) return null;
     return this.loadFullTeaching(row.id);
+  }
+
+  /**
+   * Un slug est-il déjà pris ?
+   *
+   * `exceptId` permet à une mise à jour de conserver son propre slug sans se
+   * déclarer en conflit avec elle-même. `teachings.slug` n'a qu'un index simple,
+   * non unique : c'est le service qui garantit l'unicité, et cette requête est
+   * la seule à pouvoir le faire puisque deux titres identiques sont légitimes.
+   */
+  async slugExists(slug: string, exceptId?: string): Promise<boolean> {
+    const conditions =
+      exceptId === undefined
+        ? eq(teachings.slug, slug)
+        : and(eq(teachings.slug, slug), ne(teachings.id, exceptId));
+
+    const [row] = await this.db
+      .select({ id: teachings.id })
+      .from(teachings)
+      .where(conditions)
+      .limit(1);
+
+    return row !== undefined;
   }
 
   async list(filter: TeachingFilter = {}): Promise<{ items: Teaching[]; total: number }> {

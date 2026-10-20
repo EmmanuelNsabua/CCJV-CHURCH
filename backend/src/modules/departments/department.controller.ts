@@ -5,11 +5,12 @@ import {
 } from "@/presentation/middlewares/validate";
 import { sendCollection, sendItem, sendNoContent } from "@/shared/http/respond";
 import type { DepartmentService } from "./department.service";
-import { toDepartmentDto } from "./department.serializer";
+import { toDepartmentArchiveDto, toDepartmentDto } from "./department.serializer";
 import type {
   CreateDepartmentBody,
   DepartmentIdOrSlugParams,
   DepartmentListQuery,
+  SaveDepartmentActivitiesBody,
   UpdateDepartmentBody,
 } from "./department.schema";
 
@@ -55,6 +56,30 @@ export function createDepartmentController(service: DepartmentService) {
       const body = req.body as UpdateDepartmentBody;
 
       sendItem(res, toDepartmentDto(await service.update(idOrSlug, body)));
+    },
+
+    /**
+     * `GET /archives` — administration : archives conservées des départements
+     * supprimés.
+     */
+    async archives(req: Request, res: Response): Promise<void> {
+      const { page, limit } = validatedQuery<DepartmentListQuery>(req);
+      const { items, total } = await service.listArchives({ page, limit });
+
+      sendCollection(res, items.map(toDepartmentArchiveDto), page, limit, total);
+    },
+
+    /** `PUT /:idOrSlug/activities` — administration : remplacement des activités. */
+    async saveActivities(req: Request, res: Response): Promise<void> {
+      const { idOrSlug } = validatedParams<DepartmentIdOrSlugParams>(req);
+      const body = req.body as SaveDepartmentActivitiesBody;
+
+      const activities = await service.saveActivities(idOrSlug, body.activities);
+
+      // Collection non paginée : `meta` reste renseignée pour que la forme de
+      // réponse soit la même partout (docs/004 §34), avec une seule page.
+      const limit = Math.max(activities.length, 1);
+      sendCollection(res, activities, 1, limit, activities.length);
     },
 
     /** `POST /:idOrSlug/archive` — administration : archivage explicite. */

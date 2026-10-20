@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Upload, Trash2, Image as ImageIcon, PlayCircle, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { AdminMediaPickerModal } from "./AdminMediaPickerModal";
+import { isMediaAccepted, type MediaAccept, type MediaKind } from "@/lib/media-kind";
 import type { AdminMediaItem } from "@/lib/api/types";
 
 export interface AdminMediaValue {
@@ -14,6 +15,34 @@ export interface AdminMediaValue {
   mimeType?: string;
 }
 
+/** Ancien vocabulaire conservé pour les appelants existants. */
+type AcceptedTypes = "ALL" | Exclude<MediaKind, "document">;
+
+/**
+ * Table de correspondance **constante**.
+ *
+ * Pourquoi des constantes module et non des littéraux : la valeur est passée
+ * telle quelle au sélecteur, dont l'effet de chargement dépend de son identité.
+ * Un tableau neuf à chaque rendu relancerait la requête en boucle.
+ */
+const ACCEPT_BY_KIND: Record<Exclude<MediaKind, "document">, MediaAccept> = {
+  image: ["image"],
+  video: ["video"],
+  audio: ["audio"],
+};
+
+/**
+ * Traduit `acceptedTypes` en liste de natures admises.
+ *
+ * `"ALL"` (ou l'absence de valeur) n'impose aucune règle ; toute autre valeur
+ * restreint **réellement** le sélecteur — un document ne peut plus être choisi
+ * là où le site attend une image ou une vidéo.
+ */
+function toAccept(acceptedTypes: AcceptedTypes | undefined): MediaAccept | undefined {
+  if (!acceptedTypes || acceptedTypes === "ALL") return undefined;
+  return ACCEPT_BY_KIND[acceptedTypes];
+}
+
 export interface AdminMediaFieldProps {
   label: string;
   hint?: string;
@@ -21,7 +50,9 @@ export interface AdminMediaFieldProps {
   error?: string;
   value?: AdminMediaValue | null;
   onChange: (val: AdminMediaValue | null) => void;
-  acceptedTypes?: "ALL" | "video" | "image" | "audio";
+  acceptedTypes?: AcceptedTypes;
+  /** Remplace `acceptedTypes` lorsqu'un champ accepte plusieurs natures. */
+  accept?: MediaAccept;
 }
 
 export function AdminMediaField({
@@ -32,10 +63,23 @@ export function AdminMediaField({
   value,
   onChange,
   acceptedTypes = "image",
+  accept,
 }: AdminMediaFieldProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const acceptFinal = accept ?? toAccept(acceptedTypes);
 
   const handleSelect = (item: AdminMediaItem) => {
+    // Défense en profondeur : le sélecteur ne propose déjà pas les types
+    // refusés, mais un champ qui attend une image ne doit jamais accepter un
+    // PDF, quel que soit le chemin d'appel.
+    if (!isMediaAccepted(item.mimeType, acceptFinal)) {
+      console.warn(
+        `[AdminMediaField] Média ignoré : type ${item.mimeType} non accepté par le champ « ${label} »`,
+      );
+      setIsModalOpen(false);
+      return;
+    }
+
     onChange({
       mediaId: item.id,
       url: item.url,
@@ -143,6 +187,7 @@ export function AdminMediaField({
         onClose={() => setIsModalOpen(false)}
         onSelect={handleSelect}
         initialFilter={acceptedTypes}
+        accept={acceptFinal}
       />
     </div>
   );
