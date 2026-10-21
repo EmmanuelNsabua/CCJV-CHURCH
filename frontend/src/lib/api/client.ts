@@ -38,16 +38,76 @@ const DEFAULT_TIMEOUT_MS = 5_000;
  */
 const DEFAULT_MUTATION_TIMEOUT_MS = 15_000;
 
-/** Durée de mise en cache Next appliquée par défaut aux lectures publiques. */
-const PUBLIC_REVALIDATE_SECONDS = 60;
-
 /** Version d'API portée par le client : jamais dans les fonctions d'endpoint. */
 const API_PREFIX = "/api/v1";
 
 /** Options de cache Next (`next.revalidate` / `next.tags`). */
-interface NextCacheConfig {
+export interface NextCacheConfig {
   revalidate?: number | false;
   tags?: string[];
+}
+
+/** Tags de cache standards de l'application CCJV pour l'On-Demand ISR. */
+export const CACHE_TAGS = {
+  publications: "publications",
+  actualites: "actualites",
+  enseignements: "enseignements",
+  teachings: "teachings",
+  resources: "resources",
+  ressources: "ressources",
+  events: "events",
+  leaders: "leaders",
+  testimonies: "testimonies",
+  communityFaces: "community-faces",
+  schedule: "schedule",
+  scriptures: "scriptures",
+  settings: "settings",
+  media: "media",
+  pages: "pages",
+} as const;
+
+export type CacheTag = (typeof CACHE_TAGS)[keyof typeof CACHE_TAGS];
+
+/**
+ * Résout les tags de cache par défaut associés à un chemin d'API public.
+ */
+export function resolveDefaultTags(path: string): string[] {
+  const normalized = path.replace(/^\/?api\/v1\/?/, "").replace(/^\//, "");
+  const [resourcePart] = normalized.split("?");
+  const [resource] = resourcePart.split("/");
+
+  switch (resource) {
+    case "publications":
+      return normalized.includes("category=ACTUALITE")
+        ? [CACHE_TAGS.publications, CACHE_TAGS.actualites]
+        : [CACHE_TAGS.publications];
+    case "enseignements":
+    case "teachings":
+      return [CACHE_TAGS.enseignements, CACHE_TAGS.teachings];
+    case "resources":
+    case "ressources":
+      return [CACHE_TAGS.resources, CACHE_TAGS.ressources];
+    case "events":
+      return [CACHE_TAGS.events];
+    case "leaders":
+      return [CACHE_TAGS.leaders];
+    case "testimonies":
+      return [CACHE_TAGS.testimonies];
+    case "community-faces":
+      return [CACHE_TAGS.communityFaces];
+    case "schedule":
+      return [CACHE_TAGS.schedule];
+    case "scriptures":
+      return [CACHE_TAGS.scriptures];
+    case "settings":
+      return [CACHE_TAGS.settings];
+    case "media":
+      return [CACHE_TAGS.media];
+    case "pages":
+      return [CACHE_TAGS.pages];
+    default:
+      return resource ? [resource] : [];
+  }
 }
 
 export interface ApiFetchOptions extends Omit<RequestInit, "body" | "signal"> {
@@ -59,10 +119,12 @@ export interface ApiFetchOptions extends Omit<RequestInit, "body" | "signal"> {
   /** Signal d'annulation appelant ; combiné au délai maximal. */
   signal?: AbortSignal;
   /**
-   * Fenêtre de revalidation Next. `false` (ou `0`) désactive le cache.
-   * Par défaut : 60 s sur les lectures publiques, aucun cache sinon.
+   * Fenêtre de revalidation Next. `false` active l'On-Demand ISR (revalidation par tags ou chemins).
+   * Par défaut : `false` pour les lectures publiques en On-Demand ISR, aucun cache pour le back-office.
    */
   revalidate?: number | false;
+  /** Tags de cache pour l'invalidation à la demande (On-Demand ISR). */
+  tags?: string[];
   /**
    * Délai maximal en millisecondes.
    *
@@ -316,6 +378,7 @@ async function request<T>(
 ): Promise<T | null> {
   const {
     revalidate,
+    tags,
     timeoutMs,
     signal,
     headers,
@@ -337,7 +400,21 @@ async function request<T>(
   const url = buildApiUrl(path);
   const method = (rest.method ?? "GET").toUpperCase();
   const isRead = method === "GET" || method === "HEAD";
-  const cacheRevalidate = revalidate ?? (isRead ? PUBLIC_REVALIDATE_SECONDS : 0);
+
+  /*
+   * Distinction stricte entre Back-Office et Site Public :
+   *
+   * 1. Le Back-Office exige un rendu instantané à chaque requête : zéro mise en cache (`cache: "no-store"`).
+   *    Tout appel avec jeton d'authentification (`resolvedToken`), toute mutation (`POST`, `PATCH`, `PUT`, `DELETE`),
+   *    ou tout appel d'administration via `apiFetchOrThrow` (`propagate === true`) contourne le cache Next.js et
+   *    le cache HTTP du navigateur.
+   *
+   * 2. Le site public (lectures anonymes sans jeton) utilise l'On-Demand ISR (Incremental Static Regeneration)
+   *    via les tags de cache Next.js (`init.next = { tags, revalidate }`). Les pages sont servies statiquement
+   *    depuis le CDN et ne sont reconstruites que lors d'un événement de revalidation à la demande.
+   */
+  const isAdminRequest = propagate || Boolean(resolvedToken) || !isRead;
+
   const effectiveTimeoutMs =
     timeoutMs ?? (isRead ? DEFAULT_TIMEOUT_MS : DEFAULT_MUTATION_TIMEOUT_MS);
 
@@ -354,8 +431,19 @@ async function request<T>(
     ...rest,
     method,
     headers: reqHeaders,
-    next: { revalidate: cacheRevalidate },
   };
+
+  if (isAdminRequest) {
+    // Rendu instantané pour le back-office : pas de mise en cache
+    init.cache = "no-store";
+  } else {
+    // Site public : On-Demand ISR avec tags de cache
+    const resolvedTags = tags ?? resolveDefaultTags(path);
+    init.next = {
+      tags: resolvedTags,
+      revalidate: revalidate !== undefined ? revalidate : false,
+    };
+  }
 
   // Un GET/HEAD ne peut pas porter de corps
   if (!isRead) {

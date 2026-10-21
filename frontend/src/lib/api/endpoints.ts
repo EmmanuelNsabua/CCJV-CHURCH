@@ -103,6 +103,10 @@ export interface PublicReadOptions {
    * silencieuse » interdit.
    */
   onFailure?: ApiFetchOptions["onFailure"];
+  /** Tags de cache pour l'invalidation à la demande (On-Demand ISR). */
+  tags?: string[];
+  /** Fenêtre de revalidation Next. `false` active l'On-Demand ISR pur. */
+  revalidate?: number | false;
 }
 
 /**

@@ -23,9 +23,22 @@ export {
   getApiBaseUrl,
   logApiIssue,
   withQuery,
+  CACHE_TAGS,
+  resolveDefaultTags,
   type ApiFetchOptions,
+  type CacheTag,
+  type NextCacheConfig,
   type QueryValue,
 } from "./client";
+
+export {
+  revalidateCacheTag,
+  revalidateCachePath,
+  revalidateActualites,
+  revalidateEnseignements,
+  revalidateRessources,
+  revalidatePublicationsHub,
+} from "./revalidate";
 
 export {
   getCommunityFaces,
