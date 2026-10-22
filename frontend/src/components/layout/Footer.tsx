@@ -28,7 +28,7 @@ export function Footer({ socialLinks, address }: FooterProps) {
             Élimine les vides et met en valeur le logo central
             ============================================================ */}
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-12 lg:gap-8 xl:gap-10 items-start">
-          {/* Colonne 1 : L'ÉGLISE EN MOUVEMENT (2 cols) */}
+          {/* Colonne 1 : L'ÉGLISE (2 cols) */}
           <div className="lg:col-span-2">
             <h3 className="font-sans text-xs font-bold tracking-[0.16em] text-white uppercase">
               L&apos;Église
@@ -50,32 +50,27 @@ export function Footer({ socialLinks, address }: FooterProps) {
                 </Link>
               </li>
               <li>
-                <Link href="/organisation#adultes" className="text-white/60 transition-colors duration-150 hover:text-white pl-2">
-                  · Adultes
-                </Link>
-              </li>
-              <li>
-                <Link href="/organisation#enfants-ecodim" className="text-white/60 transition-colors duration-150 hover:text-white pl-2">
-                  · Ecodim (Enfants)
-                </Link>
-              </li>
-              <li>
-                <Link href="/organisation#chorale" className="text-white/60 transition-colors duration-150 hover:text-white pl-2">
-                  · Chorale
+                <Link href="/organisation#departements" className="transition-colors duration-150 hover:text-white">
+                  Les départements
                 </Link>
               </li>
               <li>
                 <Link href="/organisation#responsables" className="transition-colors duration-150 hover:text-white">
-                  Les visages du service
+                  Les responsables
+                </Link>
+              </li>
+              <li>
+                <Link href="/organisation#rejoindre" className="transition-colors duration-150 hover:text-white">
+                  Servir à l&apos;église
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Colonne 2 : VIVRE ENSEMBLE (2 cols) */}
+          {/* Colonne 2 : VIE DE L'ÉGLISE (2 cols) */}
           <div className="lg:col-span-2">
             <h3 className="font-sans text-xs font-bold tracking-[0.16em] text-white uppercase">
-              Vivre ensemble
+              Vie de l&apos;Église
             </h3>
             <ul className="mt-6 flex flex-col gap-3.5 font-sans text-[0.88rem] text-white/75">
               <li>
@@ -84,8 +79,13 @@ export function Footer({ socialLinks, address }: FooterProps) {
                 </Link>
               </li>
               <li>
-                <Link href="/communaute#groupes-de-maison" className="transition-colors duration-150 hover:text-white">
-                  Groupes de maison
+                <Link href="/vie-de-leglise/ou-nous-trouver" className="transition-colors duration-150 hover:text-white">
+                  Où nous trouver
+                </Link>
+              </li>
+              <li>
+                <Link href="/vie-de-leglise/ou-nous-trouver#quand-et-ou" className="transition-colors duration-150 hover:text-white">
+                  Horaires des cultes
                 </Link>
               </li>
               <li>
@@ -93,10 +93,15 @@ export function Footer({ socialLinks, address }: FooterProps) {
                   Faire un don
                 </Link>
               </li>
+              <li>
+                <Link href="/vie-de-leglise/faire-un-don#comment-donner" className="transition-colors duration-150 hover:text-white">
+                  Comment donner
+                </Link>
+              </li>
             </ul>
           </div>
 
-          {/* Colonne 3 (Centre) : Logo plus grand, Adresse, Réseaux & Actions (4 cols) */}
+          {/* Colonne 3 (Centre) : Logo, Adresse, Réseaux & Actions (4 cols) */}
           <div className="flex flex-col items-center text-center sm:col-span-2 lg:col-span-4 order-first lg:order-none mb-6 lg:mb-0 px-2 lg:px-4 lg:-ml-8">
             <Link
               href="/"
@@ -143,10 +148,10 @@ export function Footer({ socialLinks, address }: FooterProps) {
               </div>
             )}
 
-            {/* Boutons d'action côte à côte (Newsletter & Nous Écrire) */}
+            {/* Boutons d'action côte à côte */}
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               <Link
-                href="/publications/actualites"
+                href="/newsletter"
                 className="inline-flex items-center justify-center bg-white px-5 py-2.5 font-sans text-xs font-bold tracking-[0.14em] text-black uppercase transition-all duration-200 hover:bg-ccjv-cream"
               >
                 NEWSLETTER
@@ -155,40 +160,64 @@ export function Footer({ socialLinks, address }: FooterProps) {
                 href="/vie-de-leglise/ou-nous-trouver"
                 className="inline-flex items-center justify-center border border-white bg-black px-5 py-2.5 font-sans text-xs font-bold tracking-[0.14em] text-white uppercase transition-all duration-200 hover:bg-white/10"
               >
-                NOUS ÉCRIRE
+                NOUS TROUVER
               </Link>
             </div>
           </div>
 
-          {/* Colonne 4 : NOURRIR SA FOI (2 cols) */}
+          {/* Colonne 4 : PUBLICATIONS (2 cols) */}
           <div className="lg:col-span-2">
             <h3 className="font-sans text-xs font-bold tracking-[0.16em] text-white uppercase">
-              Nourrir sa foi
+              Publications
             </h3>
             <ul className="mt-6 flex flex-col gap-3.5 font-sans text-[0.88rem] text-white/75">
+              <li>
+                <Link href="/publications/actualites" className="transition-colors duration-150 hover:text-white">
+                  Actualités
+                </Link>
+              </li>
               <li>
                 <Link href="/publications/enseignements" className="transition-colors duration-150 hover:text-white">
                   Enseignements
                 </Link>
               </li>
               <li>
-                <Link href="/publications/ressources" className="transition-colors duration-150 hover:text-white">
+                <Link href="/publications/mediatheque" className="transition-colors duration-150 hover:text-white">
                   Médiathèque
                 </Link>
               </li>
               <li>
-                <Link href="/publications/actualites" className="transition-colors duration-150 hover:text-white">
-                  Actualités & blog
+                <Link href="/publications/ressources" className="transition-colors duration-150 hover:text-white">
+                  Guides d&apos;étude
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Colonne 5 : COMMUNAUTÉ (2 cols) */}
+          <div className="lg:col-span-2">
+            <h3 className="font-sans text-xs font-bold tracking-[0.16em] text-white uppercase">
+              Communauté
+            </h3>
+            <ul className="mt-6 flex flex-col gap-3.5 font-sans text-[0.88rem] text-white/75">
+              <li>
+                <Link href="/communaute" className="transition-colors duration-150 hover:text-white">
+                  Notre communauté
                 </Link>
               </li>
               <li>
-                <Link href="/publications/ressources" className="transition-colors duration-150 hover:text-white">
-                  Guides d&apos;étude & Ressources
+                <Link href="/communaute#parcours-nouveau" className="transition-colors duration-150 hover:text-white">
+                  Nouveau parmi nous
+                </Link>
+              </li>
+              <li>
+                <Link href="/communaute#fraternite" className="transition-colors duration-150 hover:text-white">
+                  Vie fraternelle
                 </Link>
               </li>
               <li>
                 <Link href="/communaute#priere" className="transition-colors duration-150 hover:text-white">
-                  Prière & Intercession
+                  Demande de prière
                 </Link>
               </li>
               <li>
@@ -197,46 +226,7 @@ export function Footer({ socialLinks, address }: FooterProps) {
                 </Link>
               </li>
               <li>
-                <Link href="/vie-de-leglise/faq" className="transition-colors duration-150 hover:text-white">
-                  FAQ
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Colonne 5 : RESTER EN LIEN (2 cols) */}
-          <div className="lg:col-span-2">
-            <h3 className="font-sans text-xs font-bold tracking-[0.16em] text-white uppercase">
-              Rester en lien
-            </h3>
-            <ul className="mt-6 flex flex-col gap-3.5 font-sans text-[0.88rem] text-white/75">
-              <li>
-                <Link href="/communaute#parcours-nouveau" className="transition-colors duration-150 hover:text-white">
-                  Planifier une visite
-                </Link>
-              </li>
-              <li>
-                <Link href="/vie-de-leglise/ou-nous-trouver" className="transition-colors duration-150 hover:text-white">
-                  Nous localiser
-                </Link>
-              </li>
-              <li>
-                <Link href="/communaute#priere" className="transition-colors duration-150 hover:text-white">
-                  Demander une prière
-                </Link>
-              </li>
-              <li>
-                <Link href="/vie-de-leglise/ou-nous-trouver" className="transition-colors duration-150 hover:text-white">
-                  Signaler un problème
-                </Link>
-              </li>
-              <li>
-                <Link href="/qui-sommes-nous" className="transition-colors duration-150 hover:text-white">
-                  Se connecter
-                </Link>
-              </li>
-              <li>
-                <Link href="/publications/ressources" className="transition-colors duration-150 hover:text-white">
+                <Link href="/recherche" className="transition-colors duration-150 hover:text-white">
                   Recherche
                 </Link>
               </li>
@@ -255,7 +245,7 @@ export function Footer({ socialLinks, address }: FooterProps) {
             <Link href="/mentions-legales" className="transition-colors duration-150 hover:text-white">
               Mentions légales
             </Link>
-            <Link href="/politique-de-confidentialite" className="transition-colors duration-150 hover:text-white">
+            <Link href="/confidentialite" className="transition-colors duration-150 hover:text-white">
               Confidentialité
             </Link>
           </div>
@@ -267,11 +257,14 @@ export function Footer({ socialLinks, address }: FooterProps) {
 
           {/* Liens légaux droite */}
           <div className="flex items-center gap-6 md:justify-end">
-            <Link href="/conditions-generales" className="transition-colors duration-150 hover:text-white">
+            <Link href="/conditions" className="transition-colors duration-150 hover:text-white">
               Conditions
             </Link>
             <Link href="/accessibilite" className="transition-colors duration-150 hover:text-white">
               Accessibilité
+            </Link>
+            <Link href="/admin/login" className="transition-colors duration-150 text-white/50 hover:text-white">
+              Espace responsable
             </Link>
           </div>
         </div>

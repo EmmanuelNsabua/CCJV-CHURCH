@@ -72,6 +72,8 @@ interface BaseFieldConfig {
 /** Contrôle texte sur une seule ligne. */
 export interface TextFieldConfig extends BaseFieldConfig {
   readonly kind: "text";
+  /** Type HTML natif de l'input (text par défaut, email, tel). */
+  readonly inputType?: "text" | "email" | "tel";
   readonly placeholder?: string;
   readonly autoComplete?: string;
   readonly minLength?: number;

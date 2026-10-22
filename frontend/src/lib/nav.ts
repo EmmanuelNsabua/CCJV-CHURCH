@@ -131,6 +131,7 @@ export const allDestinations: NavChild[] = mainNav.flatMap((item) => [
 
 /** Pages transversales (footer, breadcrumbs, sitemap). */
 export const legalNav: NavChild[] = [
+  { href: "/newsletter", label: "Newsletter" },
   { href: "/mentions-legales", label: "Mentions légales" },
   { href: "/confidentialite", label: "Confidentialité" },
   { href: "/conditions", label: "Conditions" },

@@ -206,7 +206,7 @@ export function FieldControl({
 
       {field.kind === "text" ? (
         <input
-          type="text"
+          type={field.inputType ?? "text"}
           id={controlId}
           value={text}
           required={required}
