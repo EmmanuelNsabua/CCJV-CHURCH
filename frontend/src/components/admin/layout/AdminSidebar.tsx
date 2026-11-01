@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -14,19 +14,30 @@ import {
   HeartHandshake,
   MessageSquareQuote,
   Users,
+  UserCheck,
   Layers,
+  Sliders,
   Shield,
+  ChevronRight,
+  ChevronLeft,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+export interface SubNavItem {
+  label: string;
+  href: string;
+  icon?: React.ElementType;
+}
+
 export interface NavItem {
+  id: string;
   label: string;
   href: string;
   icon: React.ElementType;
   exact?: boolean;
   typeParam?: string;
-  subItems?: { label: string; href: string }[];
+  subItems?: SubNavItem[];
 }
 
 export interface NavSection {
@@ -38,6 +49,7 @@ export const adminNavSections: NavSection[] = [
   {
     items: [
       {
+        id: "overview",
         label: "Vue d'ensemble",
         href: "/admin",
         icon: LayoutDashboard,
@@ -49,26 +61,31 @@ export const adminNavSections: NavSection[] = [
     title: "CONTENUS",
     items: [
       {
+        id: "publications",
         label: "Publications",
         href: "/admin/publications",
         icon: BookOpen,
       },
       {
+        id: "teachings",
         label: "Enseignements",
         href: "/admin/enseignements",
         icon: GraduationCap,
       },
       {
+        id: "agenda",
         label: "Agenda",
         href: "/admin/agenda",
         icon: Calendar,
       },
       {
+        id: "media",
         label: "Médiathèque",
         href: "/admin/media",
         icon: ImageIcon,
       },
       {
+        id: "resources",
         label: "Ressources",
         href: "/admin/ressources",
         icon: FileText,
@@ -79,23 +96,26 @@ export const adminNavSections: NavSection[] = [
     title: "COMMUNAUTÉ",
     items: [
       {
+        id: "prayers",
         label: "Prières",
         href: "/admin/prayers",
         icon: HeartHandshake,
       },
       {
+        id: "testimonies",
         label: "Témoignages",
         href: "/admin/testimonies",
         icon: MessageSquareQuote,
       },
       {
+        id: "departments",
         label: "Départements",
         href: "/admin/departments",
         icon: Users,
         subItems: [
-          { label: "Départements", href: "/admin/departments" },
-          { label: "Leaders & Responsables", href: "/admin/departments/leaders" },
-          { label: "Visages de la communauté", href: "/admin/departments/community-faces" },
+          { label: "Départements & Pôles", href: "/admin/departments", icon: Users },
+          { label: "Leaders & Responsables", href: "/admin/departments/leaders", icon: UserCheck },
+          { label: "Visages communautaires", href: "/admin/departments/community-faces", icon: HeartHandshake },
         ],
       },
     ],
@@ -104,11 +124,19 @@ export const adminNavSections: NavSection[] = [
     title: "CONFIGURATION",
     items: [
       {
+        id: "pages",
         label: "Éditeur de pages",
         href: "/admin/pages",
         icon: Layers,
       },
       {
+        id: "settings",
+        label: "Paramètres",
+        href: "/admin/settings",
+        icon: Sliders,
+      },
+      {
+        id: "admins",
         label: "Administrateurs",
         href: "/admin/administrateurs",
         icon: Shield,
@@ -127,6 +155,50 @@ export function AdminSidebar({ onCloseMobile, className }: AdminSidebarProps) {
   const searchParams = useSearchParams();
   const currentType = searchParams.get("type");
 
+  // Initialisation intelligente selon la route courante
+  const [activeSubMenuId, setActiveSubMenuId] = useState<string | null>(() => {
+    for (const section of adminNavSections) {
+      for (const item of section.items) {
+        if (item.subItems && (pathname === item.href || pathname.startsWith(`${item.href}/`))) {
+          return item.id;
+        }
+      }
+    }
+    return null;
+  });
+
+  const prevPathRef = useRef(pathname);
+
+  // Synchronisation avec les changements réels d'URL
+  useEffect(() => {
+    if (prevPathRef.current !== pathname) {
+      prevPathRef.current = pathname;
+      let matchedSubId: string | null = null;
+      for (const section of adminNavSections) {
+        for (const item of section.items) {
+          if (item.subItems && (pathname === item.href || pathname.startsWith(`${item.href}/`))) {
+            matchedSubId = item.id;
+            break;
+          }
+        }
+      }
+      setActiveSubMenuId(matchedSubId);
+    }
+  }, [pathname]);
+
+  // Récupère l'élément parent dont on affiche le sous-menu (s'il existe)
+  const activeItemWithSub = useMemo(() => {
+    if (!activeSubMenuId) return null;
+    for (const section of adminNavSections) {
+      for (const item of section.items) {
+        if (item.id === activeSubMenuId && item.subItems) {
+          return item;
+        }
+      }
+    }
+    return null;
+  }, [activeSubMenuId]);
+
   const isItemActive = (item: NavItem) => {
     if (item.typeParam) {
       return pathname.startsWith("/admin/publications") && currentType === item.typeParam;
@@ -140,44 +212,44 @@ export function AdminSidebar({ onCloseMobile, className }: AdminSidebarProps) {
   return (
     <aside
       className={cn(
-        "flex h-full w-[270px] flex-col justify-between bg-[#121212] text-white select-none border-r border-white/10 overflow-y-auto",
+        "flex h-full w-[220px] flex-col justify-between bg-[#121212] text-white select-none border-r border-white/10 overflow-y-auto",
         className,
       )}
     >
-      {/* =========================================================================
-          En-tête Sidebar : LOGO OFFICIEL CCJV (Emblème + Ligne + Typographie)
-         ========================================================================= */}
       <div className="flex flex-col shrink-0">
-        <div className="flex items-center justify-between py-3 px-3.5">
+        {/* =========================================================================
+            En-tête Sidebar : LOGO OFFICIEL CCJV (Compact & Propre)
+           ========================================================================= */}
+        <div className="flex items-center justify-between py-2.5 px-3 border-b border-white/10">
           <Link
             href="/admin"
-            className="flex items-center gap-3 hover:opacity-90 transition-opacity"
+            className="flex items-center gap-2 hover:opacity-90 transition-opacity min-w-0"
             onClick={onCloseMobile}
           >
             {/* Logo officiel CCJV (Temple & Bible ouverte) */}
-            <div className="relative h-12 w-12 shrink-0 flex items-center justify-center">
+            <div className="relative h-8 w-8 shrink-0 flex items-center justify-center">
               <Image
                 src="/logo.png"
                 alt="Logo Centre Chrétien Jésus ma Vie"
-                width={58}
-                height={58}
-                className="h-16 w-auto object-contain"
+                width={32}
+                height={32}
+                className="h-8 w-auto object-contain"
                 priority
               />
             </div>
 
             {/* Ligne de séparation verticale fine */}
-            <div className="h-12 w-[0.5px] bg-white shrink-0" />
+            <div className="h-7 w-[0.5px] bg-white/30 shrink-0" />
 
             {/* Typographie de marque officielle */}
             <div className="flex flex-col justify-center min-w-0 select-none">
-              <span className="font-serif text-[8px] tracking-[0.14em] text-white/90 uppercase leading-none font-medium">
+              <span className="font-serif text-[7.5px] tracking-[0.12em] text-white/80 uppercase leading-none font-medium truncate">
                 Centre Chrétien
               </span>
-              <span className="font-serif text-[12px] font-bold tracking-[0.06em] text-white uppercase leading-tight mt-1">
+              <span className="font-serif text-[11px] font-bold tracking-[0.04em] text-white uppercase leading-tight mt-0.5 truncate">
                 Jésus ma Vie
               </span>
-              <span className="font-sans text-[11px] text-[#ede4c8] leading-none mt-1 font-normal tracking-wide">
+              <span className="font-sans text-[9.5px] text-[#ede4c8] leading-none mt-0.5 font-normal tracking-wide truncate">
                 Administration
               </span>
             </div>
@@ -187,87 +259,148 @@ export function AdminSidebar({ onCloseMobile, className }: AdminSidebarProps) {
             <button
               type="button"
               onClick={onCloseMobile}
-              className="lg:hidden p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-none transition-colors ml-1"
+              className="lg:hidden p-1 text-white/70 hover:text-white hover:bg-white/10 rounded-none transition-colors ml-1 cursor-pointer"
               aria-label="Fermer le menu"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </button>
           )}
         </div>
 
         {/* =========================================================================
-            Navigation Groupée (Sticky Scrollbar)
+            Navigation : Mode Drill-Down (Sous-menu Vercel-style OU Menu Principal)
            ========================================================================= */}
-        <nav className="p-3 space-y-3">
-          {adminNavSections.map((section, idx) => (
-            <div key={section.title || idx} className="space-y-1">
-              {section.title && (
-                <div className="px-3 pt-2 pb-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-white/45">
-                  {section.title}
-                </div>
-              )}
+        {activeItemWithSub ? (
+          /* -----------------------------------------------------------------------
+             VUE SOUS-MENU : Remplace la navigation principale (Pattern Vercel)
+             ----------------------------------------------------------------------- */
+          <div className="p-2 space-y-2">
+            {/* Bouton Retour vers le Menu Principal */}
+            <button
+              type="button"
+              onClick={() => setActiveSubMenuId(null)}
+              className="flex items-center gap-2 w-full px-2.5 py-2 text-xs font-semibold text-white/80 hover:text-white hover:bg-white/10 rounded-none transition-colors group cursor-pointer border border-transparent hover:border-white/10"
+              aria-label="Retour au menu principal"
+            >
+              <ChevronLeft className="h-4 w-4 text-white/50 group-hover:text-white transition-transform group-hover:-translate-x-0.5 shrink-0" />
+              <span className="truncate">{activeItemWithSub.label}</span>
+            </button>
+
+            <div className="h-[1px] bg-white/10 mx-1" />
+
+            {/* Liste des Sous-menus */}
+            <nav className="space-y-1">
+              <div className="px-2.5 pt-1 pb-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-white/45">
+                Navigation
+              </div>
               <ul className="space-y-0.5">
-                {section.items.map((item) => {
-                  const active = isItemActive(item);
-                  const Icon = item.icon;
+                {activeItemWithSub.subItems?.map((sub) => {
+                  const isSubActive =
+                    sub.href === activeItemWithSub.href
+                      ? pathname === activeItemWithSub.href
+                      : pathname === sub.href || pathname.startsWith(`${sub.href}/`);
+                  const SubIcon = sub.icon;
 
                   return (
-                    <li key={item.label}>
+                    <li key={sub.href}>
                       <Link
-                        href={item.href}
+                        href={sub.href}
                         onClick={onCloseMobile}
                         className={cn(
-                          "flex items-center gap-3 px-3 py-2 text-xs font-sans rounded-none transition-all duration-150 group",
-                          active
+                          "flex items-center gap-2.5 px-2.5 py-2 text-xs font-sans rounded-none transition-all duration-150 group",
+                          isSubActive
                             ? "bg-ccjv-green text-white font-medium shadow-xs"
                             : "text-white/75 hover:bg-white/10 hover:text-white",
                         )}
                       >
-                        <Icon
-                          className={cn(
-                            "h-4 w-4 shrink-0 transition-transform group-hover:scale-105",
-                            active ? "text-white" : "text-white/60 group-hover:text-white",
-                          )}
-                        />
-                        <span className="truncate">{item.label}</span>
+                        {SubIcon ? (
+                          <SubIcon
+                            className={cn(
+                              "h-3.5 w-3.5 shrink-0 transition-transform group-hover:scale-105",
+                              isSubActive ? "text-white" : "text-white/60 group-hover:text-white",
+                            )}
+                          />
+                        ) : (
+                          <span
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full shrink-0 ml-1 mr-1",
+                              isSubActive ? "bg-white" : "bg-white/40 group-hover:bg-white",
+                            )}
+                          />
+                        )}
+                        <span className="truncate">{sub.label}</span>
                       </Link>
-
-                      {item.subItems && (pathname === item.href || pathname.startsWith(`${item.href}/`)) && (
-                        <ul className="mt-1 ml-7 pl-2.5 border-l border-white/20 space-y-1 py-1">
-                          {item.subItems.map((sub) => {
-                            const isSubActive =
-                              sub.href === "/admin/departments"
-                                ? pathname === "/admin/departments" ||
-                                  (pathname.startsWith("/admin/departments/") &&
-                                    !pathname.startsWith("/admin/departments/leaders") &&
-                                    !pathname.startsWith("/admin/departments/community-faces"))
-                                : pathname === sub.href || pathname.startsWith(`${sub.href}/`);
-                            return (
-                              <li key={sub.href}>
-                                <Link
-                                  href={sub.href}
-                                  onClick={onCloseMobile}
-                                  className={cn(
-                                    "block px-2 py-1 text-[11px] font-sans rounded-none transition-colors",
-                                    isSubActive
-                                      ? "text-[#ede4c8] font-bold bg-white/10"
-                                      : "text-white/60 hover:text-white hover:bg-white/5",
-                                  )}
-                                >
-                                  {sub.label}
-                                </Link>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
                     </li>
                   );
                 })}
               </ul>
-            </div>
-          ))}
-        </nav>
+            </nav>
+          </div>
+        ) : (
+          /* -----------------------------------------------------------------------
+             VUE PRINCIPALE : Liste complète des rubriques et modules
+             ----------------------------------------------------------------------- */
+          <nav className="p-2 space-y-2.5">
+            {adminNavSections.map((section, idx) => (
+              <div key={section.title || idx} className="space-y-1">
+                {section.title && (
+                  <div className="px-2.5 pt-1 pb-0.5 text-[9.5px] font-mono font-semibold uppercase tracking-wider text-white/40">
+                    {section.title}
+                  </div>
+                )}
+                <ul className="space-y-0.5">
+                  {section.items.map((item) => {
+                    const active = isItemActive(item);
+                    const Icon = item.icon;
+                    const hasSubItems = Boolean(item.subItems && item.subItems.length > 0);
+
+                    return (
+                      <li key={item.label}>
+                        <Link
+                          href={item.href}
+                          onClick={() => {
+                            if (hasSubItems) {
+                              setActiveSubMenuId(item.id);
+                            }
+                            if (onCloseMobile) {
+                              onCloseMobile();
+                            }
+                          }}
+                          className={cn(
+                            "flex items-center justify-between px-2.5 py-1.5 text-xs font-sans rounded-none transition-all duration-150 group",
+                            active
+                              ? "bg-ccjv-green text-white font-medium shadow-xs"
+                              : "text-white/75 hover:bg-white/10 hover:text-white",
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <Icon
+                              className={cn(
+                                "h-4 w-4 shrink-0 transition-transform group-hover:scale-105",
+                                active ? "text-white" : "text-white/60 group-hover:text-white",
+                              )}
+                            />
+                            <span className="truncate">{item.label}</span>
+                          </div>
+
+                          {/* Chevron indicateur de sous-menu (Style Vercel) */}
+                          {hasSubItems && (
+                            <ChevronRight
+                              className={cn(
+                                "h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5 ml-1",
+                                active ? "text-white/90" : "text-white/40 group-hover:text-white/80",
+                              )}
+                            />
+                          )}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </nav>
+        )}
       </div>
     </aside>
   );

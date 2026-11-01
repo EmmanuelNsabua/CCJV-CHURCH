@@ -59,11 +59,11 @@ export function AdminShell({ children }: AdminShellProps) {
   return (
     <div className="h-screen w-screen overflow-hidden bg-ccjv-offwhite font-sans antialiased text-ccjv-ink flex">
       {/* =========================================================================
-          A. DESKTOP : Sidebar Fixe h-screen à gauche (270px)
+          A. DESKTOP : Sidebar Fixe h-screen à gauche (220px)
           Verrouillée en permanence, ne défile JAMAIS avec le contenu principal.
          ========================================================================= */}
-      <div className="hidden md:flex w-[270px] shrink-0 h-full overflow-hidden bg-[#121212]">
-        <AdminSidebar className="h-full w-[270px]" />
+      <div className="hidden md:flex w-[220px] shrink-0 h-full overflow-hidden bg-[#121212]">
+        <AdminSidebar className="h-full w-[220px]" />
       </div>
 
       {/* =========================================================================
