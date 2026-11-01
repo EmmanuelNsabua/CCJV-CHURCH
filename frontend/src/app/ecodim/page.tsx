@@ -391,7 +391,7 @@ export default async function EcodimPage() {
               est notre plus belle bénédiction de parents. »
             </p>
             <div className="pt-4 mt-4 border-t border-ccjv-line">
-              <p className="text-xs font-bold text-ccjv-ink">Maman Sarah M.</p>
+              <p className="text-xs font-bold text-ccjv-ink">Frère Joël M.</p>
               <p className="text-[11px] text-ccjv-ink-secondary">Parent d&apos;élèves aux Cadets</p>
             </div>
           </div>

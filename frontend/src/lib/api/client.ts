@@ -2,7 +2,7 @@
  * Client HTTP de l'API REST CCJV (`/api/v1`).
  *
  * ⚠️ Contrainte de production : le site est déployé sur Vercel et **doit
- * continuer à s'afficher** même si l'API est injoignable (conteneur Railway
+ * continuer à s'afficher** même si l'API est injoignable (conteneur Render
  * endormi, réseau coupé). Aucune fonction de ce module ne propage donc une
  * erreur réseau ou un statut non-2xx par défaut :
  *
@@ -193,20 +193,21 @@ export class ApiError extends Error {
 export function getApiBaseUrl(): string {
   const envUrl = process.env.NEXT_PUBLIC_API_URL ?? process.env.API_URL;
   if (envUrl && envUrl.trim()) {
-    return envUrl.trim().replace(/\/+$/, "");
+    // Normalise l'URL : retire le slash final et évite de doubler /api/v1 si fourni
+    return envUrl.trim().replace(/\/+$/, "").replace(/\/api\/v1\/?$/, "");
   }
 
-  // En production ou dans le navigateur sur un domaine non-local, cibler Railway
+  // En production ou dans le navigateur sur un domaine non-local, cibler Render
   if (
     typeof window !== "undefined" &&
     window.location.hostname !== "localhost" &&
     window.location.hostname !== "127.0.0.1"
   ) {
-    return "https://ccjv-api-production.up.railway.app";
+    return "https://ccjv-church.onrender.com";
   }
 
   if (process.env.NODE_ENV === "production") {
-    return "https://ccjv-api-production.up.railway.app";
+    return "https://ccjv-church.onrender.com";
   }
 
   return "http://localhost:4000";

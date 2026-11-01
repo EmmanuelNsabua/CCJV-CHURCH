@@ -37,9 +37,9 @@ export const images = {
   /** Portrait grand format (vertical). */
   portraitLarge: "/media/ccjv-05.jpeg",
   /** Portrait (vertical). */
-  portraitA: "/media/ccjv-01.jpeg",
+  portraitA: "/media/ccjv-07.jpeg",
   /** Portrait (vertical). */
-  portraitB: "/media/ccjv-03.jpeg",
+  portraitB: "/media/ccjv-19.jpeg",
   /** Assemblée en culte. */
   assemblee: "/media/ccjv-09.jpeg",
   /** Chorale et musiciens. */
