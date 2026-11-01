@@ -342,7 +342,7 @@ export default async function HomePage() {
               variant="outline"
               href="/vie-de-leglise/evenements"
             >
-              TOUT L&apos;AGENDA
+              Tout l&apos;agenda
             </Button>
           </div>
         </Section>
@@ -432,13 +432,6 @@ export default async function HomePage() {
           />
         )}
       </Section>
-
-      {/* 09 — RESPIRATION (photographie-témoignage) */}
-      <BreathingPhoto
-        image={images.louange}
-        phrase="La parole nous rassemble"
-        reference={`${site.acronym} — Lubumbashi`}
-      />
 
       {/* 10 — LA PRIÈRE */}
       <Section id="priere" tone="tinted" aria-labelledby="priere-titre">

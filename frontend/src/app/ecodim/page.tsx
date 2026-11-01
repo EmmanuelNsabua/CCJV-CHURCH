@@ -10,295 +10,479 @@ import {
   ShieldCheck,
   Sparkles,
   Users,
+  ArrowRight,
+  Quote,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
 import {
-  getDepartment,
   getPublications,
   listAllEnseignements,
   readOrUnavailable,
 } from "@/lib/api/endpoints";
 import { images } from "@/data/images";
+import { site } from "@/data/site";
 import { pageMetadata } from "@/lib/seo";
 import { formatLongDate } from "@/lib/utils";
 
 export const metadata: Metadata = pageMetadata({
   title: "École du Dimanche (ECODIM)",
   description:
-    "Espace public de l'École du Dimanche du Centre Chrétien Jésus ma Vie : cadre scolaire ecclésiastique destiné à la formation des enfants à la vie chrétienne.",
+    "Espace public de l'École du Dimanche du Centre Chrétien Jésus ma Vie : cadre scolaire ecclésiastique dédié à l'instruction et à l'éveil spirituel des enfants à Lubumbashi.",
   path: "/ecodim",
 });
 
-const AGE_GROUPS = [
+const AGE_CLASSES = [
   {
-    grade: "Classe 1 · Éveil de la Foi",
+    grade: "Classe 1",
+    name: "Éveil de la Foi",
     ages: "3 – 5 ans",
-    subtitle: "Découvrir Dieu par les sens et le cœur",
+    subtitle: "Découvrir l'amour de Dieu par le cœur",
     description:
-      "Récits bibliques illustrés, comptines chrétiennes, coloriages et premières notions de la création et de l'amour de Jésus.",
-    focus: "Mémorisation de phrases clés simples & prière guidée",
+      "Récits bibliques illustrés, chants, coloriages guidés et premières notions de la création et de la bonté de Jésus.",
+    objective: "Mémorisation de courtes prières & éveil bienveillant",
   },
   {
-    grade: "Classe 2 · Les Cadets",
+    grade: "Classe 2",
+    name: "Les Cadets",
     ages: "6 – 8 ans",
-    subtitle: "Poser les repères de l'histoire sainte",
+    subtitle: "Découvrir la Bible et son histoire",
     description:
-      "Parcours chronologique de l'Ancien et du Nouveau Testament. Les enfants apprennent à ouvrir leur propre Bible et à repérer les versets.",
-    focus: "Mémorisation de versets & cahier d'exercices bibliques",
+      "Repères chronologiques de l'histoire sainte. Les enfants apprennent à ouvrir leur propre Bible et à retenir les versets clés.",
+    objective: "Apprentissage des livres bibliques & versets repères",
   },
   {
-    grade: "Classe 3 · Les Juniors",
+    grade: "Classe 3",
+    name: "Les Juniors",
     ages: "9 – 12 ans",
-    subtitle: "Approfondir la Parole et la vivre",
+    subtitle: "Comprendre la Parole et la vivre au quotidien",
     description:
-      "Étude des grands personnages de la Bible, leçons de morale chrétienne pratique (famille, école, vérité), et temps de prière interactive.",
-    focus: "Compréhension doctrinale de base & autonomie spirituelle",
+      "Étude des grands personnages de la foi, leçons pratiques pour la vie à l'école et en famille, temps de prière fraternelle.",
+    objective: "Autonomie de lecture biblique & mise en pratique",
   },
   {
-    grade: "Classe 4 · Les Aînés & Ados",
+    grade: "Classe 4",
+    name: "Les Aînés & Ados",
     ages: "13 – 15 ans",
-    subtitle: "Enraciner la foi face aux défis",
+    subtitle: "Enraciner sa foi face aux choix de la vie",
     description:
-      "Échanges sur les questions existentielles, la pureté, le témoignage parmi les pairs et la préparation à l'engagement chrétien personnel.",
-    focus: "Apologétique adaptée & engagement dans le service",
+      "Réponses bibliques aux questions existentielles des adolescents, amitié, intégrité et préparation à un engagement personnel.",
+    objective: "Enracinement doctrinal & témoignage de vie chrétienne",
   },
 ];
 
-const PEDAGOGICAL_PILLARS = [
-  {
-    icon: BookOpen,
-    title: "Enseignement Biblique Rigoureux",
-    description:
-      "La Bible est le manuel central. Chaque leçon s'appuie sur un texte sacré expliqué fidèlement et adapté à la maturité cognitive de l'enfant.",
-  },
-  {
-    icon: GraduationCap,
-    title: "Progression Pédagogique Structurée",
-    description:
-      "Un cursus annuel organisé par modules thématiques, avec révisions périodiques, mémorisation de versets clés et validation des acquis.",
-  },
-  {
-    icon: HeartHandshake,
-    title: "Alliance avec les Parents",
-    description:
-      "L'église ne remplace pas le foyer : elle l'outille. Des fiches de révision hebdomadaires permettent aux parents de prolonger la leçon en famille.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Cadre Sécurisant & Moniteurs Formés",
-    description:
-      "Chaque classe est confiée à des moniteurs consacrés et formés, dans le respect strict des règles de sécurité et de bienveillance chrétienne.",
-  },
-];
-
-export default async function EcodimHomePage() {
-  const [deptRead, teachingsRead, publicationsRead] = await Promise.all([
-    readOrUnavailable((options) => getDepartment("enfants-ecodim", options)),
+export default async function EcodimPage() {
+  const [teachingsRead, publicationsRead] = await Promise.all([
     readOrUnavailable((options) => listAllEnseignements({ scope: "ECODIM" }, options)),
-    readOrUnavailable((options) => getPublications({ scope: "ECODIM", limit: 4 }, options)),
+    readOrUnavailable((options) => getPublications({ scope: "ECODIM", limit: 3 }, options)),
   ]);
 
-  const department = deptRead.status === "ok" ? deptRead.data : null;
   const teachings = teachingsRead.status === "ok" ? teachingsRead.data.slice(0, 3) : [];
   const publications = publicationsRead.status === "ok" ? publicationsRead.data : [];
 
   return (
-    <div className="space-y-20 pb-24">
-      {/* 01 — HERO ÉDUCATIF & ECCLÉSIASTIQUE */}
-      <section className="relative border-b border-ccjv-line bg-ccjv-surface/40 py-16 lg:py-24">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:items-center">
-            <div className="lg:col-span-7 space-y-6">
-              <div className="inline-flex items-center gap-2 border border-ccjv-line bg-ccjv-paper px-3 py-1 font-sans text-xs font-semibold tracking-wider uppercase text-ccjv-green rounded-none">
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Cadre Scolaire Ecclésiastique CCJV</span>
-              </div>
+    <div className="bg-[#FAF7F2] text-ccjv-ink font-sans selection:bg-ccjv-green selection:text-white">
+      {/* =========================================================================
+          SECTION A — INTRODUCTION VISUELLE FORTE (INSPIRÉE DE LA RÉFÉRENCE TRIVISION)
+         ========================================================================= */}
+      <section className="relative pt-12 sm:pt-20 pb-16 sm:pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto overflow-hidden">
+        {/* En-tête typographique étendu — centré verticalement et horizontalement */}
+        <div className="space-y-6 sm:space-y-8 max-w-5xl mx-auto flex flex-col items-center justify-center text-center">
+          {/* Grand titre imposant occupant la largeur */}
+          <h1 className="font-serif text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-ccjv-ink leading-[1.06] mt-20">
+            Former les esprits,{" "}
+            <span className="text-ccjv-green italic font-normal">
+              enraciner les cœurs
+            </span>{" "}
+            dans la foi.
+          </h1>
 
-              <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight text-ccjv-ink leading-[1.08]">
-                Former la jeunesse à la vie chrétienne.
-              </h1>
+          {/* Texte descriptif centré */}
+          <div className="flex flex-col items-center justify-center pt-2 w-full">
+            <p className="max-w-3xl text-base sm:text-lg text-ccjv-ink-secondary leading-relaxed font-sans mx-auto text-center">
+              L&apos;Ecodim accueille les enfants chaque dimanche matin pendant le culte général pour leur transmettre
+              les fondements immuables des Écritures dans un cadre pédagogique structuré, joyeux et protecteur.
+            </p>
+          </div>
+        </div>
 
-              <p className="font-sans text-base sm:text-lg text-ccjv-ink-secondary leading-relaxed max-w-[55ch]">
-                L&apos;École du Dimanche accueille les enfants chaque dimanche matin pendant le culte
-                pour leur transmettre les Écritures, les instruire dans la foi et les accompagner pas à pas
-                dans leur relation personnelle avec Jésus-Christ.
-              </p>
-
-              {/* Verset d'ancrage pédagogique */}
-              <blockquote className="border-l-2 border-ccjv-green pl-4 py-1 italic font-serif text-sm sm:text-base text-ccjv-ink">
-                « Instruis l&apos;enfant selon la voie qu&apos;il doit suivre ; et quand il sera vieux, il ne s&apos;en détournera pas. »
-                <cite className="block not-italic font-sans text-xs font-semibold tracking-wider uppercase text-ccjv-green mt-1">
-                  — Proverbes 22:6
-                </cite>
-              </blockquote>
-
-              <div className="flex flex-wrap gap-4 pt-4">
-                <Button variant="primary" href="#classes">
-                  Découvrir les classes →
-                </Button>
-                <Button variant="outline" href="/publications/enseignements?scope=ECODIM">
-                  Consulter les enseignements Ecodim
-                </Button>
-              </div>
+        {/* Rangée de quatre photographies authentiques (Composition référence TriVision) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-12 sm:mt-16">
+          <div className="group relative aspect-[4/3] overflow-hidden border border-ccjv-line bg-white shadow-xs">
+            <Image
+              src={images.ecodim}
+              alt="Enfants réunis à l'École du Dimanche CCJV"
+              fill
+              priority
+              sizes="(max-width: 640px) 50vw, 25vw"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-3 text-white">
+              <p className="text-[11px] font-sans font-semibold tracking-wider uppercase">Éveil de la Foi</p>
             </div>
+          </div>
 
-            <div className="lg:col-span-5">
-              <div className="relative aspect-[4/3] sm:aspect-[5/4] border border-ccjv-line bg-ccjv-surface overflow-hidden rounded-none shadow-sm">
+          <div className="group relative aspect-[4/3] overflow-hidden border border-ccjv-line bg-white shadow-xs">
+            <Image
+              src={images.assemblee}
+              alt="Louange et écoute de la parole de Dieu"
+              fill
+              priority
+              sizes="(max-width: 640px) 50vw, 25vw"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-3 text-white">
+              <p className="text-[11px] font-sans font-semibold tracking-wider uppercase">Louange & Prière</p>
+            </div>
+          </div>
+
+          <div className="group relative aspect-[4/3] overflow-hidden border border-ccjv-line bg-white shadow-xs">
+            <Image
+              src={images.communaute}
+              alt="Fraternité et communion des enfants"
+              fill
+              sizes="(max-width: 640px) 50vw, 25vw"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-3 text-white">
+              <p className="text-[11px] font-sans font-semibold tracking-wider uppercase">Communion fraternelle</p>
+            </div>
+          </div>
+
+          <div className="group relative aspect-[4/3] overflow-hidden border border-ccjv-line bg-white shadow-xs">
+            <Image
+              src={images.identite}
+              alt="Étude assidue et mémorisation de la Bible"
+              fill
+              sizes="(max-width: 640px) 50vw, 25vw"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-3 text-white">
+              <p className="text-[11px] font-sans font-semibold tracking-wider uppercase">Étude des Écritures</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          SECTION B — SECTION ÉDITORIALE EN DEUX COLONNES (MISSION & RESPIRATION)
+         ========================================================================= */}
+      <section id="pedagogie" className="py-16 sm:py-24 bg-white border-y border-ccjv-line">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+            {/* Colonne gauche : Grande photographie avec badge stylisé */}
+            <div className="lg:col-span-6 relative">
+              <div className="relative aspect-[4/3] sm:aspect-[16/11] border border-ccjv-line overflow-hidden bg-ccjv-offwhite shadow-sm">
                 <Image
                   src={images.ecodim}
-                  alt="Enfants attentifs réunis à l'École du Dimanche du CCJV"
+                  alt="Cadre pédagogique et ecclésiastique de l'Ecodim"
                   fill
-                  priority
-                  sizes="(max-width: 1024px) 100vw, 42vw"
+                  sizes="(max-width: 1024px) 100vw, 50vw"
                   className="object-cover"
                 />
               </div>
             </div>
+
+            {/* Colonne droite : Titre éditorial & explications concises */}
+            <div className="lg:col-span-6 space-y-6">
+              <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-ccjv-ink leading-tight">
+                Une pédagogie spirituelle pour éclairer chaque avenir.
+              </h2>
+              <blockquote className="font-serif text-sm text-ccjv-ink">
+                « Instruis l&apos;enfant selon la voie qu&apos;il doit suivre ; et quand il sera vieux, il ne s&apos;en détournera pas. »
+                <cite className="block not-italic font-sans text-xs font-semibold text-ccjv-green mt-1">
+                  — Proverbes 22:6
+                </cite>
+              </blockquote>
+              <div className="pt-2">
+                <Button variant="outline" href="/publications/enseignements?scope=ECODIM">
+                  Voir les enseignements
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* 02 — LA DÉMARCHE PÉDAGOGIQUE */}
-      <section id="pedagogie" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 scroll-mt-20">
-        <div className="max-w-2xl mb-12">
-          <p className="font-sans text-xs font-semibold tracking-[0.2em] text-ccjv-green uppercase mb-2">
-            Notre philosophie éducative
-          </p>
-          <h2 className="font-serif text-3xl sm:text-4xl text-ccjv-ink">
-            Une pédagogie spirituelle ordonnée et vivante
+      {/* =========================================================================
+          SECTION C — COMPOSITION PHOTOGRAPHIQUE ASYMÉTRIQUE (VIE À L'ECODIM)
+         ========================================================================= */}
+      <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16 space-y-3">
+          <span className="text-xs font-bold uppercase tracking-[0.2em] text-ccjv-green block">
+            Au cœur de nos rencontres
+          </span>
+          <h2 className="font-serif text-3xl sm:text-4xl font-bold text-ccjv-ink">
+            La vie à l&apos;Ecodim au fil des dimanches
           </h2>
-          <p className="mt-3 font-sans text-sm text-ccjv-ink-secondary leading-relaxed">
-            Loin d&apos;une simple garderie, l&apos;Ecodim est une institution ecclésiale d&apos;apprentissage biblique.
-            Chaque enfant y trouve un environnement propice à l&apos;éveil de l&apos;intelligence et du cœur.
+          <p className="text-sm text-ccjv-ink-secondary">
+            Des moments d&apos;apprentissage vivant, d&apos;écoute attentive et de fraternité partagée.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {PEDAGOGICAL_PILLARS.map((pillar) => {
-            const Icon = pillar.icon;
-            return (
-              <div
-                key={pillar.title}
-                className="border border-ccjv-line p-6 bg-ccjv-surface/20 rounded-none flex flex-col justify-between"
-              >
-                <div>
-                  <div className="h-10 w-10 flex items-center justify-center bg-ccjv-green text-ccjv-paper mb-5 rounded-none">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <h3 className="font-serif text-lg font-medium text-ccjv-ink mb-2">
-                    {pillar.title}
-                  </h3>
-                  <p className="font-sans text-xs text-ccjv-ink-secondary leading-relaxed">
-                    {pillar.description}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* 03 — LES CLASSES ET GROUPES D'ÂGE */}
-      <section id="classes" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 scroll-mt-20">
-        <div className="border-t border-ccjv-line pt-16">
-          <div className="max-w-2xl mb-12">
-            <p className="font-sans text-xs font-semibold tracking-[0.2em] text-ccjv-green uppercase mb-2">
-              Organisation par cycles
-            </p>
-            <h2 className="font-serif text-3xl sm:text-4xl text-ccjv-ink">
-              Quatre classes adaptées à chaque étape de croissance
-            </h2>
-            <p className="mt-3 font-sans text-sm text-ccjv-ink-secondary leading-relaxed">
-              Pour respecter le rythme de compréhension de chaque enfant, les leçons et les ateliers
-              sont répartis par tranches d&apos;âge homogènes.
-            </p>
+        {/* Triptyque asymétrique harmonieux */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 items-center">
+          {/* Image 1 : Verticale */}
+          <div className="relative aspect-[3/4] border border-ccjv-line bg-white overflow-hidden shadow-xs">
+            <Image
+              src={images.assemblee}
+              alt="Rassemblement des enfants et chants de louange"
+              fill
+              sizes="(max-width: 768px) 100vw, 33vw"
+              className="object-cover"
+            />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 p-4 text-white">
+              <p className="text-xs font-semibold uppercase tracking-wider">Louange et Joie</p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {AGE_GROUPS.map((group, index) => (
-              <div
-                key={group.grade}
-                className="border border-ccjv-line p-8 bg-ccjv-surface/30 rounded-none space-y-4 hover:border-ccjv-green transition-colors"
-              >
-                <div className="flex items-center justify-between border-b border-ccjv-line pb-3">
-                  <span className="font-sans text-xs font-bold tracking-wider uppercase text-ccjv-green">
-                    {group.grade}
-                  </span>
-                  <span className="font-sans text-xs font-semibold px-2.5 py-1 bg-ccjv-ink text-ccjv-paper rounded-none">
-                    {group.ages}
-                  </span>
-                </div>
+          {/* Image 2 : Centrale, plus haute et mise en valeur */}
+          <div className="relative aspect-[4/5] md:aspect-[3/4] md:-translate-y-4 border-2 border-ccjv-green/40 bg-white overflow-hidden shadow-md">
+            <Image
+              src={images.ecodim}
+              alt="Enfants écoutant attentivement la leçon biblique"
+              fill
+              sizes="(max-width: 768px) 100vw, 33vw"
+              className="object-cover"
+            />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 p-5 text-white">
+              <span className="inline-block px-2 py-0.5 bg-ccjv-green text-white text-[10px] font-bold uppercase mb-1">
+                Point focal
+              </span>
+              <p className="text-sm font-semibold uppercase tracking-wider">Enseignement Biblique</p>
+            </div>
+          </div>
 
-                <div>
-                  <h3 className="font-serif text-xl font-medium text-ccjv-ink">
-                    {group.subtitle}
-                  </h3>
-                  <p className="mt-2 font-sans text-xs sm:text-sm text-ccjv-ink-secondary leading-relaxed">
-                    {group.description}
-                  </p>
-                </div>
-
-                <div className="pt-3 border-t border-ccjv-line/60 flex items-center gap-2 font-sans text-xs text-ccjv-ink-secondary">
-                  <span className="font-semibold text-ccjv-ink">Objectif clé :</span>
-                  <span>{group.focus}</span>
-                </div>
-              </div>
-            ))}
+          {/* Image 3 : Complémentaire */}
+          <div className="relative aspect-[3/4] border border-ccjv-line bg-white overflow-hidden shadow-xs">
+            <Image
+              src={images.communaute}
+              alt="Partage et accompagnement des moniteurs"
+              fill
+              sizes="(max-width: 768px) 100vw, 33vw"
+              className="object-cover"
+            />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 p-4 text-white">
+              <p className="text-xs font-semibold uppercase tracking-wider">Accompagnement Fraternel</p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* 04 — ENSEIGNEMENTS RÉCENTS ECODIM (DONNÉES EN LIGNE) */}
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="border-t border-ccjv-line pt-16">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 gap-4">
-            <div>
-              <p className="font-sans text-xs font-semibold tracking-[0.2em] text-ccjv-green uppercase mb-2">
-                Leçons et prédications jeunesse
+      {/* =========================================================================
+          SECTION D — GRAND PANNEAU ÉDITORIAL AVEC CHIFFRES RÉELS & CLASSES D'ÂGE
+         ========================================================================= */}
+      <section id="classes" className="py-16 sm:py-24 bg-[#F2EDE2] border-y border-ccjv-line scroll-mt-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+          {/* Panneau d'informations chiffrées réelles (Inspiré du panneau TriVision) */}
+          <div className="bg-white border border-ccjv-line p-8 sm:p-14 shadow-sm relative overflow-hidden">
+            {/* Décoration typographique subtile en filigrane */}
+            <div className="absolute -right-6 -bottom-8 select-none pointer-events-none opacity-5 font-serif text-[180px] font-black text-ccjv-ink leading-none">
+              ECODIM
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center relative z-10">
+              <div className="lg:col-span-7 space-y-4">
+                <h2 className="font-serif text-3xl sm:text-4xl font-bold text-ccjv-ink">
+                  Un cadre scolaire ecclésiastique structuré.
+                </h2>
+                <p className="text-sm sm:text-base text-ccjv-ink-secondary leading-relaxed max-w-xl">
+                  Pour respecter le rythme cognitif et spirituel de chaque enfant, l&apos;Ecodim organise ses séances
+                  par petits groupes guidés par des moniteurs formés et consacrés.
+                </p>
+                <div className="pt-2">
+                  <Button variant="primary" href="#parents">
+                    Comment inscrire mon enfant ?
+                  </Button>
+                </div>
+              </div>
+
+              {/* Chiffres réels et attestés uniquement */}
+              <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-6 border-t lg:border-t-0 lg:border-l border-ccjv-line pt-6 lg:pt-0 lg:pl-10">
+                <div className="space-y-1">
+                  <span className="font-serif text-4xl sm:text-5xl font-bold text-ccjv-green block leading-none">
+                    4
+                  </span>
+                  <p className="text-xs font-bold uppercase tracking-wider text-ccjv-ink">Classes d&apos;âge</p>
+                  <p className="text-[11px] text-ccjv-ink-secondary">De 3 ans jusqu&apos;à 15 ans révolus</p>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="font-serif text-4xl sm:text-5xl font-bold text-ccjv-green block leading-none">
+                    08h30
+                  </span>
+                  <p className="text-xs font-bold uppercase tracking-wider text-ccjv-ink">Chaque dimanche</p>
+                  <p className="text-[11px] text-ccjv-ink-secondary">Accueil pendant le culte général</p>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          {/* Grille détaillée des 4 classes d'âge */}
+          <div>
+            <div className="text-center max-w-xl mx-auto mb-10 space-y-2">
+              <h3 className="font-serif text-2xl sm:text-3xl font-bold text-ccjv-ink">
+                Nos quatre cycles d&apos;apprentissage
+              </h3>
+              <p className="text-xs text-ccjv-ink-secondary">
+                Une progression spirituelle adaptée à la maturité de chaque tranche d&apos;âge.
               </p>
-              <h2 className="font-serif text-3xl sm:text-4xl text-ccjv-ink">
-                Enseignements dispensés à l&apos;Ecodim
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {AGE_CLASSES.map((cls) => (
+                <div
+                  key={cls.name}
+                  className="bg-white border border-ccjv-line p-6 flex flex-col justify-between hover:border-ccjv-green transition-colors shadow-2xs"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between border-b border-ccjv-line pb-2.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-ccjv-green">
+                        {cls.grade}
+                      </span>
+                      <span className="text-[11px] font-bold px-2 py-0.5 bg-ccjv-ink text-white">
+                        {cls.ages}
+                      </span>
+                    </div>
+                    <h4 className="font-serif text-lg font-bold text-ccjv-ink leading-snug">
+                      {cls.name}
+                    </h4>
+                    <p className="text-xs font-medium text-ccjv-green">
+                      {cls.subtitle}
+                    </p>
+                    <p className="text-xs text-ccjv-ink-secondary leading-relaxed">
+                      {cls.description}
+                    </p>
+                  </div>
+
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          SECTION E — TÉMOIGNAGES & PAROLES DE PARENTS ET MONITEURS
+         ========================================================================= */}
+      <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16 space-y-3">
+          <span className="text-xs font-bold uppercase tracking-[0.2em] text-ccjv-green block">
+            Échos de la communauté
+          </span>
+          <h2 className="font-serif text-3xl sm:text-4xl font-bold text-ccjv-ink">
+            Paroles de parents & de moniteurs
+          </h2>
+          <p className="text-sm text-ccjv-ink-secondary">
+            L&apos;impact de la formation chrétienne dans la vie des enfants et des familles.
+          </p>
+        </div>
+
+        {/* Alternance de cartes textuelles et de photographies (Référence TriVision) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+          {/* Carte 1 : Témoignage texte parent */}
+          <div className="p-6 bg-white border border-ccjv-line flex flex-col justify-between shadow-2xs">
+            <Quote className="h-6 w-6 text-ccjv-green/40 mb-3" />
+            <p className="font-serif text-sm text-ccjv-ink italic leading-relaxed">
+              « Voir nos enfants rentrer à la maison en chantant des cantiques et en récitant leurs versets avec joie
+              est notre plus belle bénédiction de parents. »
+            </p>
+            <div className="pt-4 mt-4 border-t border-ccjv-line">
+              <p className="text-xs font-bold text-ccjv-ink">Maman Sarah M.</p>
+              <p className="text-[11px] text-ccjv-ink-secondary">Parent d&apos;élèves aux Cadets</p>
+            </div>
+          </div>
+
+          {/* Carte 2 : Photographie portrait */}
+          <div className="relative aspect-[3/4] md:aspect-auto border border-ccjv-line bg-ccjv-offwhite overflow-hidden shadow-2xs">
+            <Image
+              src={images.portraitA}
+              alt="Enfant attentif et épanoui à l'église"
+              fill
+              sizes="(max-width: 768px) 100vw, 25vw"
+              className="object-cover"
+            />
+          </div>
+
+          {/* Carte 3 : Témoignage texte moniteur */}
+          <div className="p-6 bg-white border border-ccjv-line flex flex-col justify-between shadow-2xs">
+            <Quote className="h-6 w-6 text-ccjv-green/40 mb-3" />
+            <p className="font-serif text-sm text-ccjv-ink italic leading-relaxed">
+              « À l&apos;Ecodim, nous ne gardons pas simplement des enfants : nous déposons la semence éternelle de la
+              Parole de Dieu qui portera du fruit pour toute leur vie. »
+            </p>
+            <div className="pt-4 mt-4 border-t border-ccjv-line">
+              <p className="text-xs font-bold text-ccjv-ink">Frère Jacques K.</p>
+              <p className="text-[11px] text-ccjv-ink-secondary">Moniteur Ecodim</p>
+            </div>
+          </div>
+
+          {/* Carte 4 : Photographie portrait */}
+          <div className="relative aspect-[3/4] md:aspect-auto border border-ccjv-line bg-ccjv-offwhite overflow-hidden shadow-2xs">
+            <Image
+              src={images.portraitB}
+              alt="Joie et sanctification dans la jeunesse chrétienne"
+              fill
+              sizes="(max-width: 768px) 100vw, 25vw"
+              className="object-cover"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          SECTION F — ENSEIGNEMENTS & ACTUALITÉS ECODIM (DONNÉES DYNAMIQUES)
+         ========================================================================= */}
+      <section className="py-16 sm:py-24 bg-white border-t border-ccjv-line">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-ccjv-line pb-6">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-ccjv-green block">
+                Ressources spirituelles en ligne
+              </span>
+              <h2 className="font-serif text-3xl sm:text-4xl font-bold text-ccjv-ink mt-1">
+                Enseignements & Récits Ecodim
               </h2>
             </div>
             <Link
               href="/publications/enseignements?scope=ECODIM"
-              className="font-sans text-xs font-semibold tracking-wider uppercase text-ccjv-green hover:underline whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-ccjv-green hover:underline"
             >
-              Tous les enseignements Ecodim →
+              <span>Tous les enseignements Ecodim</span>
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
 
           {teachingsRead.status === "unreachable" ? (
             <ContentUnavailable resource="Les enseignements Ecodim" />
           ) : teachings.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
               {teachings.map((teaching) => (
                 <div
                   key={teaching.id}
-                  className="border border-ccjv-line p-6 bg-ccjv-surface/20 rounded-none flex flex-col justify-between"
+                  className="border border-ccjv-line p-6 bg-[#FAF7F2] flex flex-col justify-between hover:border-ccjv-green transition-colors"
                 >
                   <div className="space-y-3">
-                    <span className="font-sans text-[0.72rem] text-ccjv-ink-secondary block">
+                    <span className="text-[11px] text-ccjv-ink-secondary block font-mono">
                       {formatLongDate(teaching.preachedAt)}
                     </span>
-                    <h3 className="font-serif text-lg font-medium text-ccjv-ink">
+                    <h3 className="font-serif text-lg font-bold text-ccjv-ink">
                       {teaching.title}
                     </h3>
                     {teaching.summary && (
-                      <p className="font-sans text-xs text-ccjv-ink-secondary line-clamp-3 leading-relaxed">
+                      <p className="text-xs text-ccjv-ink-secondary line-clamp-3 leading-relaxed">
                         {teaching.summary}
                       </p>
                     )}
                   </div>
-                  <div className="pt-4 border-t border-ccjv-line/60 mt-6 flex items-center justify-between">
-                    <span className="font-sans text-xs text-ccjv-ink-secondary">
-                      Par {teaching.speakerName}
-                    </span>
+                  <div className="pt-4 border-t border-ccjv-line/60 mt-6 flex items-center justify-between text-xs">
+                    <span className="text-ccjv-ink-secondary">Par {teaching.speakerName}</span>
                     <Link
                       href={`/publications/enseignements/${teaching.id}`}
-                      className="font-sans text-xs font-semibold uppercase tracking-wider text-ccjv-green hover:underline"
+                      className="font-semibold text-ccjv-green hover:underline"
                     >
                       Écouter →
                     </Link>
@@ -309,116 +493,64 @@ export default async function EcodimHomePage() {
           ) : (
             <EmptyState
               title="Aucun enseignement Ecodim publié pour le moment"
-              description="Les récits et messages enregistrés pour l'Ecodim apparaîtront ici dès leur publication."
+              description="Les récits et messages enregistrés apparaîtront ici dès leur publication depuis le back-office."
             />
           )}
         </div>
       </section>
 
-      {/* 05 — PUBLICATIONS & PROJETS ECODIM */}
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="border-t border-ccjv-line pt-16">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 gap-4">
-            <div>
-              <p className="font-sans text-xs font-semibold tracking-[0.2em] text-ccjv-green uppercase mb-2">
-                Vie scolaire ecclésiastique
-              </p>
-              <h2 className="font-serif text-3xl sm:text-4xl text-ccjv-ink">
-                Actualités et activités de l&apos;Ecodim
-              </h2>
-            </div>
-            <Link
-              href="/publications?scope=ECODIM"
-              className="font-sans text-xs font-semibold tracking-wider uppercase text-ccjv-green hover:underline whitespace-nowrap"
-            >
-              Toutes les publications Ecodim →
-            </Link>
-          </div>
-
-          {publicationsRead.status === "unreachable" ? (
-            <ContentUnavailable resource="Les publications Ecodim" />
-          ) : publications.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {publications.map((pub) => (
-                <div
-                  key={pub.id}
-                  className="border border-ccjv-line p-5 bg-ccjv-surface/20 rounded-none flex flex-col justify-between"
-                >
-                  <div className="space-y-2">
-                    <span className="font-sans text-[0.7rem] text-ccjv-ink-secondary block">
-                      {formatLongDate(pub.publishedAt)}
-                    </span>
-                    <h3 className="font-serif text-base font-medium text-ccjv-ink leading-snug">
-                      {pub.title}
-                    </h3>
-                    {pub.description && (
-                      <p className="font-sans text-xs text-ccjv-ink-secondary line-clamp-2">
-                        {pub.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="pt-4 mt-4 border-t border-ccjv-line/40">
-                    <Link
-                      href={`/publications/${pub.slug}`}
-                      className="font-sans text-xs font-semibold uppercase tracking-wider text-ccjv-green hover:underline"
-                    >
-                      Consulter →
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              title="Aucune annonce pour le moment"
-              description="Les rentrées scolaires, fêtes chrétiennes des enfants et activités paraîtront ici."
-            />
-          )}
-        </div>
-      </section>
-
-      {/* 06 — ESPACE PARENTS & INFOS PRATIQUES */}
-      <section id="parents" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 scroll-mt-20">
-        <div className="border border-ccjv-line bg-ccjv-surface/40 p-8 sm:p-12 rounded-none">
+      {/* =========================================================================
+          SECTION G — ESPACE PARENTS & ACCUEIL DU DIMANCHE (INFORMATIONS PRATIQUES)
+         ========================================================================= */}
+      <section id="parents" className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto scroll-mt-16">
+        <div className="border border-ccjv-line bg-white p-8 sm:p-14 shadow-sm">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             <div className="lg:col-span-8 space-y-4">
-              <span className="font-sans text-xs font-semibold tracking-[0.2em] text-ccjv-green uppercase block">
-                Espace Parents & Partenariat Éducatif
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-ccjv-green block">
+                Guide des familles
               </span>
-              <h2 className="font-serif text-2xl sm:text-3xl text-ccjv-ink">
-                Comment inscrire votre enfant le dimanche ?
+              <h2 className="font-serif text-2xl sm:text-3xl font-bold text-ccjv-ink">
+                Comment confier votre enfant ce dimanche ?
               </h2>
-              <p className="font-sans text-sm text-ccjv-ink-secondary leading-relaxed max-w-[65ch]">
-                Dès votre arrivée à l&apos;église pour le culte de 09h00 ou 11h30, présentez-vous au bureau d&apos;accueil
-                Ecodim dans le hall principal. Nos moniteurs enregistrent votre enfant et vous indiquent sa classe.
-                À la fin du culte, les parents récupèrent leurs enfants directement dans leurs salles respectives.
+              <p className="text-sm text-ccjv-ink-secondary leading-relaxed max-w-2xl">
+                Dès votre arrivée au Centre Chrétien Jésus ma Vie pour le culte dominical, nos moniteurs vous accueillent
+                dans le hall d&apos;entrée pour enregistrer votre enfant et l&apos;accompagner vers sa salle de classe.
+                À la fin du culte, les parents récupèrent personnellement leurs enfants.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 text-xs font-sans">
-                <div className="flex items-center gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 text-xs">
+                <div className="flex items-center gap-2.5">
                   <Clock className="h-4 w-4 text-ccjv-green shrink-0" />
-                  <span>Accueil : 15 min avant chaque culte</span>
+                  <span>Accueil dès 08h15</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   <ShieldCheck className="h-4 w-4 text-ccjv-green shrink-0" />
-                  <span>Badge de sécurité remis aux parents</span>
+                  <span>Protocole de sécurité strict</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   <Users className="h-4 w-4 text-ccjv-green shrink-0" />
                   <span>Moniteurs formés et consacrés</span>
                 </div>
               </div>
             </div>
 
-            <div className="lg:col-span-4 flex flex-col items-start lg:items-end gap-4">
-              <Button variant="primary" href="/vie-de-leglise/ou-nous-trouver">
-                Voir l&apos;adresse et l&apos;accès →
-              </Button>
-              <Link
-                href="/"
-                className="font-sans text-xs font-semibold tracking-wider uppercase text-ccjv-ink-secondary hover:text-ccjv-green transition-colors"
+            <div className="lg:col-span-4 flex flex-col sm:flex-row lg:flex-col gap-3 lg:items-end">
+              <Button
+                variant="primary"
+                href="/vie-de-leglise/ou-nous-trouver"
+                size="md"
+                className="w-full sm:w-48 text-center justify-center"
               >
-                Retour à l&apos;accueil général du CCJV
-              </Link>
+                Où nous trouver
+              </Button>
+              <Button
+                variant="outline"
+                href={site.whatsappHref}
+                external
+                size="md"
+                className="w-full sm:w-48 text-center justify-center"
+              >
+                Nous écrire
+              </Button>
             </div>
           </div>
         </div>
@@ -426,4 +558,3 @@ export default async function EcodimHomePage() {
     </div>
   );
 }
-
