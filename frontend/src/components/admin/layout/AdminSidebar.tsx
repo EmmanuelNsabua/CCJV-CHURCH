@@ -18,6 +18,10 @@ import {
   Layers,
   Sliders,
   Shield,
+  MapPin,
+  Clock,
+  Share2,
+  Phone,
   ChevronRight,
   ChevronLeft,
   X,
@@ -134,6 +138,13 @@ export const adminNavSections: NavSection[] = [
         label: "Paramètres",
         href: "/admin/settings",
         icon: Sliders,
+        subItems: [
+          { label: "Préférences", href: "/admin/settings?section=preferences", icon: Sliders },
+          { label: "Adresse & Localisation", href: "/admin/settings?section=address", icon: MapPin },
+          { label: "Horaires de l'église", href: "/admin/settings?section=schedule", icon: Clock },
+          { label: "Réseaux sociaux", href: "/admin/settings?section=social", icon: Share2 },
+          { label: "Gestion des contacts", href: "/admin/settings?section=contact", icon: Phone },
+        ],
       },
       {
         id: "admins",
@@ -198,6 +209,30 @@ export function AdminSidebar({ onCloseMobile, className }: AdminSidebarProps) {
     }
     return null;
   }, [activeSubMenuId]);
+
+  const isSubItemActive = (subHref: string, parentHref: string) => {
+    if (subHref.includes("?")) {
+      const [subPath, subQuery] = subHref.split("?");
+      if (pathname !== subPath) return false;
+      const subParams = new URLSearchParams(subQuery);
+      for (const [key, value] of subParams.entries()) {
+        const currentVal = searchParams.get(key);
+        if (currentVal !== value) {
+          // Si la sous-page demandée est "preferences" et qu'aucun query param ?section= n'est dans l'URL
+          if (key === "section" && value === "preferences" && !currentVal) {
+            continue;
+          }
+          return false;
+        }
+      }
+      return true;
+    }
+
+    if (subHref === parentHref) {
+      return pathname === parentHref && !searchParams.get("section");
+    }
+    return pathname === subHref || pathname.startsWith(`${subHref}/`);
+  };
 
   const isItemActive = (item: NavItem) => {
     if (item.typeParam) {
@@ -295,10 +330,7 @@ export function AdminSidebar({ onCloseMobile, className }: AdminSidebarProps) {
               </div>
               <ul className="space-y-0.5">
                 {activeItemWithSub.subItems?.map((sub) => {
-                  const isSubActive =
-                    sub.href === activeItemWithSub.href
-                      ? pathname === activeItemWithSub.href
-                      : pathname === sub.href || pathname.startsWith(`${sub.href}/`);
+                  const isSubActive = isSubItemActive(sub.href, activeItemWithSub.href);
                   const SubIcon = sub.icon;
 
                   return (

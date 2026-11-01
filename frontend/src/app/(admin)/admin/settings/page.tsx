@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   MapPin,
   Clock,
@@ -11,8 +12,6 @@ import {
   Save,
   RotateCcw,
   Plus,
-  ArrowLeft,
-  ChevronRight,
   ExternalLink,
 } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/layout/AdminPageHeader";
@@ -103,13 +102,17 @@ const TIMEZONE_OPTIONS = [
 export default function AdminSettingsPage() {
   const { adminProfile } = useAuth();
   const toast = useToast();
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   const isDepartmentManager = adminProfile?.role === "DEPARTMENT_MANAGER";
 
-  // Section active
-  const [activeSection, setActiveSection] = useState<SettingsSection>("schedule");
-  // Navigation mobile : "menu" ou "detail"
-  const [mobileView, setMobileView] = useState<"menu" | "detail">("menu");
+  // Section active : déduite de l'URL (?section=...), défaut "preferences"
+  const sectionParam = searchParams.get("section") as SettingsSection | null;
+  const activeSection: SettingsSection =
+    sectionParam && ["preferences", "address", "schedule", "social", "contact"].includes(sectionParam)
+      ? sectionParam
+      : "preferences";
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -264,9 +267,7 @@ export default function AdminSettingsPage() {
 
   // Protection contre la perte de données
   const [pendingNavigation, setPendingNavigation] = useState<{
-    targetSection?: SettingsSection;
-    targetUrl?: string;
-    backToMobileMenu?: boolean;
+    targetUrl: string;
   } | null>(null);
 
   // Intercepter les clics sur les liens de navigation sortants (ex: AdminSidebar) quand il y a des modifications non enregistrées
@@ -284,7 +285,7 @@ export default function AdminSettingsPage() {
       try {
         const url = new URL(anchor.href, window.location.href);
         if (url.origin === window.location.origin) {
-          if (url.pathname !== window.location.pathname) {
+          if (url.pathname !== window.location.pathname || url.search !== window.location.search) {
             e.preventDefault();
             e.stopPropagation();
             setPendingNavigation({ targetUrl: href });
@@ -306,42 +307,12 @@ export default function AdminSettingsPage() {
     setCurrentSettings(initialSettings);
   };
 
-  // Tentative de navigation vers une autre section
-  const handleRequestSectionChange = (target: SettingsSection) => {
-    if (target === activeSection) {
-      setMobileView("detail");
-      return;
-    }
-
-    if (isCurrentSectionDirty) {
-      setPendingNavigation({ targetSection: target });
-      return;
-    }
-
-    setActiveSection(target);
-    setMobileView("detail");
-  };
-
-  // Tentative de retour au menu mobile
-  const handleRequestMobileBackToMenu = () => {
-    if (isCurrentSectionDirty) {
-      setPendingNavigation({ backToMobileMenu: true });
-      return;
-    }
-    setMobileView("menu");
-  };
-
   // Confirmation sauvegarde avant navigation
   const handleSaveAndProceed = async () => {
     try {
       await handleSaveActiveSection();
-      if (pendingNavigation?.targetSection) {
-        setActiveSection(pendingNavigation.targetSection);
-        setMobileView("detail");
-      } else if (pendingNavigation?.backToMobileMenu) {
-        setMobileView("menu");
-      } else if (pendingNavigation?.targetUrl) {
-        window.location.href = pendingNavigation.targetUrl;
+      if (pendingNavigation?.targetUrl) {
+        router.push(pendingNavigation.targetUrl);
       }
     } finally {
       setPendingNavigation(null);
@@ -351,13 +322,8 @@ export default function AdminSettingsPage() {
   // Confirmation abandon avant navigation
   const handleDiscardAndProceed = () => {
     handleDiscardChanges();
-    if (pendingNavigation?.targetSection) {
-      setActiveSection(pendingNavigation.targetSection);
-      setMobileView("detail");
-    } else if (pendingNavigation?.backToMobileMenu) {
-      setMobileView("menu");
-    } else if (pendingNavigation?.targetUrl) {
-      window.location.href = pendingNavigation.targetUrl;
+    if (pendingNavigation?.targetUrl) {
+      router.push(pendingNavigation.targetUrl);
     }
     setPendingNavigation(null);
   };
@@ -481,99 +447,17 @@ export default function AdminSettingsPage() {
         </p>
       </div>
 
-      {/* Conteneur principal (Layout 2 colonnes style Figma) */}
-      <div className="border border-ccjv-line bg-white rounded-none shadow-xs min-h-[620px] relative overflow-hidden">
-        <div className="flex flex-col md:flex-row h-full">
-          {/* ================================================================ */}
-          {/* COLONNE GAUCHE : Menu latéral des sections                      */}
-          {/* Sur mobile : affiché en plein écran quand mobileView === 'menu'  */}
-          {/* ================================================================ */}
-          <aside
-            className={`w-full md:w-64 border-r border-ccjv-line shrink-0 bg-white p-3 flex flex-col justify-between transition-all duration-300 ${
-              mobileView === "detail"
-                ? "max-md:hidden"
-                : "max-md:block max-md:min-h-[550px] animate-in slide-in-from-left-6 duration-300 ease-out"
-            }`}
-          >
-            <div className="space-y-2">
-              <div className="px-3 py-2 text-[10px] font-mono font-semibold uppercase tracking-wider text-ccjv-ink-secondary">
-                Sections du module
-              </div>
-
-              <nav className="space-y-1.5" aria-label="Sections des paramètres">
-                {SECTIONS.map((section) => {
-                  const isActive = activeSection === section.id;
-                  const Icon = section.icon;
-
-                  return (
-                    <button
-                      key={section.id}
-                      type="button"
-                      onClick={() => handleRequestSectionChange(section.id)}
-                      className={`w-full text-left px-3.5 py-3 text-xs font-semibold rounded-none transition-all flex items-center justify-between group ${
-                        isActive
-                          ? "bg-ccjv-green text-white font-bold shadow-xs"
-                          : "text-ccjv-ink hover:bg-[#fafaf7] hover:text-ccjv-green"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-white" : "text-ccjv-ink-secondary group-hover:text-ccjv-green"}`} />
-                        <div>
-                          <div className="leading-tight">{section.label}</div>
-                          <div className={`text-[10px] md:hidden mt-0.5 line-clamp-1 ${isActive ? "text-white/80" : "text-ccjv-ink-secondary"}`}>
-                            {section.description}
-                          </div>
-                        </div>
-                      </div>
-                      <ChevronRight className={`h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5 md:hidden ${isActive ? "text-white" : "text-ccjv-ink-secondary"}`} />
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-
-            {/* Pied du menu latéral */}
-            <div className="pt-4 border-t border-ccjv-line/80 px-2 text-[11px] text-ccjv-ink-secondary space-y-1">
-              <p className="font-semibold text-ccjv-ink">Centre Chrétien Jésus ma Vie</p>
-              <p className="text-[10px]">Version 1.0 • Back-Office certifié</p>
-            </div>
-          </aside>
-
-          {/* ================================================================ */}
-          {/* ZONE DROITE : Contenu de la section active                      */}
-          {/* Sur mobile : glisse de droite à gauche avec bouton retour        */}
-          {/* ================================================================ */}
-          <main
-            className={`flex-1 p-5 md:p-8 bg-white transition-all duration-300 ${
-              mobileView === "menu"
-                ? "max-md:hidden"
-                : "max-md:block animate-in slide-in-from-right-8 duration-300 ease-out"
-            }`}
-          >
-            {/* Barre de retour mobile */}
-            <div className="md:hidden pb-4 mb-4 border-b border-ccjv-line flex items-center justify-between">
-              <button
-                type="button"
-                onClick={handleRequestMobileBackToMenu}
-                className="inline-flex items-center gap-2 text-xs font-bold text-ccjv-ink hover:text-ccjv-green transition-colors py-1 px-2 border border-ccjv-line bg-[#fafaf7]"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span>Retour aux sections</span>
-              </button>
-              <span className="text-xs font-semibold text-ccjv-green font-mono">
-                {SECTIONS.find((s) => s.id === activeSection)?.label}
-              </span>
-            </div>
-
-            {isLoading ? (
-              <div className="py-24 flex flex-col items-center justify-center text-center space-y-3">
-                <div className="h-8 w-8 border-2 border-ccjv-green border-t-transparent animate-spin rounded-full" />
-                <p className="text-xs text-ccjv-ink-secondary">
-                  Chargement des paramètres de l&apos;église...
-                </p>
-              </div>
-            ) : (
-              <>
+      {/* Conteneur principal plein écran */}
+      <div className="border border-ccjv-line bg-white rounded-none shadow-xs min-h-[620px] p-5 md:p-8">
+        {isLoading ? (
+          <div className="py-24 flex flex-col items-center justify-center text-center space-y-3">
+            <div className="h-8 w-8 border-2 border-ccjv-green border-t-transparent animate-spin rounded-full" />
+            <p className="text-xs text-ccjv-ink-secondary">
+              Chargement des paramètres de l&apos;église...
+            </p>
+          </div>
+        ) : (
+          <>
                 {/* -------------------------------------------------------------- */}
                 {/* 1. SECTION : PRÉFÉRENCES                                        */}
                 {/* -------------------------------------------------------------- */}
@@ -902,10 +786,8 @@ export default function AdminSettingsPage() {
                 </div>
               </div>
             )}
-            </>
-            )}
-          </main>
-        </div>
+          </>
+        )}
       </div>
 
       {/* Modale d'ajout / modification de culte */}
