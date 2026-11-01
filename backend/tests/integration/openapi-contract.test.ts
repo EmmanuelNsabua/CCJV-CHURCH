@@ -260,6 +260,9 @@ describe("contrat OpenAPI — cohérence avec l'application montée", () => {
       .filter((operation) => !documentees.has(operation))
       .filter(
         (operation) =>
+          operation !== "get /" &&
+          operation !== "get /health" &&
+          operation !== "get /ping" &&
           !operation.includes("/enseignements") &&
           !operation.includes("/resources") &&
           !operation.includes("/publish") &&

@@ -101,13 +101,35 @@ export function createApp(deps: AppDependencies = createContainer()): Express {
           return isProduction ? "debug" : "info";
         },
         autoLogging: {
-          ignore: (req) => req.url === `${apiBasePath}/health`,
+          ignore: (req) => {
+            const path = req.url?.split("?")[0];
+            return (
+              path === `${apiBasePath}/health` ||
+              path === "/health" ||
+              path === "/ping" ||
+              path === "/"
+            );
+          },
         },
       }),
     );
   }
 
-  // --- Santé (hors rate limiting : Railway interroge souvent) ---------------
+  // --- Sondes de disponibilité & santé (hors rate limiting : UptimeRobot, Render) ---
+  app.get("/", (_req, res) => {
+    res.status(200).json({
+      status: "ok",
+      name: "CCJV Church API",
+      version: env.API_VERSION,
+      environment: env.NODE_ENV,
+    });
+  });
+
+  app.get("/ping", (_req, res) => {
+    res.status(200).send("pong");
+  });
+
+  app.get("/health", healthHandler);
   app.get(`${apiBasePath}/health`, healthHandler);
 
   // --- Rate limiting global -------------------------------------------------
