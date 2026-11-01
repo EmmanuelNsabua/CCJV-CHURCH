@@ -365,9 +365,20 @@ export async function getLeaders(
   return readCollection(payload);
 }
 
-type TestimonyPayload = Omit<Testimony, "photo"> & { photo: string | null };
+type TestimonyPayload = {
+  id: string;
+  quote?: string;
+  content?: string;
+  authorName?: string | null;
+  name?: string | null;
+  photo?: string | null;
+  photoUrl?: string | null;
+  role?: string | null;
+  position?: number;
+  isAnonymous?: boolean;
+};
 
-/** Témoignages publiés (les entrées sans portrait sont écartées). */
+/** Témoignages publiés (ouverts avec ou sans portrait). */
 export async function getTestimonies(
   options: PublicReadOptions = {},
 ): Promise<Testimony[]> {
@@ -375,7 +386,15 @@ export async function getTestimonies(
     CollectionResponse<TestimonyPayload> | TestimonyPayload[]
   >(withQuery("/testimonies", { limit: REFERENCE_LIMIT }), options);
 
-  return keepWithPortrait(readCollection(payload), "témoignage");
+  const raw = readCollection(payload);
+  return raw.map((item) => ({
+    id: item.id,
+    name: item.isAnonymous ? "Anonyme" : item.name || item.authorName || "Membre de l'église",
+    quote: item.quote || item.content || "",
+    photo: item.photo || item.photoUrl || null,
+    role: item.role,
+    position: item.position,
+  }));
 }
 
 type CommunityFacePayload = Omit<CommunityFace, "photo"> & {
@@ -1592,7 +1611,15 @@ export async function getHeroTestimonies(
     "/testimonies/hero",
     options,
   );
-  return readCollection(payload) as unknown as Testimony[];
+  const raw = readCollection(payload);
+  return raw.map((item) => ({
+    id: item.id,
+    name: item.isAnonymous ? "Anonyme" : item.name || item.authorName || "Membre de l'église",
+    quote: item.quote || item.content || "",
+    photo: item.photo || item.photoUrl || null,
+    role: item.role,
+    position: item.position,
+  }));
 }
 
 /** Soumission publique d'un témoignage (`POST /testimonies/submit`). */

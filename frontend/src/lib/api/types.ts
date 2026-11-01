@@ -120,7 +120,7 @@ export interface Leader {
  */
 export interface Testimony {
   id: string;
-  photo: string;
+  photo: string | null;
   quote: string;
   name: string;
   role?: string | null;

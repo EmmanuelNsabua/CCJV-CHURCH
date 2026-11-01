@@ -301,14 +301,20 @@ export default async function CommunautePage() {
                   className="flex flex-col justify-between border border-ccjv-line bg-white p-6 sm:p-7"
                 >
                   <div>
-                    <div className="relative aspect-square w-16 overflow-hidden bg-ccjv-line">
-                      <Image
-                        src={tem.photo}
-                        alt={tem.name}
-                        fill
-                        sizes="64px"
-                        className="object-cover"
-                      />
+                    <div className="relative aspect-square w-16 overflow-hidden bg-ccjv-line flex items-center justify-center">
+                      {tem.photo ? (
+                        <Image
+                          src={tem.photo}
+                          alt={tem.name}
+                          fill
+                          sizes="64px"
+                          className="object-cover"
+                        />
+                      ) : (
+                        <span className="font-serif text-xl font-bold text-ccjv-ink">
+                          {tem.name ? tem.name.charAt(0).toUpperCase() : "T"}
+                        </span>
+                      )}
                     </div>
 
                     <blockquote className="mt-5 font-serif text-[1.02rem] leading-[1.65] italic text-ccjv-ink">
