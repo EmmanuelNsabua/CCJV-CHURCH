@@ -11,6 +11,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { publicationStatusEnum, teachingMediaRoleEnum } from "./enums";
+import { departments } from "./departments";
 import { media } from "./media";
 
 /**
@@ -21,6 +22,8 @@ import { media } from "./media";
  * - Associée à des références bibliques ordonnées (`teaching_biblical_references`).
  * - Liée à des médias de la bibliothèque centrale (`teaching_media`) avec rôle (VIDEO, AUDIO, THUMBNAIL).
  * - Statut métier : DRAFT, PUBLISHED, ARCHIVED.
+ * - Périmètre éditorial : `scope` ("CCJV" pour général, "ECODIM" pour École du Dimanche).
+ * - Rattachement départemental optionnel (`department_id`).
  */
 export const teachings = pgTable(
   "teachings",
@@ -33,6 +36,10 @@ export const teachings = pgTable(
     preachedAt: date("preached_at").notNull(),
     summary: text("summary"),
     description: text("description"),
+    scope: varchar("scope", { length: 20 }).notNull().default("CCJV"),
+    departmentId: uuid("department_id").references(() => departments.id, {
+      onDelete: "set null",
+    }),
     status: publicationStatusEnum("status").notNull().default("DRAFT"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -46,6 +53,8 @@ export const teachings = pgTable(
     index("teachings_slug_idx").on(table.slug),
     index("teachings_status_idx").on(table.status),
     index("teachings_preached_at_idx").on(table.preachedAt),
+    index("teachings_scope_idx").on(table.scope),
+    index("teachings_department_idx").on(table.departmentId),
   ],
 );
 

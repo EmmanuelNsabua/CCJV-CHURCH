@@ -8,7 +8,6 @@ import { Section } from "@/components/shared/Section";
 import { SectionHeading } from "@/components/shared/SectionHeading";
 import { Reveal } from "@/components/shared/Reveal";
 import { CrossMark } from "@/components/shared/CrossMark";
-import { OpenBookMark } from "@/components/shared/OpenBookMark";
 import { VerseSection } from "@/components/shared/VerseSection";
 import { BreathingPhoto } from "@/components/shared/BreathingPhoto";
 import { WeekRhythm, type RhythmItem } from "@/components/shared/WeekRhythm";
@@ -182,11 +181,9 @@ export default async function HomePage() {
             <h2 id="mot-pasteur-titre">
               Vous êtes les bienvenus parmi nous.
             </h2>
-            <p className="lead mt-6">
+            <p className="mt-5 text-ccjv-ink-secondary">
               Que vous cherchiez Dieu depuis longtemps ou que vous poussiez la
               porte pour la première fois, il y a une place pour vous ici.
-            </p>
-            <p className="mt-5 text-ccjv-ink-secondary">
               Notre désir est simple : que chacun rencontre Jésus-Christ,
               grandisse dans Sa Parole et trouve une famille pour avancer. Venez
               tel que vous êtes — nous vous attendons avec joie.
@@ -206,15 +203,15 @@ export default async function HomePage() {
             <h2 id="qui-sommes-nous-titre">
               Une famille chrétienne au cœur de Lubumbashi
             </h2>
-            <p className="lead mt-6">
-              Le {site.name} est une église vivante où chacun trouve sa place.
+            <p className="mt-5 text-ccjv-ink-secondary">
+              Le <strong>Centre Chrétien Jésus ma Vie</strong> est une église vivante où chacun trouve sa place.
               Depuis sa fondation, notre communauté grandit dans la foi,
               les enfants s&apos;épanouissent au sein de l&apos;Ecodim et les
               services se multiplient pour servir Dieu et la communauté.
             </p>
             <div className="mt-8">
               <Button variant="outline" href="/qui-sommes-nous">
-                Découvrir notre histoire →
+                Lire plus
               </Button>
             </div>
           </Reveal>
@@ -230,6 +227,105 @@ export default async function HomePage() {
             </div>
           </Reveal>
         </div>
+      </Section>
+
+      {/* 04b — L'ÉCOLE DU DIMANCHE (ECODIM) */}
+      <Section
+        id="ecodim-passerelle"
+        tone="tinted"
+        aria-labelledby="ecodim-passerelle-titre"
+      >
+        <div className="grid grid-cols-1 items-center gap-10 md:grid-cols-12 md:gap-14">
+          <Reveal className="md:col-span-6 md:order-2">
+            <div className="relative aspect-[4/3] overflow-hidden border border-ccjv-line bg-ccjv-surface">
+              <Image
+                src={images.ecodim}
+                alt="Enfants réunis à l'École du Dimanche du CCJV"
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover"
+              />
+            </div>
+          </Reveal>
+          <Reveal delay={100} className="md:col-span-6 md:order-1">
+            <h2 id="ecodim-passerelle-titre" className="mt-4">
+              L&apos;École du Dimanche : former les enfants à la vie chrétienne
+            </h2>
+            <p className="mt-5 text-ccjv-ink-secondary">
+              L&apos;Ecodim accueille vos enfants chaque dimanche dans un cadre
+              pédagogique structuré et bienveillant, pensé pour transmettre la
+              Parole de Dieu selon leur âge. De l&apos;éveil à l&apos;adolescence, nos moniteurs consacrés
+              enseignent les Écritures à travers des récits bibliques, la
+              mémorisation de versets et la prière, en étroit partenariat avec les
+              familles.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-4">
+              <Button variant="primary" href="/ecodim">
+                Découvrir
+              </Button>
+              <Button variant="outline" href="/publications/enseignements?scope=ECODIM">
+                Apprendre
+              </Button>
+            </div>
+          </Reveal>
+        </div>
+      </Section>
+
+      {/* 04c — NOS DÉPARTEMENTS AU SERVICE */}
+      <Section id="departements" aria-labelledby="departements-titre">
+        <SectionHeading
+          id="departements-titre"
+          title="Une église vivante portée par le service"
+          description="Chaque département œuvre avec dévouement pour l'édification du corps de Christ et le rayonnement de l'évangile."
+        />
+        {departmentsRead.status === "unreachable" ? (
+          <ContentUnavailable resource="Les départements" />
+        ) : (departmentsRead.status === "ok" && departmentsRead.data.length > 0) ? (
+          <>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {departmentsRead.data.slice(0, 6).map((dept) => (
+                <div
+                  key={dept.id}
+                  className="border border-ccjv-line p-6 bg-ccjv-surface/20 flex flex-col justify-between hover:border-ccjv-green transition-colors"
+                >
+                  <div>
+                    <h3 className="font-serif text-xl font-medium text-ccjv-ink">
+                      {dept.name}
+                    </h3>
+                    {dept.tagline && (
+                      <p className="mt-2 font-sans text-xs text-ccjv-green font-semibold uppercase tracking-wider">
+                        {dept.tagline}
+                      </p>
+                    )}
+                    {dept.description && (
+                      <p className="mt-3 font-sans text-xs text-ccjv-ink-secondary line-clamp-3 leading-relaxed">
+                        {dept.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="mt-6 pt-4 border-t border-ccjv-line/60">
+                    <Link
+                      href={`/${dept.slug}`}
+                      className="font-sans text-xs font-semibold uppercase tracking-wider text-ccjv-green hover:underline"
+                    >
+                      En savoir plus
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-10 text-center">
+              <Button variant="outline" href="/organisation">
+                Voir les départements
+              </Button>
+            </div>
+          </>
+        ) : (
+          <EmptyState
+            title="Aucun département renseigné pour le moment"
+            description="La liste des départements apparaîtra ici."
+          />
+        )}
       </Section>
 
       {/* 05 — LA VIE DE L'ÉGLISE / ÉVÉNEMENTS */}
@@ -282,7 +378,7 @@ export default async function HomePage() {
         )}
         <div className="mt-10">
           <Button variant="outline" href="/vie-de-leglise/ou-nous-trouver">
-            Nous trouver et nous contacter →
+            Contactez-nous
           </Button>
         </div>
       </Section>
@@ -310,18 +406,12 @@ export default async function HomePage() {
             <TeachingFeature teaching={latestTeaching} />
           </Reveal>
         )}
+        {/*}
         <div className="mt-14 flex flex-col items-start gap-4 border-t border-ccjv-line pt-8 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <OpenBookMark size="md" className="text-ccjv-green" />
-            <p className="max-w-[42ch] text-[0.95rem] text-ccjv-ink-secondary">
-              Retrouvez l&apos;ensemble de nos messages sur notre chaîne
-              YouTube.
-            </p>
-          </div>
           <Button variant="outline" href="/publications/enseignements">
-            Tous les enseignements →
+            Découvrir plus
           </Button>
-        </div>
+        </div>*/}
       </Section>
 
       {/* 08 — LA COMMUNAUTÉ (visages, scrollytelling) */}
@@ -391,7 +481,7 @@ export default async function HomePage() {
             </p>
             <div className="mt-8">
               <Button variant="outline" href={site.whatsappHref} external>
-                Nous écrire à ce sujet
+                Contactez-nous
               </Button>
             </div>
           </Reveal>
@@ -432,7 +522,7 @@ export default async function HomePage() {
               Planifier ma visite
             </Button>
             <Button variant="inverse" size="lg" href={site.whatsappHref} external>
-              Écrire sur WhatsApp
+              Nous écrire
             </Button>
           </div>
           {settingsRead.status === "unreachable" ? (
@@ -459,14 +549,6 @@ export default async function HomePage() {
               </ul>
             )
           )}
-          <p className="mt-10">
-            <Link
-              href="/vie-de-leglise/ou-nous-trouver"
-              className="font-sans text-sm text-white/70 underline underline-offset-4 hover:text-white"
-            >
-              Voir les horaires et l&apos;accès →
-            </Link>
-          </p>
         </Reveal>
       </Section>
     </>

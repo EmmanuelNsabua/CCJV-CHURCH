@@ -32,6 +32,8 @@ export interface PublicationDto {
   /** Date ISO `YYYY-MM-DD`. */
   publishedAt: string;
   category?: PublicationCategory;
+  scope?: "CCJV" | "ECODIM";
+  departmentId?: string;
   author?: string;
   /** Corps éditorial des publications TEXTE. */
   body?: string[];
@@ -52,6 +54,8 @@ export function toPublicationDto(publication: Publication): PublicationDto {
     description: publication.description ?? undefined,
     publishedAt: publication.publishedAt,
     category: publication.category,
+    scope: publication.scope,
+    departmentId: publication.departmentId,
     author: publication.author ?? undefined,
     body: publication.body ?? undefined,
     status: publication.status,

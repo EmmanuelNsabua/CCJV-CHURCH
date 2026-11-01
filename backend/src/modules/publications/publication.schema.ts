@@ -45,6 +45,8 @@ const DEFAULT_SORT = "-published_at";
 export const listPublicationQuerySchema = paginationQuerySchema.extend({
   type: z.enum(["VIDEO", "PHOTO", "TEXTE"]).optional(),
   category: z.enum(["ACTUALITE", "ENSEIGNEMENT", "MEDIA", "RESSOURCE"]).optional(),
+  scope: z.enum(["CCJV", "ECODIM"]).optional(),
+  departmentId: z.string().uuid("L'identifiant de département doit être un UUID").optional(),
   // Défaut chronologique décroissant : c'est l'ordre des données de
   // démonstration du frontend et l'attendu d'une rubrique d'actualités.
   sort: z.preprocess(
@@ -71,6 +73,7 @@ const publicationFields = {
     .max(150, "Le titre ne peut pas dépasser 150 caractères"),
   type: z.enum(["VIDEO", "PHOTO", "TEXTE"]),
   category: z.enum(["ACTUALITE", "ENSEIGNEMENT", "MEDIA", "RESSOURCE"]),
+  scope: z.enum(["CCJV", "ECODIM"]).optional(),
   /**
    * `DRAFT` dépublie sans supprimer ; `PUBLISHED` est la valeur par défaut.
    *

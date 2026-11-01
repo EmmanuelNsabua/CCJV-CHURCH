@@ -20,7 +20,7 @@ import type {
   TeachingListQuery,
   UpdateTeachingBody,
 } from "./teaching.schema";
-import { NotFoundError, ValidationError } from "@/shared/errors/app-error";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error";
 import { slugify, uniqueSlug } from "@/shared/utils/slug";
 
 export class TeachingNotFoundError extends NotFoundError {
@@ -57,6 +57,8 @@ export class TeachingService {
 
     return this.repo.list({
       status,
+      scope: query.scope,
+      departmentId: query.departmentId,
       search: query.search,
       limit,
       offset,
@@ -99,7 +101,7 @@ export class TeachingService {
    * de publication ne serait posée. La publication passe exclusivement par
    * `publish()`, qui contrôle les médias et horodate `publishedAt`.
    */
-  async create(body: CreateTeachingBody): Promise<Teaching> {
+  async create(body: CreateTeachingBody, actor?: AdminProfile | null): Promise<Teaching> {
     if (body.status === "PUBLISHED") {
       throw new ValidationError(
         "Un enseignement ne peut pas être créé directement publié",
@@ -111,6 +113,18 @@ export class TeachingService {
           },
         ],
       );
+    }
+
+    if (actor?.role === "DEPARTMENT_MANAGER") {
+      if (body.scope === "CCJV" || (body.departmentId && body.departmentId !== actor.departmentId)) {
+        throw new ForbiddenError(
+          "Un responsable départemental ne peut créer d'enseignements que dans son périmètre (Ecodim)",
+        );
+      }
+      body.scope = "ECODIM";
+      if (actor.departmentId) {
+        body.departmentId = actor.departmentId;
+      }
     }
 
     validateTeachingMetadata({
@@ -128,6 +142,8 @@ export class TeachingService {
       preachedAt: body.preachedAt.trim(),
       summary: body.summary?.trim() || null,
       description: body.description?.trim() || null,
+      scope: body.scope ?? "CCJV",
+      departmentId: body.departmentId ?? null,
       status: body.status ?? "DRAFT",
     });
   }
@@ -145,10 +161,25 @@ export class TeachingService {
    * Re-enregistrer un enseignement déjà publié ne modifie **pas** sa date de
    * publication : sa récence éditoriale reste celle de sa première publication.
    */
-  async update(id: string, body: UpdateTeachingBody): Promise<Teaching> {
+  async update(
+    id: string,
+    body: UpdateTeachingBody,
+    actor?: AdminProfile | null,
+  ): Promise<Teaching> {
     const existing = await this.repo.findById(id);
     if (!existing) {
       throw new TeachingNotFoundError(id);
+    }
+
+    if (actor?.role === "DEPARTMENT_MANAGER") {
+      if (
+        existing.scope === "CCJV" ||
+        (existing.departmentId && existing.departmentId !== actor.departmentId)
+      ) {
+        throw new ForbiddenError(
+          "Ce contenu relève du site général CCJV et ne peut pas être modifié par un responsable départemental",
+        );
+      }
     }
 
     validateTeachingMetadata({
@@ -179,6 +210,8 @@ export class TeachingService {
       preachedAt: body.preachedAt?.trim(),
       summary: body.summary !== undefined ? (body.summary?.trim() || null) : undefined,
       description: body.description !== undefined ? (body.description?.trim() || null) : undefined,
+      scope: body.scope,
+      departmentId: body.departmentId,
       // `PUBLISHED` est appliqué plus bas par `publish()`, jamais ici ; une
       // absence de statut reste une absence de clé (aucune écriture).
       ...(body.status !== undefined && !requestsPublication
@@ -248,10 +281,21 @@ export class TeachingService {
    * Publication contrôlée de l'enseignement.
    * Règle impérative : au moins un média visuel (vidéo ou image) ou audio valide doit être attaché.
    */
-  async publish(id: string): Promise<Teaching> {
+  async publish(id: string, actor?: AdminProfile | null): Promise<Teaching> {
     const teaching = await this.repo.findById(id);
     if (!teaching) {
       throw new TeachingNotFoundError(id);
+    }
+
+    if (actor?.role === "DEPARTMENT_MANAGER") {
+      if (
+        teaching.scope === "CCJV" ||
+        (teaching.departmentId && teaching.departmentId !== actor.departmentId)
+      ) {
+        throw new ForbiddenError(
+          "Ce contenu relève du site général CCJV et ne peut pas être publié par un responsable départemental",
+        );
+      }
     }
 
     validateTeachingMetadata({
@@ -268,10 +312,21 @@ export class TeachingService {
   /**
    * Archivage d'un enseignement.
    */
-  async archive(id: string): Promise<Teaching> {
+  async archive(id: string, actor?: AdminProfile | null): Promise<Teaching> {
     const teaching = await this.repo.findById(id);
     if (!teaching) {
       throw new TeachingNotFoundError(id);
+    }
+
+    if (actor?.role === "DEPARTMENT_MANAGER") {
+      if (
+        teaching.scope === "CCJV" ||
+        (teaching.departmentId && teaching.departmentId !== actor.departmentId)
+      ) {
+        throw new ForbiddenError(
+          "Action réservée au périmètre attribué",
+        );
+      }
     }
 
     return this.repo.archive(id);
@@ -280,10 +335,21 @@ export class TeachingService {
   /**
    * Suppression d'un enseignement.
    */
-  async delete(id: string): Promise<void> {
+  async delete(id: string, actor?: AdminProfile | null): Promise<void> {
     const teaching = await this.repo.findById(id);
     if (!teaching) {
       throw new TeachingNotFoundError(id);
+    }
+
+    if (actor?.role === "DEPARTMENT_MANAGER") {
+      if (
+        teaching.scope === "CCJV" ||
+        (teaching.departmentId && teaching.departmentId !== actor.departmentId)
+      ) {
+        throw new ForbiddenError(
+          "Action réservée au périmètre attribué",
+        );
+      }
     }
 
     await this.repo.delete(id);

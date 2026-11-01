@@ -48,14 +48,14 @@ export function createTeachingController(service: TeachingService) {
 
     async create(req: Request, res: Response): Promise<void> {
       const body = req.body as CreateTeachingBody;
-      const created = await service.create(body);
+      const created = await service.create(body, req.admin);
       sendItem(res, toTeachingDto(created), 201);
     },
 
     async update(req: Request, res: Response): Promise<void> {
       const { id } = validatedParams<TeachingIdParams>(req);
       const body = req.body as UpdateTeachingBody;
-      const updated = await service.update(id, body);
+      const updated = await service.update(id, body, req.admin);
       sendItem(res, toTeachingDto(updated));
     },
 
@@ -78,19 +78,19 @@ export function createTeachingController(service: TeachingService) {
 
     async publish(req: Request, res: Response): Promise<void> {
       const { id } = validatedParams<TeachingIdParams>(req);
-      const published = await service.publish(id);
+      const published = await service.publish(id, req.admin);
       sendItem(res, toTeachingDto(published));
     },
 
     async archive(req: Request, res: Response): Promise<void> {
       const { id } = validatedParams<TeachingIdParams>(req);
-      const archived = await service.archive(id);
+      const archived = await service.archive(id, req.admin);
       sendItem(res, toTeachingDto(archived));
     },
 
     async remove(req: Request, res: Response): Promise<void> {
       const { id } = validatedParams<TeachingIdParams>(req);
-      await service.delete(id);
+      await service.delete(id, req.admin);
       sendNoContent(res);
     },
   };

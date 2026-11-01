@@ -6,6 +6,7 @@ import { CrossLinks } from "@/components/editorial/CrossLinks";
 import { FeatureImage } from "@/components/editorial/FeatureImage";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
+import { ScopeFilterTabs } from "@/components/editorial/ScopeFilterTabs";
 import { getPublications, readOrUnavailable } from "@/lib/api/endpoints";
 import { images } from "@/data/images";
 import { formatLongDate, formatRelativeTime } from "@/lib/utils";
@@ -18,21 +19,30 @@ export const metadata = pageMetadata({
   path: "/publications/actualites",
 });
 
-export default async function ActualitesPage() {
+interface ActualitesPageProps {
+  searchParams?: Promise<{ scope?: string }>;
+}
+
+export default async function ActualitesPage(props: ActualitesPageProps) {
+  const searchParams = await props.searchParams;
+  const activeScope: "CCJV" | "ECODIM" =
+    searchParams?.scope === "ECODIM" ? "ECODIM" : "CCJV";
+
   /*
    * Deux lectures distinctes : la rubrique Actualités (la une et les autres
    * actualités) et l'ensemble des publications, dont on tire ce qui a paru dans
-   * les autres rubriques. L'API ne sait pas exclure une rubrique, le filtrage
-   * se fait donc ici, côté serveur.
-   *
-   * Chacune est évaluée séparément : « l'API n'a pas répondu » n'est pas
-   * « il n'y a rien à afficher », et les deux ne se présentent pas pareil.
+   * les autres rubriques.
    */
   const [itemsRead, allRead] = await Promise.all([
     readOrUnavailable((options) =>
-      getPublications({ category: "ACTUALITE", limit: 50 }, options),
+      getPublications(
+        { category: "ACTUALITE", scope: activeScope, limit: 50 },
+        options,
+      ),
     ),
-    readOrUnavailable((options) => getPublications({ limit: 50 }, options)),
+    readOrUnavailable((options) =>
+      getPublications({ scope: activeScope, limit: 50 }, options),
+    ),
   ]);
 
   const items = itemsRead.status === "ok" ? itemsRead.data : [];
@@ -61,6 +71,13 @@ export default async function ActualitesPage() {
         /* Cible de l'action du héros : elle existe même sans actualité publiée,
            pour qu'aucun bouton ne mène nulle part. */
         <div id="actualites" className="scroll-mt-28">
+          <ScopeFilterTabs
+            activeScope={activeScope}
+            baseHref="/publications/actualites"
+            ccjvLabel="CCJV"
+            ecodimLabel="ECODIM"
+          />
+
           {itemsRead.status === "unreachable" ? (
             <ContentUnavailable resource="Les actualités" />
           ) : lead ? (

@@ -73,6 +73,8 @@ export interface EventsQuery {
 export interface PublicationsQuery {
   type?: PublicationType;
   category?: PublicationCategory;
+  scope?: "CCJV" | "ECODIM";
+  departmentId?: string;
   page?: number;
   limit?: number;
   /** Colonne de tri (`published_at`, `-published_at`, `created_at`…). */
@@ -276,6 +278,8 @@ export async function getPublications(
     withQuery("/publications", {
       type: query.type,
       category: query.category,
+      scope: query.scope,
+      departmentId: query.departmentId,
       page: query.page,
       limit: query.limit,
       sort: query.sort,
@@ -864,6 +868,8 @@ export interface ListEnseignementsQuery {
   limit?: number;
   status?: TeachingStatus;
   search?: string;
+  scope?: "CCJV" | "ECODIM";
+  departmentId?: string;
 }
 
 /**
@@ -885,6 +891,8 @@ export async function listEnseignements(
         limit: query.limit ?? 20,
         status: query.status,
         search: query.search,
+        scope: query.scope,
+        departmentId: query.departmentId,
       }),
       { timeoutMs: 15_000, ...options },
     );
@@ -937,18 +945,36 @@ export function enseignementHref(
  * ferait passer pour complète.
  */
 export async function listAllEnseignements(
-  options: PublicReadOptions = {},
+  queryOrOptions:
+    | (Pick<ListEnseignementsQuery, "scope" | "departmentId" | "search"> &
+        PublicReadOptions)
+    | PublicReadOptions = {},
+  options?: PublicReadOptions,
 ): Promise<EnseignementRecord[]> {
+  const query: Pick<ListEnseignementsQuery, "scope" | "departmentId" | "search"> =
+    {};
+  if ("scope" in queryOrOptions && queryOrOptions.scope) {
+    query.scope = queryOrOptions.scope;
+  }
+  if ("departmentId" in queryOrOptions && queryOrOptions.departmentId) {
+    query.departmentId = queryOrOptions.departmentId;
+  }
+  if ("search" in queryOrOptions && queryOrOptions.search) {
+    query.search = queryOrOptions.search;
+  }
+
+  const actualOptions = options ?? queryOrOptions;
+
   const first = await listEnseignements(
-    { page: 1, limit: TEACHING_PAGE_SIZE },
-    options,
+    { page: 1, limit: TEACHING_PAGE_SIZE, ...query },
+    actualOptions,
   );
   const items = [...first.items];
 
   for (let page = 2; page <= first.totalPages; page += 1) {
     const next = await listEnseignements(
-      { page, limit: TEACHING_PAGE_SIZE },
-      options,
+      { page, limit: TEACHING_PAGE_SIZE, ...query },
+      actualOptions,
     );
     items.push(...next.items);
   }
@@ -1468,6 +1494,61 @@ export async function updateLeader(
 /** Supprime un responsable (`DELETE /leaders/:id`). */
 export async function deleteLeader(id: string): Promise<void> {
   await apiFetchOrThrow(`/leaders/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Visages de la communauté (Administration)                                 */
+/* -------------------------------------------------------------------------- */
+
+export interface CreateCommunityFacePayload {
+  personName: string;
+  caption: string;
+  photoMediaId?: string | null;
+  position?: number;
+}
+
+export type UpdateCommunityFacePayload = Partial<CreateCommunityFacePayload>;
+
+/** Crée un visage de la communauté (`POST /community-faces`). */
+export async function createCommunityFace(
+  payload: CreateCommunityFacePayload,
+): Promise<CommunityFace> {
+  const res = await apiFetchOrThrow<{ data: CommunityFace } | CommunityFace>(
+    "/community-faces",
+    {
+      method: "POST",
+      body: payload as unknown as Record<string, unknown>,
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as CommunityFace;
+  }
+  return res as CommunityFace;
+}
+
+/** Met à jour un visage de la communauté (`PATCH /community-faces/:id`). */
+export async function updateCommunityFace(
+  id: string,
+  payload: UpdateCommunityFacePayload,
+): Promise<CommunityFace> {
+  const res = await apiFetchOrThrow<{ data: CommunityFace } | CommunityFace>(
+    `/community-faces/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: payload as unknown as Record<string, unknown>,
+    },
+  );
+  if (isRecord(res) && "data" in res && isRecord(res.data)) {
+    return res.data as unknown as CommunityFace;
+  }
+  return res as CommunityFace;
+}
+
+/** Supprime un visage de la communauté (`DELETE /community-faces/:id`). */
+export async function deleteCommunityFace(id: string): Promise<void> {
+  await apiFetchOrThrow(`/community-faces/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
 }

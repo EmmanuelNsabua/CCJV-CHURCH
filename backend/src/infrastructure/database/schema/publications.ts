@@ -32,6 +32,9 @@ import { media } from "./media";
  * `status` permet la publication / dépublication demandée par le cahier §8,
  * tout en gardant `PUBLISHED` par défaut pour ne pas rendre invisible un
  * contenu créé par mégarde en brouillon.
+ *
+ * `scope` permet de distinguer les publications générales du CCJV ("CCJV")
+ * des publications pédagogiques de l'Ecodim ("ECODIM").
  */
 export const publications = pgTable(
   "publications",
@@ -41,6 +44,7 @@ export const publications = pgTable(
     slug: varchar("slug", { length: 180 }).notNull(),
     type: publicationTypeEnum("type").notNull(),
     category: publicationCategoryEnum("category").notNull(),
+    scope: varchar("scope", { length: 20 }).notNull().default("CCJV"),
     /**
      * `VIDEO` → URL YouTube/Facebook (aucun hébergement vidéo côté CCJV).
      * `PHOTO` → URL Supabase Storage.
@@ -92,6 +96,7 @@ export const publications = pgTable(
     index("publications_category_idx").on(table.category),
     index("publications_type_idx").on(table.type),
     index("publications_status_idx").on(table.status),
+    index("publications_scope_idx").on(table.scope),
     index("publications_department_idx").on(table.departmentId),
     /**
      * Index **partiel** de la règle des 3 : les trois places du site.

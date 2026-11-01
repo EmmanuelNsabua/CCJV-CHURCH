@@ -32,7 +32,7 @@ export const site = {
   foundedAt: "17 mars 2023",
   ecodimFoundedAt: "2 juillet 2023",
   visionary: "Pasteur Manasse Mwamba",
-  visionaryRole: "Visionnaire / Pasteur principal",
+  visionaryRole: "Visionnaire",
 
   /** Adresse communiquée par CCJV. */
   address: "Quartier Hewa Bora, Avenue Djoloko Lubumbashi",

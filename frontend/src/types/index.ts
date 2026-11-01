@@ -97,6 +97,7 @@ export interface Publication {
   id: string;
   title: string;
   slug: string;
+  scope?: "CCJV" | "ECODIM";
   type: PublicationType;
   /** Lien vidéo externe (YouTube/Facebook) ou chemin image. */
   contentUrl?: string;

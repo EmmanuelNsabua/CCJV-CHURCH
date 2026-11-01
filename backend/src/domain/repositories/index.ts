@@ -135,6 +135,7 @@ export interface PublicationInput {
   body?: string[] | null;
   author?: string | null;
   publishedAt: string;
+  scope?: "CCJV" | "ECODIM";
   /**
    * Département **responsable**, obligatoire (D-02, D-06).
    *
@@ -158,6 +159,8 @@ export interface PublicationFilters {
   type?: PublicationType;
   category?: PublicationCategory;
   status?: PublicationStatus;
+  scope?: "CCJV" | "ECODIM";
+  departmentId?: string;
 }
 
 export type PublicationSortColumn = "published_at" | "created_at";
@@ -687,6 +690,8 @@ export interface CreateTeachingInput {
   preachedAt: string;
   summary?: string | null;
   description?: string | null;
+  scope?: "CCJV" | "ECODIM";
+  departmentId?: string | null;
   status?: TeachingStatus;
 }
 
@@ -697,6 +702,8 @@ export interface UpdateTeachingInput {
   preachedAt?: string;
   summary?: string | null;
   description?: string | null;
+  scope?: "CCJV" | "ECODIM";
+  departmentId?: string | null;
   status?: TeachingStatus;
 }
 
@@ -719,6 +726,8 @@ export interface TeachingMediaInput {
 export interface TeachingFilter {
   status?: TeachingStatus;
   search?: string;
+  scope?: "CCJV" | "ECODIM";
+  departmentId?: string;
   limit?: number;
   offset?: number;
 }

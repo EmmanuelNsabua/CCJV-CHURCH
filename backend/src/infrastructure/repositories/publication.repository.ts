@@ -158,6 +158,7 @@ export class DrizzlePublicationRepository implements PublicationRepository {
         // échouer explicitement plutôt que produire une publication sans
         // responsable, état que la base refuse.
         departmentId: data.departmentId,
+        scope: data.scope ?? "CCJV",
         archivedAt: data.archivedAt ?? null,
       })
       .returning();
@@ -191,6 +192,8 @@ export class DrizzlePublicationRepository implements PublicationRepository {
     if (data.body !== undefined) patch.body = data.body;
     if (data.author !== undefined) patch.author = data.author;
     if (data.publishedAt !== undefined) patch.publishedAt = data.publishedAt;
+    if (data.scope !== undefined) patch.scope = data.scope;
+    if (data.departmentId !== undefined) patch.departmentId = data.departmentId;
 
     if (Object.keys(patch).length > 0) {
       await this.db
@@ -415,6 +418,12 @@ export class DrizzlePublicationRepository implements PublicationRepository {
     if (filters.status !== undefined) {
       conditions.push(eq(publications.status, filters.status));
     }
+    if (filters.scope !== undefined) {
+      conditions.push(eq(publications.scope, filters.scope));
+    }
+    if (filters.departmentId !== undefined) {
+      conditions.push(eq(publications.departmentId, filters.departmentId));
+    }
 
     if (conditions.length === 0) return undefined;
     return and(...conditions);
@@ -450,6 +459,7 @@ export class DrizzlePublicationRepository implements PublicationRepository {
       slug: row.slug,
       type: row.type,
       category: row.category,
+      scope: (row.scope as "CCJV" | "ECODIM") ?? "CCJV",
       status: row.status,
       contentUrl: row.contentUrl,
       coverMediaId: row.coverMediaId,

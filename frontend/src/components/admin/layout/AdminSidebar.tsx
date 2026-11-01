@@ -26,6 +26,7 @@ export interface NavItem {
   icon: React.ElementType;
   exact?: boolean;
   typeParam?: string;
+  subItems?: { label: string; href: string }[];
 }
 
 export interface NavSection {
@@ -91,6 +92,11 @@ export const adminNavSections: NavSection[] = [
         label: "Départements",
         href: "/admin/departments",
         icon: Users,
+        subItems: [
+          { label: "Départements", href: "/admin/departments" },
+          { label: "Leaders & Responsables", href: "/admin/departments/leaders" },
+          { label: "Visages de la communauté", href: "/admin/departments/community-faces" },
+        ],
       },
     ],
   },
@@ -225,6 +231,36 @@ export function AdminSidebar({ onCloseMobile, className }: AdminSidebarProps) {
                         />
                         <span className="truncate">{item.label}</span>
                       </Link>
+
+                      {item.subItems && (pathname === item.href || pathname.startsWith(`${item.href}/`)) && (
+                        <ul className="mt-1 ml-7 pl-2.5 border-l border-white/20 space-y-1 py-1">
+                          {item.subItems.map((sub) => {
+                            const isSubActive =
+                              sub.href === "/admin/departments"
+                                ? pathname === "/admin/departments" ||
+                                  (pathname.startsWith("/admin/departments/") &&
+                                    !pathname.startsWith("/admin/departments/leaders") &&
+                                    !pathname.startsWith("/admin/departments/community-faces"))
+                                : pathname === sub.href || pathname.startsWith(`${sub.href}/`);
+                            return (
+                              <li key={sub.href}>
+                                <Link
+                                  href={sub.href}
+                                  onClick={onCloseMobile}
+                                  className={cn(
+                                    "block px-2 py-1 text-[11px] font-sans rounded-none transition-colors",
+                                    isSubActive
+                                      ? "text-[#ede4c8] font-bold bg-white/10"
+                                      : "text-white/60 hover:text-white hover:bg-white/5",
+                                  )}
+                                >
+                                  {sub.label}
+                                </Link>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
                     </li>
                   );
                 })}

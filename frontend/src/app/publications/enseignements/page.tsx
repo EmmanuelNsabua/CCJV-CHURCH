@@ -8,6 +8,7 @@ import { ScriptureBlock } from "@/components/editorial/ScriptureBlock";
 import { CrossLinks, type CrossLink } from "@/components/editorial/CrossLinks";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
+import { ScopeFilterTabs } from "@/components/editorial/ScopeFilterTabs";
 import { TeachingFeature } from "@/features/publications/TeachingFeature";
 import {
   enseignementHref,
@@ -70,15 +71,32 @@ function playableRole(teaching: EnseignementRecord): "VIDEO" | "AUDIO" | null {
  * Aucune donnée de remplacement n'est inventée : une liste vide donne un état
  * vide explicite, une API injoignable un état d'indisponibilité.
  */
-export default async function EnseignementsPage() {
+interface EnseignementsPageProps {
+  searchParams?: Promise<{ scope?: string }>;
+}
+
+export default async function EnseignementsPage(props: EnseignementsPageProps) {
+  const searchParams = await props.searchParams;
+  const activeScope: "CCJV" | "ECODIM" =
+    searchParams?.scope === "ECODIM" ? "ECODIM" : "CCJV";
+
   const [teachingsRead, scripturesRead] = await Promise.all([
     readOrUnavailable((options) => listAllEnseignements(options)),
     readOrUnavailable((options) => getScriptures(options)),
   ]);
 
-  const teachings =
+  const allTeachings =
     teachingsRead.status === "ok" ? teachingsRead.data : [];
   const teachingsUnavailable = teachingsRead.status === "unreachable";
+
+  const ccjvTeachings = allTeachings.filter(
+    (teaching) => !teaching.scope || teaching.scope === "CCJV",
+  );
+  const ecodimTeachings = allTeachings.filter(
+    (teaching) => teaching.scope === "ECODIM",
+  );
+
+  const teachings = activeScope === "ECODIM" ? ecodimTeachings : ccjvTeachings;
 
   const verse =
     scripturesRead.status === "ok"
@@ -110,15 +128,25 @@ export default async function EnseignementsPage() {
       : [];
   });
 
-  const listingTitle = featured ? "Les autres messages" : "Toutes les prédications";
+  const listingTitle = featured
+    ? activeScope === "ECODIM"
+      ? "Les autres leçons Ecodim"
+      : "Les autres messages"
+    : activeScope === "ECODIM"
+      ? "Toutes les prédications Ecodim"
+      : "Toutes les prédications";
 
   return (
     <MediaPage
       rhythm="standard"
       hero={
         <HeroEditorial
-          title="Enseignements"
-          intro="Les messages et prédications donnés à l'assemblée du Centre Chrétien Jésus ma Vie. On vient ici pour écouter, méditer les Écritures et grandir dans la foi."
+          title={activeScope === "ECODIM" ? "Enseignements Ecodim" : "Enseignements"}
+          intro={
+            activeScope === "ECODIM"
+              ? "Les messages, récits bibliques et enseignements de l'École du Dimanche (Ecodim) destinés à former et édifier les enfants dans la foi chrétienne."
+              : "Les messages et prédications donnés à l'assemblée du Centre Chrétien Jésus ma Vie. On vient ici pour écouter, méditer les Écritures et grandir dans la foi."
+          }
           image={images.predication}
           imageAlt="Assemblée attentive pendant la prédication, au Centre Chrétien Jésus ma Vie"
           action={{ label: "Écouter les prédications ↓", href: "#messages" }}
@@ -128,19 +156,40 @@ export default async function EnseignementsPage() {
         /* Cible de l'action du héros : elle existe même sans message publié,
            pour qu'aucun bouton ne mène nulle part. */
         <div id="messages" className="scroll-mt-28">
+          <ScopeFilterTabs
+            activeScope={activeScope}
+            baseHref="/publications/enseignements"
+            ccjvLabel="CCJV"
+            ecodimLabel="ECODIM"
+            counts={{
+              ccjv: ccjvTeachings.length,
+              ecodim: ecodimTeachings.length,
+            }}
+          />
+
           {teachingsUnavailable ? (
             <ContentUnavailable resource="Les enseignements" />
           ) : featured ? (
             <>
               <p className="mb-8 font-sans text-xs font-semibold tracking-[0.18em] text-ccjv-green uppercase">
-                Le dernier message publié
+                {activeScope === "ECODIM"
+                  ? "Le dernier enseignement Ecodim publié"
+                  : "Le dernier message publié"}
               </p>
               <TeachingFeature teaching={featured} />
             </>
           ) : (
             <EmptyState
-              title="Aucun enseignement pour le moment"
-              description="Les messages publiés depuis le back-office apparaîtront ici."
+              title={
+                activeScope === "ECODIM"
+                  ? "Aucun enseignement Ecodim pour le moment"
+                  : "Aucun enseignement pour le moment"
+              }
+              description={
+                activeScope === "ECODIM"
+                  ? "Les enseignements publiés pour le périmètre Ecodim apparaîtront ici."
+                  : "Les messages publiés depuis le back-office apparaîtront ici."
+              }
             />
           )}
         </div>

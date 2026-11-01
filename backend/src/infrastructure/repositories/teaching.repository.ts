@@ -107,6 +107,8 @@ export class DrizzleTeachingRepository implements TeachingRepository {
           : new Date(row.preachedAt).toISOString().slice(0, 10),
       summary: row.summary,
       description: row.description,
+      scope: (row.scope as "CCJV" | "ECODIM") ?? "CCJV",
+      departmentId: row.departmentId ?? null,
       status: row.status,
       publishedAt: row.publishedAt,
       createdAt: row.createdAt,
@@ -171,6 +173,14 @@ export class DrizzleTeachingRepository implements TeachingRepository {
       conditions.push(eq(teachings.status, filter.status));
     }
 
+    if (filter.scope) {
+      conditions.push(eq(teachings.scope, filter.scope));
+    }
+
+    if (filter.departmentId) {
+      conditions.push(eq(teachings.departmentId, filter.departmentId));
+    }
+
     if (filter.search && filter.search.trim()) {
       const term = `%${filter.search.trim()}%`;
       conditions.push(
@@ -220,6 +230,8 @@ export class DrizzleTeachingRepository implements TeachingRepository {
         preachedAt: data.preachedAt,
         summary: data.summary ?? null,
         description: data.description ?? null,
+        scope: data.scope ?? "CCJV",
+        departmentId: data.departmentId ?? null,
         status: data.status ?? "DRAFT",
       })
       .returning({ id: teachings.id });
@@ -242,6 +254,8 @@ export class DrizzleTeachingRepository implements TeachingRepository {
     if (data.preachedAt !== undefined) patch.preachedAt = data.preachedAt;
     if (data.summary !== undefined) patch.summary = data.summary;
     if (data.description !== undefined) patch.description = data.description;
+    if (data.scope !== undefined) patch.scope = data.scope;
+    if (data.departmentId !== undefined) patch.departmentId = data.departmentId;
     if (data.status !== undefined) patch.status = data.status;
 
     const [updated] = await this.db

@@ -1,9 +1,9 @@
-import type { Publication, PublicationType } from "@/domain/entities";
+import type { AdminProfile, Publication, PublicationType } from "@/domain/entities";
 import type {
   ListResult,
   PublicationRepository,
 } from "@/domain/repositories";
-import { NotFoundError, ValidationError } from "@/shared/errors/app-error";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error";
 import { toOffset } from "@/shared/http/pagination";
 import { slugify, uniqueSlug } from "@/shared/utils/slug";
 import type {
@@ -32,7 +32,13 @@ export class PublicationService {
   async list(query: PublicationListQuery): Promise<ListResult<Publication>> {
     return this.publications.list(
       { limit: query.limit, offset: toOffset(query.page, query.limit) },
-      { type: query.type, category: query.category, status: "PUBLISHED" },
+      {
+        type: query.type,
+        category: query.category,
+        status: "PUBLISHED",
+        scope: query.scope,
+        departmentId: query.departmentId,
+      },
       query.sort,
     );
   }
@@ -42,8 +48,20 @@ export class PublicationService {
     return this.require(idOrSlug, false);
   }
 
-  async create(data: CreatePublicationBody): Promise<Publication> {
+  async create(data: CreatePublicationBody, actor?: AdminProfile | null): Promise<Publication> {
     const { slug: requestedSlug, ...input } = data;
+
+    if (actor?.role === "DEPARTMENT_MANAGER") {
+      if (input.scope === "CCJV" || (input.departmentId && input.departmentId !== actor.departmentId)) {
+        throw new ForbiddenError(
+          "Un responsable départemental ne peut créer de publications que dans son périmètre (Ecodim)",
+        );
+      }
+      input.scope = "ECODIM";
+      if (actor.departmentId) {
+        input.departmentId = actor.departmentId;
+      }
+    }
 
     assertContentCoherence({
       type: input.type,
@@ -82,8 +100,18 @@ export class PublicationService {
   /**
    * Repasse une publication publiée en brouillon pour autoriser sa modification (règle §3.3).
    */
-  async revertToDraft(idOrSlug: string): Promise<Publication> {
+  async revertToDraft(idOrSlug: string, actor?: AdminProfile | null): Promise<Publication> {
     const existing = await this.require(idOrSlug, true);
+
+    if (actor?.role === "DEPARTMENT_MANAGER") {
+      if (
+        existing.scope === "CCJV" ||
+        (existing.departmentId && existing.departmentId !== actor.departmentId)
+      ) {
+        throw new ForbiddenError("Action réservée au périmètre attribué");
+      }
+    }
+
     const updated = await this.publications.revertToDraft(existing.id);
     if (!updated) {
       throw notFound(idOrSlug);
@@ -94,8 +122,20 @@ export class PublicationService {
   /**
    * Publie une publication (brouillon ou republiée) en actualisant sa date effective.
    */
-  async publish(idOrSlug: string, publishedAt?: string): Promise<Publication> {
+  async publish(idOrSlug: string, publishedAt?: string, actor?: AdminProfile | null): Promise<Publication> {
     const existing = await this.require(idOrSlug, true);
+
+    if (actor?.role === "DEPARTMENT_MANAGER") {
+      if (
+        existing.scope === "CCJV" ||
+        (existing.departmentId && existing.departmentId !== actor.departmentId)
+      ) {
+        throw new ForbiddenError(
+          "Ce contenu relève du site général CCJV et ne peut pas être publié par un responsable départemental",
+        );
+      }
+    }
+
     const updated = await this.publications.publish(existing.id, publishedAt);
     if (!updated) {
       throw notFound(idOrSlug);
@@ -113,8 +153,20 @@ export class PublicationService {
   async update(
     idOrSlug: string,
     data: UpdatePublicationBody,
+    actor?: AdminProfile | null,
   ): Promise<Publication> {
     const existing = await this.require(idOrSlug, true);
+
+    if (actor?.role === "DEPARTMENT_MANAGER") {
+      if (
+        existing.scope === "CCJV" ||
+        (existing.departmentId && existing.departmentId !== actor.departmentId)
+      ) {
+        throw new ForbiddenError(
+          "Ce contenu relève du site général CCJV et ne peut pas être modifié par un responsable départemental",
+        );
+      }
+    }
 
     if (existing.status === "PUBLISHED" && data.status !== "DRAFT") {
       throw new ValidationError(
@@ -142,8 +194,17 @@ export class PublicationService {
   }
 
   /** Administration : un brouillon est supprimable comme une publication. */
-  async remove(idOrSlug: string): Promise<void> {
+  async remove(idOrSlug: string, actor?: AdminProfile | null): Promise<void> {
     const existing = await this.require(idOrSlug, true);
+
+    if (actor?.role === "DEPARTMENT_MANAGER") {
+      if (
+        existing.scope === "CCJV" ||
+        (existing.departmentId && existing.departmentId !== actor.departmentId)
+      ) {
+        throw new ForbiddenError("Action réservée au périmètre attribué");
+      }
+    }
 
     const removed = await this.publications.remove(existing.id);
     if (!removed) {

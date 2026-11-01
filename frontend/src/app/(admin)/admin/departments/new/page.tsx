@@ -1,7 +1,7 @@
 "use client";
 
 import { DepartmentForm, type DepartmentFormSubmitPayload } from "@/components/admin/forms/DepartmentForm";
-import { createDepartment, saveDepartmentActivities, createLeader } from "@/lib/api";
+import { createDepartment, saveDepartmentActivities, createLeader, updateLeader } from "@/lib/api";
 
 export default function NewDepartmentPage() {
   const handleCreate = async ({
@@ -17,13 +17,22 @@ export default function NewDepartmentPage() {
         await saveDepartmentActivities(created.id, activities);
       }
       if (leader) {
-        await createLeader({
-          name: leader.name,
-          role: leader.role,
-          photoMediaId: leader.photoMediaId ?? null,
-          departmentId: created.id,
-          position: 0,
-        });
+        if (leader.id) {
+          await updateLeader(leader.id, {
+            name: leader.name,
+            role: leader.role,
+            photoMediaId: leader.photoMediaId ?? null,
+            departmentId: created.id,
+          });
+        } else {
+          await createLeader({
+            name: leader.name,
+            role: leader.role,
+            photoMediaId: leader.photoMediaId ?? null,
+            departmentId: created.id,
+            position: 0,
+          });
+        }
       }
     }
   };

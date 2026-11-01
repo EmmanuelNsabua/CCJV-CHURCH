@@ -35,6 +35,8 @@ export interface TeachingDto {
   preachedAt: string;
   summary: string | null;
   description: string | null;
+  scope: "CCJV" | "ECODIM";
+  departmentId?: string | null;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   publishedAt: string | null;
   createdAt: string;
@@ -111,6 +113,8 @@ export function toTeachingDto(teaching: Teaching): TeachingDto {
     preachedAt: teaching.preachedAt,
     summary: teaching.summary,
     description: teaching.description,
+    scope: teaching.scope ?? "CCJV",
+    departmentId: teaching.departmentId ?? null,
     status: teaching.status,
     publishedAt: teaching.publishedAt
       ? teaching.publishedAt.toISOString()

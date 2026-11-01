@@ -103,6 +103,8 @@ export interface Leader {
   bio: string | null;
   /** URL publique du portrait — `null` si aucune photo n'est rattachée. */
   photo: string | null;
+  photoUrl?: string | null;
+  photoMediaId?: string | null;
   /** `null` = responsable transversal, hors département. */
   departmentId: string | null;
   position: number;
@@ -137,6 +139,7 @@ export interface AdminTestimony {
   status: TestimonyStatus;
   isFeatured: boolean;
   photo: string | null;
+  photoUrl?: string | null;
   photoMediaId?: string | null;
   consentedAt?: string | null;
   publishedAt?: string | null;
@@ -375,6 +378,8 @@ export interface EnseignementRecord {
   preachedAt: string;
   summary: string | null;
   description: string | null;
+  scope?: "CCJV" | "ECODIM";
+  departmentId?: string | null;
   status: TeachingStatus;
   /** Date de **publication** ISO 8601 — critère de récence éditoriale. */
   publishedAt: string | null;
@@ -393,6 +398,8 @@ export interface CreateTeachingPayload {
   preachedAt: string;
   summary?: string | null;
   description?: string | null;
+  scope?: "CCJV" | "ECODIM";
+  departmentId?: string | null;
   status?: TeachingStatus;
 }
 
@@ -403,6 +410,8 @@ export interface UpdateTeachingPayload {
   preachedAt?: string;
   summary?: string | null;
   description?: string | null;
+  scope?: "CCJV" | "ECODIM";
+  departmentId?: string | null;
   status?: TeachingStatus;
 }
 

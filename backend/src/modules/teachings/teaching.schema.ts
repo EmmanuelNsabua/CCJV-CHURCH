@@ -13,6 +13,8 @@ export const teachingStatusSchema = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]);
 
 export const teachingListQuerySchema = paginationQuerySchema.extend({
   status: teachingStatusSchema.optional(),
+  scope: z.enum(["CCJV", "ECODIM"]).optional(),
+  departmentId: z.string().uuid("Identifiant UUID de département invalide").optional(),
   search: z.string().trim().optional(),
 });
 
@@ -36,6 +38,8 @@ export const createTeachingBodySchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Format de date invalide (AAAA-MM-JJ attendu)"),
   summary: z.string().trim().max(1000).optional().nullable(),
   description: z.string().trim().optional().nullable(),
+  scope: z.enum(["CCJV", "ECODIM"]).optional(),
+  departmentId: z.string().uuid("Identifiant UUID de département invalide").nullish(),
   status: teachingStatusSchema.optional(),
 });
 
@@ -52,6 +56,8 @@ export const updateTeachingBodySchema = z.object({
     .optional(),
   summary: z.string().trim().max(1000).optional().nullable(),
   description: z.string().trim().optional().nullable(),
+  scope: z.enum(["CCJV", "ECODIM"]).optional(),
+  departmentId: z.string().uuid("Identifiant UUID de département invalide").nullish(),
   status: teachingStatusSchema.optional(),
 });
 

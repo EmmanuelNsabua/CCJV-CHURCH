@@ -298,6 +298,7 @@ export interface Publication {
   slug: string;
   type: PublicationType;
   category: PublicationCategory;
+  scope?: "CCJV" | "ECODIM";
   status: PublicationStatus;
   contentUrl: string | null;
   /** Identifiant du média de couverture lié (si présent). */
@@ -544,6 +545,8 @@ export interface Teaching {
   preachedAt: string;
   summary: string | null;
   description: string | null;
+  scope?: "CCJV" | "ECODIM";
+  departmentId?: string | null;
   status: TeachingStatus;
   publishedAt: Date | null;
   createdAt: Date;

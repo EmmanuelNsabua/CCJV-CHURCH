@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { User, Image as ImageIcon, X } from "lucide-react";
+import { User, Image as ImageIcon, X, UserCheck, UserPlus } from "lucide-react";
 import { AdminMediaPickerModal } from "@/components/admin/media/AdminMediaPickerModal";
 import type { AdminMediaItem } from "@/lib/api/types";
 import type { AdminMediaValue } from "@/components/admin/media/AdminMediaField";
+import { getLeaders, type Leader } from "@/lib/api";
 
 export interface DepartmentLeaderData {
   id?: string;
@@ -28,6 +29,12 @@ export function LeaderModal({
   onSave,
   initialData,
 }: LeaderModalProps) {
+  const [activeTab, setActiveTab] = useState<"SELECT" | "CREATE">("SELECT");
+  const [availableLeaders, setAvailableLeaders] = useState<Leader[]>([]);
+  const [selectedLeaderId, setSelectedLeaderId] = useState<string>("");
+  const [isLoadingLeaders, setIsLoadingLeaders] = useState(false);
+
+  // Champs de création manuelle
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [photoMedia, setPhotoMedia] = useState<AdminMediaValue | null>(null);
@@ -36,6 +43,27 @@ export function LeaderModal({
 
   useEffect(() => {
     if (isOpen) {
+      setIsLoadingLeaders(true);
+      getLeaders({ limit: 100 })
+        .then((ldrs) => {
+          setAvailableLeaders(ldrs || []);
+          if (initialData?.id) {
+            setSelectedLeaderId(initialData.id);
+            setActiveTab("SELECT");
+          } else if (ldrs && ldrs.length > 0) {
+            setSelectedLeaderId(ldrs[0].id);
+            setActiveTab("SELECT");
+          } else {
+            setActiveTab("CREATE");
+          }
+        })
+        .catch(() => {
+          setActiveTab("CREATE");
+        })
+        .finally(() => {
+          setIsLoadingLeaders(false);
+        });
+
       if (initialData) {
         setName(initialData.name || "");
         setRole(initialData.role || "");
@@ -64,8 +92,23 @@ export function LeaderModal({
     if (e && "preventDefault" in e) {
       e.preventDefault();
     }
-    const newErrors: Record<string, string> = {};
 
+    if (activeTab === "SELECT") {
+      const chosen = availableLeaders.find((l) => l.id === selectedLeaderId);
+      if (chosen) {
+        onSave({
+          id: chosen.id,
+          name: chosen.name,
+          role: chosen.role,
+          photoMediaId: chosen.photoMediaId ?? null,
+          photoUrl: chosen.photoUrl || chosen.photo || null,
+        });
+        onClose();
+        return;
+      }
+    }
+
+    const newErrors: Record<string, string> = {};
     if (!name.trim()) {
       newErrors.name = "Le nom complet est obligatoire.";
     }
@@ -112,149 +155,253 @@ export function LeaderModal({
         aria-labelledby="leader-modal-title"
       >
         <div className="bg-white border border-ccjv-line w-full max-w-[580px] p-7 rounded-none space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-          {/* En-tête : Icône + Titre + Ligne séparatrice */}
-          <div className="border-b border-ccjv-line/70 pb-3">
+          {/* En-tête : Titre */}
+          <div className="border-b border-ccjv-line/70 pb-3 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <User className="h-5 w-5 text-ccjv-ink stroke-[1.75]" />
               <h3
                 id="leader-modal-title"
                 className="text-base font-serif font-bold text-ccjv-ink"
               >
-                {initialData ? "Modifier le responsable" : "Ajouter un responsable"}
+                {initialData ? "Modifier le responsable du pôle" : "Assigner un responsable au pôle"}
               </h3>
             </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-ccjv-ink-secondary hover:text-ccjv-ink p-1"
+              aria-label="Fermer"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
 
-          {/* Formulaire : 2 colonnes horizontales */}
-          <div
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmit(e);
-              }
-            }}
-            className="space-y-6"
-          >
-            <div className="grid grid-cols-[130px_1fr] gap-6 items-center">
-              {/* Colonne gauche : Cadre Photo de profil */}
-              <div
-                onClick={() => setIsPickerOpen(true)}
-                className={`relative w-[130px] h-[130px] border border-dashed rounded-none flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors overflow-hidden group select-none ${
-                  photoMedia?.url
-                    ? "border-ccjv-line bg-white"
-                    : "border-ccjv-line bg-[#f8f9fa] hover:border-ccjv-green hover:bg-ccjv-offwhite"
-                }`}
-                title="Cliquez pour sélectionner une photo depuis la médiathèque"
-              >
-                {photoMedia?.url ? (
-                  <>
-                    <Image
-                      src={photoMedia.url}
-                      alt={name || "Photo de profil"}
-                      fill
-                      className="object-cover"
-                      sizes="130px"
+          {/* Onglets Sélection / Création */}
+          <div className="flex items-center border-b border-ccjv-line">
+            <button
+              type="button"
+              onClick={() => setActiveTab("SELECT")}
+              className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 -mb-px transition-colors ${
+                activeTab === "SELECT"
+                  ? "border-ccjv-green text-ccjv-green bg-ccjv-green/5"
+                  : "border-transparent text-ccjv-ink-secondary hover:text-ccjv-ink"
+              }`}
+            >
+              <UserCheck className="h-4 w-4" />
+              Sélectionner un leader existant
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("CREATE")}
+              className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 -mb-px transition-colors ${
+                activeTab === "CREATE"
+                  ? "border-ccjv-green text-ccjv-green bg-ccjv-green/5"
+                  : "border-transparent text-ccjv-ink-secondary hover:text-ccjv-ink"
+              }`}
+            >
+              <UserPlus className="h-4 w-4" />
+              Créer un nouveau leader
+            </button>
+          </div>
+
+          {/* Corps de l'onglet actif */}
+          {activeTab === "SELECT" ? (
+            <div className="space-y-4">
+              {isLoadingLeaders ? (
+                <p className="text-xs text-ccjv-ink-secondary py-6 text-center">
+                  Chargement des leaders du référentiel...
+                </p>
+              ) : availableLeaders.length === 0 ? (
+                <div className="p-4 bg-ccjv-offwhite border border-ccjv-line text-center space-y-2">
+                  <p className="text-xs text-ccjv-ink-secondary">
+                    Aucun leader enregistré dans le référentiel pour le moment.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("CREATE")}
+                    className="text-xs font-semibold text-ccjv-green hover:underline"
+                  >
+                    Créer un nouveau leader
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <label className="block text-xs font-semibold text-ccjv-ink">
+                    Choisir parmi les leaders existants
+                  </label>
+                  <select
+                    value={selectedLeaderId}
+                    onChange={(e) => setSelectedLeaderId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-ccjv-line rounded-none bg-white text-ccjv-ink focus:outline-2 focus:outline-ccjv-green"
+                  >
+                    {availableLeaders.map((ldr) => (
+                      <option key={ldr.id} value={ldr.id}>
+                        {ldr.name} — {ldr.role}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Aperçu du leader sélectionné */}
+                  {(() => {
+                    const chosen = availableLeaders.find((l) => l.id === selectedLeaderId);
+                    if (!chosen) return null;
+                    const photo = chosen.photoUrl || chosen.photo;
+                    return (
+                      <div className="flex items-center gap-3 p-3 border border-ccjv-line bg-ccjv-offwhite">
+                        <div className="relative w-12 h-12 shrink-0 bg-white border border-ccjv-line flex items-center justify-center overflow-hidden">
+                          {photo ? (
+                            <Image
+                              src={photo}
+                              alt={chosen.name}
+                              fill
+                              className="object-cover"
+                              sizes="48px"
+                            />
+                          ) : (
+                            <User className="h-6 w-6 text-ccjv-ink-secondary/40" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-xs text-ccjv-ink truncate">{chosen.name}</p>
+                          <p className="text-[11px] text-ccjv-ink-secondary">{chosen.role}</p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit(e);
+                }
+              }}
+              className="space-y-6"
+            >
+              <div className="grid grid-cols-[130px_1fr] gap-6 items-center">
+                {/* Colonne gauche : Cadre Photo de profil */}
+                <div
+                  onClick={() => setIsPickerOpen(true)}
+                  className={`relative w-[130px] h-[130px] border border-dashed rounded-none flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors overflow-hidden group select-none ${
+                    photoMedia?.url
+                      ? "border-ccjv-line bg-white"
+                      : "border-ccjv-line bg-[#f8f9fa] hover:border-ccjv-green hover:bg-ccjv-offwhite"
+                  }`}
+                  title="Cliquez pour sélectionner une photo depuis la médiathèque"
+                >
+                  {photoMedia?.url ? (
+                    <>
+                      <Image
+                        src={photoMedia.url}
+                        alt={name || "Photo de profil"}
+                        fill
+                        className="object-cover"
+                        sizes="130px"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-[11px] font-medium">
+                        <span>Changer</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemovePhoto}
+                        className="absolute top-1 right-1 p-1 bg-black/70 hover:bg-red-600 text-white transition-colors"
+                        title="Retirer la photo"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-ccjv-ink-secondary/60 group-hover:text-ccjv-green transition-colors">
+                        <ImageIcon className="w-6 h-6 stroke-[1.5]" />
+                      </div>
+                      <span className="text-[11px] text-ccjv-ink-secondary group-hover:text-ccjv-green transition-colors">
+                        Photo de profil
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {/* Colonne droite : Champs Nom complet & Rôle */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-ccjv-ink mb-1.5">
+                      Nom complet <span className="text-red-500 font-bold">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        if (errors.name) {
+                          setErrors((prev) => {
+                            const copy = { ...prev };
+                            delete copy.name;
+                            return copy;
+                          });
+                        }
+                      }}
+                      placeholder="Ex : Pasteur David Mukendi"
+                      className={`w-full px-3 py-2 text-xs border rounded-none bg-white text-ccjv-ink placeholder:text-ccjv-ink-secondary/60 focus:outline-hidden focus:ring-1 focus:ring-ccjv-green focus:border-ccjv-green ${
+                        errors.name ? "border-red-500" : "border-ccjv-line"
+                      }`}
+                      autoFocus
                     />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-[11px] font-medium">
-                      <span>Changer</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleRemovePhoto}
-                      className="absolute top-1 right-1 p-1 bg-black/70 hover:bg-red-600 text-white transition-colors"
-                      title="Retirer la photo"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-ccjv-ink-secondary/60 group-hover:text-ccjv-green transition-colors">
-                      <ImageIcon className="w-6 h-6 stroke-[1.5]" />
-                    </div>
-                    <span className="text-[11px] text-ccjv-ink-secondary group-hover:text-ccjv-green transition-colors">
-                      Photo de profil
-                    </span>
-                  </>
-                )}
-              </div>
+                    {errors.name && (
+                      <p className="text-[11px] text-red-600 mt-1">{errors.name}</p>
+                    )}
+                  </div>
 
-              {/* Colonne droite : Champs Nom complet & Rôle */}
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-ccjv-ink mb-1.5">
-                    Nom complet <span className="text-red-500 font-bold">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value);
-                      if (errors.name) {
-                        setErrors((prev) => {
-                          const copy = { ...prev };
-                          delete copy.name;
-                          return copy;
-                        });
-                      }
-                    }}
-                    placeholder="Ex : Pasteur David Mukendi"
-                    className={`w-full px-3 py-2 text-xs border rounded-none bg-white text-ccjv-ink placeholder:text-ccjv-ink-secondary/60 focus:outline-hidden focus:ring-1 focus:ring-ccjv-green focus:border-ccjv-green ${
-                      errors.name ? "border-red-500" : "border-ccjv-line"
-                    }`}
-                    autoFocus
-                  />
-                  {errors.name && (
-                    <p className="text-[11px] text-red-600 mt-1">{errors.name}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-ccjv-ink mb-1.5">
-                    Rôle <span className="text-red-500 font-bold">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={role}
-                    onChange={(e) => {
-                      setRole(e.target.value);
-                      if (errors.role) {
-                        setErrors((prev) => {
-                          const copy = { ...prev };
-                          delete copy.role;
-                          return copy;
-                        });
-                      }
-                    }}
-                    placeholder="Ex : Responsable du département"
-                    className={`w-full px-3 py-2 text-xs border rounded-none bg-white text-ccjv-ink placeholder:text-ccjv-ink-secondary/60 focus:outline-hidden focus:ring-1 focus:ring-ccjv-green focus:border-ccjv-green ${
-                      errors.role ? "border-red-500" : "border-ccjv-line"
-                    }`}
-                  />
-                  {errors.role && (
-                    <p className="text-[11px] text-red-600 mt-1">{errors.role}</p>
-                  )}
+                  <div>
+                    <label className="block text-xs font-semibold text-ccjv-ink mb-1.5">
+                      Rôle ou Ministère <span className="text-red-500 font-bold">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={role}
+                      onChange={(e) => {
+                        setRole(e.target.value);
+                        if (errors.role) {
+                          setErrors((prev) => {
+                            const copy = { ...prev };
+                            delete copy.role;
+                            return copy;
+                          });
+                        }
+                      }}
+                      placeholder="Ex : Responsable du département"
+                      className={`w-full px-3 py-2 text-xs border rounded-none bg-white text-ccjv-ink placeholder:text-ccjv-ink-secondary/60 focus:outline-hidden focus:ring-1 focus:ring-ccjv-green focus:border-ccjv-green ${
+                        errors.role ? "border-red-500" : "border-ccjv-line"
+                      }`}
+                    />
+                    {errors.role && (
+                      <p className="text-[11px] text-red-600 mt-1">{errors.role}</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
+          )}
 
-            {/* Pied : Boutons Annuler et Ajouter */}
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-xs font-semibold text-ccjv-ink bg-white border border-ccjv-line hover:bg-ccjv-offwhite rounded-none transition-colors"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                onClick={handleSubmit}
-                className="px-5 py-2 text-xs font-semibold text-white bg-ccjv-green hover:bg-ccjv-green/90 rounded-none transition-colors"
-              >
-                {initialData ? "Enregistrer" : "Ajouter"}
-              </button>
-            </div>
+          {/* Pied : Boutons Annuler et Confirmer */}
+          <div className="flex items-center justify-end gap-3 pt-2 border-t border-ccjv-line">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-semibold text-ccjv-ink bg-white border border-ccjv-line hover:bg-ccjv-offwhite rounded-none transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              className="px-5 py-2 text-xs font-semibold text-white bg-ccjv-green hover:bg-ccjv-green/90 rounded-none transition-colors"
+            >
+              {activeTab === "SELECT" ? "Assigner ce leader" : initialData ? "Enregistrer" : "Créer et assigner"}
+            </button>
           </div>
         </div>
       </div>
@@ -266,7 +413,6 @@ export function LeaderModal({
         onSelect={handleSelectMedia}
         title="Choisir la photo du responsable"
         initialFilter="image"
-        // Un portrait est une image : un PDF ou une vidéo n'a rien à faire ici.
         accept={["image"]}
       />
     </>

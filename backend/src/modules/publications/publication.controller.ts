@@ -24,7 +24,7 @@ export function createPublicationController(service: PublicationService) {
   return {
     /** `GET /` — collection paginée, filtrée et triée, lecture publique. */
     async list(req: Request, res: Response): Promise<void> {
-      const { page, limit, type, category, sort } =
+      const { page, limit, type, category, scope, departmentId, sort } =
         validatedQuery<PublicationListQuery>(req);
 
       const { items, total } = await service.list({
@@ -32,6 +32,8 @@ export function createPublicationController(service: PublicationService) {
         limit,
         type,
         category,
+        scope,
+        departmentId,
         sort,
       });
 
@@ -70,14 +72,14 @@ export function createPublicationController(service: PublicationService) {
     /** `POST /:idOrSlug/publish` — publication directe ou republication. */
     async publish(req: Request, res: Response): Promise<void> {
       const { idOrSlug } = validatedParams<PublicationIdOrSlugParams>(req);
-      const publication = await service.publish(idOrSlug);
+      const publication = await service.publish(idOrSlug, undefined, req.admin);
       sendItem(res, toPublicationDto(publication));
     },
 
     /** `POST /:idOrSlug/revert-to-draft` — repasse en brouillon avant modification. */
     async revertToDraft(req: Request, res: Response): Promise<void> {
       const { idOrSlug } = validatedParams<PublicationIdOrSlugParams>(req);
-      const publication = await service.revertToDraft(idOrSlug);
+      const publication = await service.revertToDraft(idOrSlug, req.admin);
       sendItem(res, toPublicationDto(publication));
     },
 
@@ -85,7 +87,7 @@ export function createPublicationController(service: PublicationService) {
     async create(req: Request, res: Response): Promise<void> {
       const body = req.body as CreatePublicationBody;
 
-      sendItem(res, toPublicationDto(await service.create(body)), 201);
+      sendItem(res, toPublicationDto(await service.create(body, req.admin)), 201);
     },
 
     /** `PATCH /:idOrSlug` — administration : mise à jour, brouillons compris. */
@@ -93,14 +95,14 @@ export function createPublicationController(service: PublicationService) {
       const { idOrSlug } = validatedParams<PublicationIdOrSlugParams>(req);
       const body = req.body as UpdatePublicationBody;
 
-      sendItem(res, toPublicationDto(await service.update(idOrSlug, body)));
+      sendItem(res, toPublicationDto(await service.update(idOrSlug, body, req.admin)));
     },
 
     /** `DELETE /:idOrSlug` — administration : suppression. */
     async remove(req: Request, res: Response): Promise<void> {
       const { idOrSlug } = validatedParams<PublicationIdOrSlugParams>(req);
 
-      await service.remove(idOrSlug);
+      await service.remove(idOrSlug, req.admin);
       sendNoContent(res);
     },
   };

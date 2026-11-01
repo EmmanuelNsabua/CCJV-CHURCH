@@ -16,6 +16,7 @@ import {
 } from "@/lib/api";
 import type { Department } from "@/types";
 import { formatLongDate } from "@/lib/utils";
+import { DepartmentNavTabs } from "@/components/admin/departments/DepartmentNavTabs";
 
 export default function DepartmentsListPage() {
   const toast = useToast();
@@ -109,6 +110,8 @@ export default function DepartmentsListPage() {
           </div>
         }
       />
+
+      <DepartmentNavTabs />
 
       {/* Onglets Actifs / Archives */}
       <div className="border-b border-ccjv-line flex items-center justify-between gap-4">

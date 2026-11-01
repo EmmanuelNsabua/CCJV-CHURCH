@@ -80,6 +80,12 @@ export const mainNav: NavItem[] = [
     ready: true,
   },
   {
+    href: "/ecodim",
+    label: "Ecodim",
+    description: "L'École du Dimanche : former la jeunesse à la vie chrétienne.",
+    ready: true,
+  },
+  {
     label: "Ressources",
     description: "Actualités, enseignements, médiathèque.",
     ready: true,
