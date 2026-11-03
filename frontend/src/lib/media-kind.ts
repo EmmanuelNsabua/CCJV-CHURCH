@@ -27,12 +27,23 @@ export type MediaAccept = readonly MediaKind[];
  * qu'un type inconnu (`application/pdf`, `application/zip`, `""`) ne puisse
  * jamais passer pour une image.
  */
-export function mediaKindOf(mimeType: string | null | undefined): MediaKind {
+export function mediaKindOf(
+  mimeType: string | null | undefined,
+  filenameOrUrl?: string | null,
+): MediaKind {
   const mime = (mimeType ?? "").toLowerCase();
 
   if (mime.startsWith("image/")) return "image";
   if (mime.startsWith("video/")) return "video";
   if (mime.startsWith("audio/")) return "audio";
+
+  if (filenameOrUrl) {
+    const ext = filenameOrUrl.toLowerCase();
+    if (/\.(jpe?g|png|webp|gif|svg|avif|bmp|ico)$/i.test(ext)) return "image";
+    if (/\.(mp4|webm|mov|avi|mkv|m4v|3gp|wmv|ogv)$/i.test(ext)) return "video";
+    if (/\.(mp3|wav|m4a|aac|ogg|flac|wma|opus)$/i.test(ext)) return "audio";
+  }
+
   return "document";
 }
 
@@ -44,9 +55,10 @@ export function mediaKindOf(mimeType: string | null | undefined): MediaKind {
 export function isMediaAccepted(
   mimeType: string | null | undefined,
   accept?: MediaAccept | null,
+  filenameOrUrl?: string | null,
 ): boolean {
   if (!accept || accept.length === 0) return true;
-  return accept.includes(mediaKindOf(mimeType));
+  return accept.includes(mediaKindOf(mimeType, filenameOrUrl));
 }
 
 /** Libellé français d'une nature de média, pour les filtres et les badges. */
