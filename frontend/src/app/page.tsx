@@ -161,14 +161,13 @@ export default async function HomePage() {
       {/* 03 — UN MOT DU PASTEUR */}
       <Section
         id="mot-du-pasteur"
-        tone="tinted"
         aria-labelledby="mot-pasteur-titre"
       >
         <div className="grid grid-cols-1 items-center gap-10 md:grid-cols-12 md:gap-14">
           <Reveal className="md:col-span-5">
             <div className="relative aspect-[3/4] overflow-hidden rounded-t-full bg-ccjv-line">
               <Image
-                src={images.portraitLarge}
+                src={images.pastor}
                 alt=""
                 fill
                 sizes="(max-width: 768px) 100vw, 42vw"
@@ -192,39 +191,6 @@ export default async function HomePage() {
             <p className="font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-ink-secondary uppercase">
               {site.visionaryRole}
             </p>
-          </Reveal>
-        </div>
-      </Section>
-
-      {/* 04 — QUI SOMMES-NOUS EN BREF */}
-      <Section id="qui-sommes-nous" aria-labelledby="qui-sommes-nous-titre">
-        <div className="grid grid-cols-1 items-center gap-10 md:grid-cols-12 md:gap-14">
-          <Reveal className="md:col-span-6">
-            <h2 id="qui-sommes-nous-titre">
-              Une famille chrétienne au cœur de Lubumbashi
-            </h2>
-            <p className="mt-5 text-ccjv-ink-secondary">
-              Le <strong>Centre Chrétien Jésus ma Vie</strong> est une église vivante où chacun trouve sa place.
-              Depuis sa fondation, notre communauté grandit dans la foi,
-              les enfants s&apos;épanouissent au sein de l&apos;Ecodim et les
-              services se multiplient pour servir Dieu et la communauté.
-            </p>
-            <div className="mt-8">
-              <Button variant="outline" href="/qui-sommes-nous">
-                Lire plus
-              </Button>
-            </div>
-          </Reveal>
-          <Reveal delay={100} className="md:col-span-6">
-            <div className="relative aspect-[4/3] overflow-hidden bg-ccjv-line">
-              <Image
-                src={images.identite}
-                alt=""
-                fill
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                className="object-cover"
-              />
-            </div>
           </Reveal>
         </div>
       </Section>
@@ -412,25 +378,6 @@ export default async function HomePage() {
             Découvrir plus
           </Button>
         </div>*/}
-      </Section>
-
-      {/* 08 — LA COMMUNAUTÉ (visages, scrollytelling) */}
-      <Section id="communaute" aria-labelledby="communaute-titre">
-        <SectionHeading
-          title="Les visages de notre communauté"
-          id="communaute-titre"
-          description="Découvrez les hommes et les femmes qui font vivre l'église au quotidien."
-        />
-        {facesRead.status === "unreachable" ? (
-          <ContentUnavailable resource="Les visages de notre communauté" />
-        ) : communityFaces.length > 0 ? (
-          <CommunityFaces faces={communityFaces} />
-        ) : (
-          <EmptyState
-            title="Aucun portrait publié pour le moment"
-            description="Les visages publiés depuis le back-office apparaîtront ici."
-          />
-        )}
       </Section>
 
       {/* 10 — LA PRIÈRE */}

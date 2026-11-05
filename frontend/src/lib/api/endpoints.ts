@@ -56,6 +56,9 @@ import type {
   TeachingMediaRecord,
   TeachingStatus,
   UpdateTeachingPayload,
+  SystemLogEntry,
+  SystemLogLevel,
+  SystemLogsResponse,
 } from "./types";
 
 /** Filtres de `GET /events`. */
@@ -1877,6 +1880,38 @@ export async function deleteSocialLink(id: string): Promise<void> {
     method: "DELETE",
   });
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Logs système & Audit (SUPER_ADMIN)                                        */
+/* -------------------------------------------------------------------------- */
+
+export interface SystemLogsQuery {
+  level?: SystemLogLevel | "ALL";
+  search?: string;
+  limit?: number;
+  since?: string;
+}
+
+/**
+ * Récupère les logs et événements système en temps réel.
+ * Règle de sécurité : réservé strictement au SUPER_ADMIN.
+ */
+export async function getSystemLogs(
+  query: SystemLogsQuery = {},
+): Promise<SystemLogsResponse> {
+  const path = withQuery("/admin/logs", query);
+  return apiFetchOrThrow<SystemLogsResponse>(path, { timeoutMs: 15_000 });
+}
+
+/**
+ * Réinitialise le registre des logs (SUPER_ADMIN uniquement).
+ */
+export async function clearSystemLogs(): Promise<{ status: string; message: string }> {
+  return apiFetchOrThrow<{ status: string; message: string }>("/admin/logs/clear", {
+    method: "POST",
+  });
+}
+
 
 
 

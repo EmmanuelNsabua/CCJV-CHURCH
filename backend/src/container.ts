@@ -71,6 +71,7 @@ import { createPrayerRequestRouter } from "@/modules/prayer-requests/prayer-requ
 import { createAdminRouter } from "@/modules/admin/admin.routes";
 import { createTeachingRouter } from "@/modules/teachings/teaching.routes";
 import { createResourceRouter } from "@/modules/resources/resource.routes";
+import { createLogsRouter } from "@/modules/logs/logs.routes";
 
 /* -------------------------------------------------------------------------- */
 /*  Types du conteneur                                                        */
@@ -266,6 +267,9 @@ export function createRouters(deps: AppDependencies) {
     }),
     resources: createResourceRouter({
       service: deps.services.resources,
+      authDeps,
+    }),
+    logs: createLogsRouter({
       authDeps,
     }),
   };

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { CrossMark } from "@/components/shared/CrossMark";
 import { Reveal } from "@/components/shared/Reveal";
 import { VerseSection } from "@/components/shared/VerseSection";
-import { ParallaxImage } from "@/components/shared/ParallaxImage";
+import { WeeklyTriptychScrolly } from "@/components/shared/WeeklyTriptychScrolly";
 import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { getCommunityFaces, getScriptures } from "@/lib/api";
@@ -90,7 +90,7 @@ export default async function QuiSommesNousPage() {
             <Reveal className="lg:col-span-5">
               <div className="relative aspect-[3/4] w-full overflow-hidden bg-ccjv-line">
                 <Image
-                  src={images.portraitLarge}
+                  src={images.pastor}
                   alt="Pasteur Manasse Mwamba, visionnaire CCJV"
                   fill
                   sizes="(max-width: 1024px) 100vw, 40vw"
@@ -220,7 +220,7 @@ export default async function QuiSommesNousPage() {
                 </p>
                 <div className="mt-6 relative aspect-[16/10] w-full overflow-hidden bg-ccjv-line">
                   <Image
-                    src={images.ecodim}
+                    src={images.ecodimAncien}
                     alt="Ministère des enfants Ecodim CCJV"
                     fill
                     sizes="(max-width: 1024px) 100vw, 45vw"
@@ -247,7 +247,7 @@ export default async function QuiSommesNousPage() {
                   </p>
                   <div className="mt-6 relative aspect-[16/10] w-full overflow-hidden bg-ccjv-line">
                     <Image
-                      src={images.chorale}
+                      src={images.groupe}
                       alt="Chorale et louange au Centre Chrétien Jésus ma Vie"
                       fill
                       sizes="(max-width: 1024px) 100vw, 45vw"
@@ -410,74 +410,9 @@ export default async function QuiSommesNousPage() {
       </section>
 
       {/* =========================================================================
-          LA FOI PREND FORME : Mosaïque narrative
+          LA FOI PREND FORME : Triptyque Narratif & Scrollytelling
           ========================================================================= */}
-      <section className="relative py-20 lg:py-32">
-        <div className="container">
-          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
-            <Reveal className="lg:col-span-5">
-              <h2 className="text-[clamp(2rem,1.2rem+2vw,3rem)] leading-tight font-serif">
-                La foi prend forme dans le quotidien.
-              </h2>
-              <p className="mt-6 font-sans text-[1rem] leading-[1.75] text-ccjv-ink-secondary">
-                La foi ne demeure pas une idée abstraite : elle s&apos;exprime
-                dans nos cultes du dimanche, dans l&apos;adoration communautaire,
-                dans le rire des enfants à l&apos;Ecodim et dans le soutien mutuel
-                lors des épreuves.
-              </p>
-              <div className="mt-8 flex items-center gap-6 border-t border-ccjv-line pt-6 text-sm font-medium">
-                <div>
-                  <span className="block font-serif text-2xl text-ccjv-green">Culte</span>
-                  <span className="text-xs text-ccjv-ink-secondary uppercase">Dimanche 09h</span>
-                </div>
-                <div className="h-8 w-px bg-ccjv-line" />
-                <div>
-                  <span className="block font-serif text-2xl text-ccjv-green">Prière</span>
-                  <span className="text-xs text-ccjv-ink-secondary uppercase">Mercredi 17h</span>
-                </div>
-                <div className="h-8 w-px bg-ccjv-line" />
-                <div>
-                  <span className="block font-serif text-2xl text-ccjv-green">Ecodim</span>
-                  <span className="text-xs text-ccjv-ink-secondary uppercase">Enfants</span>
-                </div>
-              </div>
-            </Reveal>
-
-            {/* Mosaïque photographique narrative avec effet Parallax */}
-            <div className="grid grid-cols-2 gap-3 md:gap-4 lg:col-span-7">
-              <div className="flex flex-col gap-3 md:gap-4">
-                <ParallaxImage
-                  src={images.louange}
-                  alt="Louange et adoration à CCJV"
-                  speed={0.10}
-                  className="aspect-[3/4] w-full"
-                />
-                <ParallaxImage
-                  src={images.fraternite}
-                  alt="Rencontre fraternelle après le culte"
-                  speed={0.14}
-                  className="aspect-[4/3] w-full"
-                />
-              </div>
-
-              <div className="flex flex-col gap-3 pt-6 md:gap-4 md:pt-8">
-                <ParallaxImage
-                  src={images.service}
-                  alt="Service et engagement communautaire"
-                  speed={0.08}
-                  className="aspect-[4/3] w-full"
-                />
-                <ParallaxImage
-                  src={images.predication}
-                  alt="Enseignement de la Parole"
-                  speed={0.15}
-                  className="aspect-[3/4] w-full"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <WeeklyTriptychScrolly />
 
       {/* =========================================================================
           DEUXIÈME RESPIRATION BIBLIQUE : Monumentale & Immersive
@@ -503,7 +438,7 @@ export default async function QuiSommesNousPage() {
             <Reveal className="lg:col-span-6">
               <div className="relative aspect-[16/11] w-full overflow-hidden bg-ccjv-line shadow-sm">
                 <Image
-                  src={images.identite}
+                  src={images.churchVisual}
                   alt="L'assemblée CCJV réunie aujourd'hui"
                   fill
                   sizes="(max-width: 1024px) 100vw, 50vw"
@@ -523,25 +458,6 @@ export default async function QuiSommesNousPage() {
                 unie par l&apos;amour de Christ, où chacun trouve une famille
                 spirituelle solide.
               </p>
-
-              <div className="mt-8 grid grid-cols-2 gap-6 border-t border-ccjv-line pt-6">
-                <div>
-                  <span className="font-serif text-3xl font-bold text-ccjv-green">
-                    2023
-                  </span>
-                  <p className="mt-1 font-sans text-xs text-ccjv-ink-secondary uppercase tracking-wider">
-                    Année de fondation
-                  </p>
-                </div>
-                <div>
-                  <span className="font-serif text-3xl font-bold text-ccjv-green">
-                    Lubumbashi
-                  </span>
-                  <p className="mt-1 font-sans text-xs text-ccjv-ink-secondary uppercase tracking-wider">
-                    Haut-Katanga · RDC
-                  </p>
-                </div>
-              </div>
             </Reveal>
           </div>
         </div>

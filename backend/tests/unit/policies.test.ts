@@ -769,14 +769,15 @@ describe("Catalogue — exhaustivité et invariants statiques (docs/029 §5, §6
     }
   });
 
-  it("la lecture du journal d'audit reste refusée : ce n'est pas une configuration", () => {
+  it("la lecture du journal d'audit est autorisée pour le SUPER_ADMIN", () => {
     // L'arbitrage portait sur les **configurations**. La lecture d'`audit_log`
     // (Q-16, Q-17, Q-18) n'en est pas une, et le refus par défaut continue de
     // s'appliquer — avec sa référence de question, pour qu'elle reste visible.
     const decision = evaluate(AuditPolicy, superAdmin, "READ");
+    expect(decision.allowed).toBe(true);
 
-    expect(decision.allowed).toBe(false);
-    expect(decision.pending).toMatch(/Q-\d/);
+    const adminDecision = evaluate(AuditPolicy, admin, "READ");
+    expect(adminDecision.allowed).toBe(false);
   });
 
   it("une ligne accordée sous réserve porte aussi sa question ouverte", () => {

@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
 import { logger } from "@/infrastructure/logger";
+import { logStore } from "@/infrastructure/logging/log-store";
 import { isProduction } from "@/config/env";
 import { AppError, InternalError } from "@/shared/errors/app-error";
 import { sendError } from "@/shared/http/respond";
@@ -59,6 +60,31 @@ export function errorHandler(
       );
     }
 
+    // Journalisation dans le registre d'audit temps réel pour le Super Admin
+    logStore.addLog({
+      level: error.statusCode >= 500 ? "error" : "warn",
+      source: "http",
+      method: req.method,
+      path: req.originalUrl,
+      statusCode: error.statusCode,
+      message: `[${error.code}] ${error.message}`,
+      actor: req.admin
+        ? {
+            id: req.admin.id,
+            name: req.admin.displayName || req.admin.username,
+            role: req.admin.role,
+            scope: req.admin.scope,
+          }
+        : null,
+      ip: (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip,
+      errorDetails: {
+        code: error.code,
+        message: error.message,
+        stack: error.stack,
+      },
+      metadata: error.details ? { details: error.details } : undefined,
+    });
+
     sendError(
       res,
       error.statusCode,
@@ -80,6 +106,30 @@ export function errorHandler(
     { method: req.method, url: req.originalUrl, err: internal },
     "Erreur non maîtrisée",
   );
+
+  // Journalisation de l'erreur critique non maîtrisée pour le Super Admin
+  logStore.addLog({
+    level: "error",
+    source: "system",
+    method: req.method,
+    path: req.originalUrl,
+    statusCode: 500,
+    message: `[INTERNAL_ERROR] ${internal.message}`,
+    actor: req.admin
+      ? {
+          id: req.admin.id,
+          name: req.admin.displayName || req.admin.username,
+          role: req.admin.role,
+          scope: req.admin.scope,
+        }
+      : null,
+    ip: (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip,
+    errorDetails: {
+      code: "INTERNAL_ERROR",
+      message: internal.message,
+      stack: internal.stack,
+    },
+  });
 
   sendError(
     res,

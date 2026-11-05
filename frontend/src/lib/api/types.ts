@@ -487,4 +487,57 @@ export interface UpdateResourcePayload extends Record<string, unknown> {
   file?: string;
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Logs système & Audit (réservé SUPER_ADMIN)                                */
+/* -------------------------------------------------------------------------- */
+
+export type SystemLogLevel = "error" | "warn" | "info" | "debug";
+export type SystemLogSource = "http" | "auth" | "business" | "system";
+
+export interface SystemLogActor {
+  id: string;
+  name?: string | null;
+  role?: string;
+  scope?: string;
+}
+
+export interface SystemLogErrorDetails {
+  code?: string;
+  message: string;
+  stack?: string;
+  champ?: string;
+}
+
+export interface SystemLogEntry {
+  id: string;
+  timestamp: string;
+  level: SystemLogLevel;
+  source: SystemLogSource;
+  method?: string;
+  path?: string;
+  statusCode?: number;
+  durationMs?: number;
+  message: string;
+  actor?: SystemLogActor | null;
+  ip?: string;
+  userAgent?: string;
+  errorDetails?: SystemLogErrorDetails | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SystemLogStats {
+  total: number;
+  errorCount: number;
+  warnCount: number;
+  infoCount: number;
+  systemStatus: "healthy" | "degraded" | "critical";
+  lastUpdated: string;
+}
+
+export interface SystemLogsResponse {
+  data: SystemLogEntry[];
+  meta: SystemLogStats;
+}
+
+
 

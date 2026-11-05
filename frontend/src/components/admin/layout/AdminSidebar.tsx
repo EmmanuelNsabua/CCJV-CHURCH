@@ -25,8 +25,11 @@ import {
   ChevronRight,
   ChevronLeft,
   X,
+  Terminal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth/AuthContext";
+import type { AdminRole } from "@/lib/api/types";
 
 export interface SubNavItem {
   label: string;
@@ -42,6 +45,7 @@ export interface NavItem {
   exact?: boolean;
   typeParam?: string;
   subItems?: SubNavItem[];
+  requiredRole?: AdminRole;
 }
 
 export interface NavSection {
@@ -152,6 +156,13 @@ export const adminNavSections: NavSection[] = [
         href: "/admin/administrateurs",
         icon: Shield,
       },
+      {
+        id: "logs",
+        label: "Logs système",
+        href: "/admin/logs",
+        icon: Terminal,
+        requiredRole: "SUPER_ADMIN",
+      },
     ],
   },
 ];
@@ -165,10 +176,23 @@ export function AdminSidebar({ onCloseMobile, className }: AdminSidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentType = searchParams.get("type");
+  const { role } = useAuth();
+
+  // Navigation filtrée strictement selon le rôle (les modules exclus, ex: Logs pour non-superadmin, sont masqués)
+  const filteredNavSections = useMemo(() => {
+    return adminNavSections
+      .map((section) => ({
+        ...section,
+        items: section.items.filter(
+          (item) => !item.requiredRole || item.requiredRole === role,
+        ),
+      }))
+      .filter((section) => section.items.length > 0);
+  }, [role]);
 
   // Initialisation intelligente selon la route courante
   const [activeSubMenuId, setActiveSubMenuId] = useState<string | null>(() => {
-    for (const section of adminNavSections) {
+    for (const section of filteredNavSections) {
       for (const item of section.items) {
         if (item.subItems && (pathname === item.href || pathname.startsWith(`${item.href}/`))) {
           return item.id;
@@ -185,7 +209,7 @@ export function AdminSidebar({ onCloseMobile, className }: AdminSidebarProps) {
     if (prevPathRef.current !== pathname) {
       prevPathRef.current = pathname;
       let matchedSubId: string | null = null;
-      for (const section of adminNavSections) {
+      for (const section of filteredNavSections) {
         for (const item of section.items) {
           if (item.subItems && (pathname === item.href || pathname.startsWith(`${item.href}/`))) {
             matchedSubId = item.id;
@@ -195,12 +219,12 @@ export function AdminSidebar({ onCloseMobile, className }: AdminSidebarProps) {
       }
       setActiveSubMenuId(matchedSubId);
     }
-  }, [pathname]);
+  }, [pathname, filteredNavSections]);
 
   // Récupère l'élément parent dont on affiche le sous-menu (s'il existe)
   const activeItemWithSub = useMemo(() => {
     if (!activeSubMenuId) return null;
-    for (const section of adminNavSections) {
+    for (const section of filteredNavSections) {
       for (const item of section.items) {
         if (item.id === activeSubMenuId && item.subItems) {
           return item;
@@ -208,7 +232,7 @@ export function AdminSidebar({ onCloseMobile, className }: AdminSidebarProps) {
       }
     }
     return null;
-  }, [activeSubMenuId]);
+  }, [activeSubMenuId, filteredNavSections]);
 
   const isSubItemActive = (subHref: string, parentHref: string) => {
     if (subHref.includes("?")) {
@@ -373,7 +397,7 @@ export function AdminSidebar({ onCloseMobile, className }: AdminSidebarProps) {
              VUE PRINCIPALE : Liste complète des rubriques et modules
              ----------------------------------------------------------------------- */
           <nav className="p-2 space-y-2.5">
-            {adminNavSections.map((section, idx) => (
+            {filteredNavSections.map((section, idx) => (
               <div key={section.title || idx} className="space-y-1">
                 {section.title && (
                   <div className="px-2.5 pt-1 pb-0.5 text-[9.5px] font-mono font-semibold uppercase tracking-wider text-white/40">

@@ -71,8 +71,10 @@ export const AuditPolicy = createPolicy<AuditPolicyResource>(
   "AuditPolicy",
   {
     READ: {
-      roles: [],
-      pending: "docs/029 Q-16 (qui lit le journal d'audit) · Q-17 (rétention) · Q-18 (périmètre)",
+      roles: ["SUPER_ADMIN"],
+    },
+    CLEAR: {
+      roles: ["SUPER_ADMIN"],
     },
   },
   (admin, resource) =>

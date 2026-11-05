@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import pinoHttp from "pino-http";
 import { apiBasePath, corsOrigins, env, isProduction, isTest } from "@/config/env";
 import { logger } from "@/infrastructure/logger";
+import { auditHttpLogger } from "@/infrastructure/logging/http-logger.middleware";
 import { sql } from "@/infrastructure/database/client";
 import { createContainer, createRouters, type AppDependencies } from "@/container";
 import {
@@ -89,6 +90,7 @@ export function createApp(deps: AppDependencies = createContainer()): Express {
   // (multer), pas par ce parseur. Un corps JSON de plus de 1 Mo est une anomalie.
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+  app.use(auditHttpLogger());
 
   if (!isTest) {
     app.use(
@@ -171,6 +173,8 @@ export function createApp(deps: AppDependencies = createContainer()): Express {
   app.use(`${apiBasePath}/teachings`, routers.teachings);
   app.use(`${apiBasePath}/resources`, routers.resources);
   app.use(`${apiBasePath}/ressources`, routers.resources);
+  app.use(`${apiBasePath}/admin/logs`, routers.logs);
+  app.use(`${apiBasePath}/logs`, routers.logs);
 
   // --- Gestion des erreurs (toujours en dernier) ---------------------------
   app.use(notFoundHandler);

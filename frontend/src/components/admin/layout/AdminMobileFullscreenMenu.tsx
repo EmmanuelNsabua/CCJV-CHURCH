@@ -18,8 +18,10 @@ import {
   X,
   ExternalLink,
   LogOut,
+  Terminal,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
+import type { AdminRole } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
 interface AdminMobileFullscreenMenuProps {
@@ -32,6 +34,7 @@ interface GridMenuItem {
   href: string;
   icon: React.ElementType;
   category: string;
+  requiredRole?: AdminRole;
 }
 
 const gridMenuItems: GridMenuItem[] = [
@@ -46,6 +49,7 @@ const gridMenuItems: GridMenuItem[] = [
   { label: "Départements", href: "/admin/departments", icon: Users, category: "Communauté" },
   { label: "Éditeur de pages", href: "/admin/pages", icon: Layers, category: "Configuration" },
   { label: "Administrateurs", href: "/admin/administrateurs", icon: Shield, category: "Configuration" },
+  { label: "Logs système", href: "/admin/logs", icon: Terminal, category: "Configuration", requiredRole: "SUPER_ADMIN" },
 ];
 
 export function AdminMobileFullscreenMenu({
@@ -56,6 +60,10 @@ export function AdminMobileFullscreenMenu({
   const { adminProfile, user, signOut } = useAuth();
 
   if (!isOpen) return null;
+
+  const visibleMenuItems = gridMenuItems.filter(
+    (item) => !item.requiredRole || item.requiredRole === adminProfile?.role,
+  );
 
   return (
     <div
@@ -95,7 +103,7 @@ export function AdminMobileFullscreenMenu({
           Sélectionnez un module
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {gridMenuItems.map((item) => {
+          {visibleMenuItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
 
