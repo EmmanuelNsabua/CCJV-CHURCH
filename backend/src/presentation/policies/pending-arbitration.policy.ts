@@ -73,7 +73,7 @@ export const AuditPolicy = createPolicy<AuditPolicyResource>(
     READ: {
       roles: ["SUPER_ADMIN"],
     },
-    CLEAR: {
+    DELETE: {
       roles: ["SUPER_ADMIN"],
     },
   },

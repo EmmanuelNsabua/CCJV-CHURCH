@@ -49,6 +49,7 @@ export default function AdminLogsPage() {
   // Vider les logs
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   const fetchLogs = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -56,16 +57,17 @@ export default function AdminLogsPage() {
       const res = await getSystemLogs({ limit: 150 });
       setLogs(res.data || []);
       setStats(res.meta || null);
+      setConnectionError(null);
     } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erreur de chargement des logs.";
       if (!silent) {
-        const msg = err instanceof Error ? err.message : "Erreur de chargement des logs.";
         console.warn("[AdminLogs] Erreur :", err);
-        toast.error(msg);
+        setConnectionError(msg);
       }
     } finally {
       if (!silent) setIsLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   // Chargement initial
   useEffect(() => {
@@ -383,6 +385,27 @@ export default function AdminLogsPage() {
             <RefreshCw className="h-5 w-5 animate-spin mx-auto text-ccjv-green" />
             <p>Connexion au flux des événements d&apos;audit...</p>
           </div>
+        ) : connectionError && logs.length === 0 ? (
+          <div className="p-8 text-center text-xs space-y-3">
+            <Activity className="h-6 w-6 mx-auto text-amber-400" />
+            <p className="text-gray-200 font-semibold">
+              En attente de synchronisation du serveur Render
+            </p>
+            <p className="text-gray-400 max-w-md mx-auto text-[11px] leading-relaxed">
+              Le code du module backend vient d&apos;être mis à jour sur GitHub. Dès que Render a terminé le déploiement du conteneur, les logs apparaîtront automatiquement en direct ici.
+            </p>
+            <div className="pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchLogs()}
+                className="text-xs border-gray-700 hover:border-gray-500 text-white"
+              >
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Vérifier la connexion
+              </Button>
+            </div>
+          </div>
         ) : filteredLogs.length === 0 ? (
           <div className="p-12 text-center text-xs text-gray-400 space-y-2">
             <Activity className="h-6 w-6 mx-auto text-gray-600" />
@@ -605,3 +628,4 @@ export default function AdminLogsPage() {
     </div>
   );
 }
+

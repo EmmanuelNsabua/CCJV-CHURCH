@@ -48,7 +48,29 @@ export function createLogsRouter(deps: LogsRouterDeps): Router {
   router.post(
     "/clear",
     ...admin,
-    authorize(AuditPolicy, "CLEAR"),
+    authorize(AuditPolicy, "DELETE"),
+    (req: Request, res: Response) => {
+      logStore.clearLogs();
+      logger.info(
+        { actorId: req.admin?.id, username: req.admin?.username },
+        "Journal des logs réinitialisé par le Super Administrateur",
+      );
+      res.status(200).json({
+        status: "ok",
+        message: "Journal des logs réinitialisé avec succès.",
+        meta: logStore.getStats(),
+      });
+    },
+  );
+
+  /**
+   * DELETE /api/v1/admin/logs
+   * Alias DELETE pour réinitialisation.
+   */
+  router.delete(
+    "/",
+    ...admin,
+    authorize(AuditPolicy, "DELETE"),
     (req: Request, res: Response) => {
       logStore.clearLogs();
       logger.info(
