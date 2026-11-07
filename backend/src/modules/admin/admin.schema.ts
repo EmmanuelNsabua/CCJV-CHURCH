@@ -60,8 +60,8 @@ const manageableRoleSchema = z.enum([
  */
 const passwordSchema = z
   .string()
-  .min(12, "Le mot de passe provisoire doit contenir au moins 12 caractères")
-  .max(200, "Le mot de passe provisoire est trop long");
+  .min(8, "Le mot de passe doit contenir au moins 8 caractères")
+  .max(200, "Le mot de passe est trop long");
 
 /**
  * Création d'un compte d'administration.

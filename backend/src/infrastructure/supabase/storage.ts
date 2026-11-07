@@ -41,7 +41,8 @@ export type StorageFolder =
   | "testimonies"
   | "community"
   | "pages"
-  | "resources";
+  | "resources"
+  | "avatars";
 
 const ALL_MEDIA_TYPES: readonly AcceptedUploadMimeType[] = [
   ...ACCEPTED_IMAGE_MIME_TYPES,
@@ -70,6 +71,7 @@ const ACCEPTED_TYPES_BY_FOLDER: Record<
   community: ACCEPTED_IMAGE_MIME_TYPES,
   pages: ALL_MEDIA_TYPES,
   resources: ACCEPTED_DOCUMENT_MIME_TYPES,
+  avatars: ACCEPTED_IMAGE_MIME_TYPES,
 };
 
 /**

@@ -15,6 +15,14 @@ import {
 } from "./admin.serializer";
 import { validatedParams, validatedQuery } from "@/presentation/middlewares/validate";
 import { sendCollection, sendItem, sendNoContent } from "@/shared/http/respond";
+import { supabaseAdmin } from "@/infrastructure/supabase/client";
+import { env } from "@/config/env";
+import { detectImageMimeType } from "@/shared/utils/file-signature";
+import {
+  InternalError,
+  UnsupportedMediaTypeError,
+  ValidationError,
+} from "@/shared/errors/app-error";
 
 /**
  * Contrôleurs HTTP de l'administration.
@@ -154,6 +162,57 @@ export function createAdminController(service: AdminService) {
     async remove(req: Request, res: Response): Promise<void> {
       const { id } = validatedParams<AdminUserParams>(req);
       await service.deleteUser(req.admin, id);
+
+      sendNoContent(res);
+    },
+
+    /**
+     * `POST /admin/users/:id/avatar` — Téléversement de l'avatar dans le dossier avatars/ du bucket.
+     * Non stocké en base de données, n'apparaît pas dans la médiathèque.
+     */
+    async uploadAvatar(req: Request, res: Response): Promise<void> {
+      const { id } = validatedParams<AdminUserParams>(req);
+      const file = req.file;
+      if (!file) {
+        throw new ValidationError("Fichier requis", [
+          { champ: "file", message: "Aucun fichier n'a été téléversé" },
+        ]);
+      }
+
+      const mimeType = detectImageMimeType(file.buffer);
+      if (!mimeType) {
+        throw new UnsupportedMediaTypeError(["image/jpeg", "image/png", "image/webp"]);
+      }
+
+      const path = `avatars/${id}.jpg`;
+      const { error } = await supabaseAdmin.storage
+        .from(env.SUPABASE_STORAGE_BUCKET)
+        .upload(path, file.buffer, {
+          contentType: mimeType,
+          upsert: true,
+          cacheControl: "3600",
+        });
+
+      if (error) {
+        throw new InternalError("Échec du téléversement de la photo de profil", error);
+      }
+
+      const { data } = supabaseAdmin.storage
+        .from(env.SUPABASE_STORAGE_BUCKET)
+        .getPublicUrl(path);
+
+      sendItem(res, { avatarUrl: data.publicUrl }, 201);
+    },
+
+    /**
+     * `DELETE /admin/users/:id/avatar` — Suppression de l'avatar du bucket.
+     */
+    async deleteAvatar(req: Request, res: Response): Promise<void> {
+      const { id } = validatedParams<AdminUserParams>(req);
+      const path = `avatars/${id}.jpg`;
+      await supabaseAdmin.storage
+        .from(env.SUPABASE_STORAGE_BUCKET)
+        .remove([path]);
 
       sendNoContent(res);
     },

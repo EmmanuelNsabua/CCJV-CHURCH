@@ -171,6 +171,14 @@ export const UserPolicy = createPolicy<UserPolicyResource>(
         const peer = refusePeerAdministrationByAdmin(admin, resource);
         if (!peer.allowed) return peer;
 
+        // Seul le Super Administrateur peut attribuer le rôle Super Administrateur
+        const requestedRole = resource?.requested?.role;
+        if (requestedRole === "SUPER_ADMIN" && admin.role !== "SUPER_ADMIN") {
+          return deny(
+            "Le rôle Super administrateur ne peut être attribué que par un Super administrateur.",
+          );
+        }
+
         return assertCoherentProfile(resource);
       },
     },

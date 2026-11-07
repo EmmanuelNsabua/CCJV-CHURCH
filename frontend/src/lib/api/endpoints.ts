@@ -674,6 +674,33 @@ export async function changeOwnPassword(password: string): Promise<void> {
 }
 
 /**
+ * Téléverse la photo de profil d'un compte administrateur dans Supabase Storage (`avatars/`).
+ * Non stocké en base de données, n'apparaît pas dans la médiathèque.
+ */
+export async function uploadAdminAvatar(
+  id: string,
+  formData: FormData,
+): Promise<{ avatarUrl: string }> {
+  return apiFetchOrThrow<{ avatarUrl: string }>(
+    `/admin/users/${encodeURIComponent(id)}/avatar`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
+}
+
+/** Supprime la photo de profil d'un compte administrateur dans Supabase Storage. */
+export async function deleteAdminAvatar(id: string): Promise<void> {
+  await apiFetchOrThrow<null>(
+    `/admin/users/${encodeURIComponent(id)}/avatar`,
+    {
+      method: "DELETE",
+    },
+  );
+}
+
+/**
  * Supprime **définitivement** un compte (`DELETE /admin/users/:id`).
  *
  * Réservé au super administrateur ; la réponse est un `204` sans corps. Un

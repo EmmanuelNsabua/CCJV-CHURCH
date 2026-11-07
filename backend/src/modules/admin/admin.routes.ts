@@ -1,4 +1,5 @@
 import { Router } from "express";
+import multer from "multer";
 import type { AuthDependencies } from "@/presentation/middlewares/auth";
 import { requireAuthenticatedAdmin } from "@/presentation/middlewares/auth";
 import { authorize, UserPolicy } from "@/presentation/policies";
@@ -174,6 +175,28 @@ export function createAdminRouter(deps: AdminRouterDeps): Router {
     authorize(UserPolicy, "DELETE"),
     validate({ params: adminUserParamsSchema }),
     controller.remove,
+  );
+
+  const uploadAvatar = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5_242_880, files: 1 },
+  });
+
+  router.post(
+    "/users/:id/avatar",
+    ...admin,
+    authorize(UserPolicy, "UPDATE_IDENTITY"),
+    uploadAvatar.single("file"),
+    validate({ params: adminUserParamsSchema }),
+    controller.uploadAvatar,
+  );
+
+  router.delete(
+    "/users/:id/avatar",
+    ...admin,
+    authorize(UserPolicy, "UPDATE_IDENTITY"),
+    validate({ params: adminUserParamsSchema }),
+    controller.deleteAvatar,
   );
 
   return router;

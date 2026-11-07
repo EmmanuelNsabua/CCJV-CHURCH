@@ -1,19 +1,16 @@
-import type { AdminProfile, AdminRole } from "@/domain/entities";
+import type { AdminProfile, AdminRole, AdminScope } from "@/domain/entities";
+import { env } from "@/config/env";
 
 /**
  * Sérialisation des profils administratifs.
  *
  * Deux représentations :
  *
- * - `AdminProfileDto` : le **profil courant** (`GET /admin/me`), strictement
- *   les quatre champs du contrat — identifiant, nom d'utilisateur, nom
- *   d'affichage, rôle ;
+ * - `AdminProfileDto` : le **profil courant** (`GET /admin/me`) ;
  * - `AdminProfileSummaryDto` : l'entrée de la collection, qui ajoute l'état
- *   d'activation et la date de création, utiles pour administrer les accès.
+ *   d'activation, le scope, le rattachement de département et la date de création.
  *
- * Aucune de ces formes ne porte d'information d'authentification : ni jeton,
- * ni secret, ni adresse e-mail d'authentification. Le mot de passe n'existe
- * d'ailleurs pas dans le domaine (il reste chez Supabase Auth).
+ * Aucune de ces formes ne porte d'information sensible d'authentification.
  */
 
 export interface AdminProfileDto {
@@ -21,11 +18,17 @@ export interface AdminProfileDto {
   username: string;
   displayName: string | null;
   role: AdminRole;
+  scope?: AdminScope;
+  departmentId?: string | null;
+  avatarUrl?: string;
 }
 
 export interface AdminProfileSummaryDto extends AdminProfileDto {
   isActive: boolean;
   createdAt: string;
+  scope: AdminScope;
+  departmentId: string | null;
+  avatarUrl: string;
   /**
    * Adresse de connexion, lue chez le fournisseur d'identité.
    *
@@ -33,10 +36,6 @@ export interface AdminProfileSummaryDto extends AdminProfileDto {
    * d'authentification absent). Elle est **nécessaire à l'annuaire** : c'est
    * l'identifiant avec lequel on se connecte, et administrer un compte sans
    * savoir par quelle adresse il se connecte n'aurait pas de sens.
-   *
-   * Cette forme reste réservée à `GET /admin/profiles`, dont l'accès est décidé
-   * par `UserPolicy.READ` (SUPER_ADMIN) : `GET /admin/me` conserve son contrat
-   * gelé, sans adresse.
    */
   email: string | null;
 }
@@ -47,6 +46,9 @@ export function toAdminProfileDto(profile: AdminProfile): AdminProfileDto {
     username: profile.username,
     displayName: profile.displayName,
     role: profile.role,
+    scope: profile.scope,
+    departmentId: profile.departmentId,
+    avatarUrl: `${env.SUPABASE_URL}/storage/v1/object/public/${env.SUPABASE_STORAGE_BUCKET}/avatars/${profile.id}.jpg`,
   };
 }
 
@@ -59,5 +61,8 @@ export function toAdminProfileSummaryDto(
     isActive: profile.isActive,
     createdAt: profile.createdAt.toISOString(),
     email,
+    scope: profile.scope,
+    departmentId: profile.departmentId,
+    avatarUrl: `${env.SUPABASE_URL}/storage/v1/object/public/${env.SUPABASE_STORAGE_BUCKET}/avatars/${profile.id}.jpg`,
   };
 }

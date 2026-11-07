@@ -289,6 +289,7 @@ export interface AdminProfile {
   isActive?: boolean;
   createdAt?: string;
   email?: string | null;
+  avatarUrl?: string | null;
 }
 
 export interface AdminMediaItem {
