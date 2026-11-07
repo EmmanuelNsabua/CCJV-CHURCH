@@ -15,15 +15,26 @@ async function main(): Promise<void> {
     await sql`select 1`;
     logger.info("Connexion PostgreSQL établie");
 
-    // Assurer l'existence des colonnes et index sur les tables étendues (idempotent)
-    await sql`
-      ALTER TABLE "resources" ADD COLUMN IF NOT EXISTS "department_id" uuid REFERENCES "departments"("id") ON DELETE SET NULL;
-      ALTER TABLE "resources" ADD COLUMN IF NOT EXISTS "is_archived" boolean DEFAULT false NOT NULL;
-      CREATE INDEX IF NOT EXISTS "resources_department_idx" ON "resources" ("department_id");
-      CREATE INDEX IF NOT EXISTS "resources_is_archived_idx" ON "resources" ("is_archived");
-      ALTER TABLE "teachings" ADD COLUMN IF NOT EXISTS "department_id" uuid REFERENCES "departments"("id") ON DELETE SET NULL;
-    `;
-    logger.info("Schéma des ressources et enseignements vérifié et synchronisé");
+    // Assurer l'existence des départements de référence et colonnes nécessaires (idempotent)
+    const ddlStatements = [
+      `INSERT INTO "departments" ("id", "name", "slug", "position") VALUES ('d0000000-0000-4000-8000-000000000004', 'Ecodim', 'ecodume', 4) ON CONFLICT ("id") DO NOTHING`,
+      `INSERT INTO "departments" ("id", "name", "slug", "position") VALUES ('d0000000-0000-4000-8000-00000000000a', 'Presse', 'presse', 10) ON CONFLICT ("id") DO NOTHING`,
+      `ALTER TABLE "resources" ADD COLUMN IF NOT EXISTS "department_id" uuid REFERENCES "departments"("id") ON DELETE SET NULL`,
+      `ALTER TABLE "resources" ADD COLUMN IF NOT EXISTS "is_archived" boolean DEFAULT false NOT NULL`,
+      `CREATE INDEX IF NOT EXISTS "resources_department_idx" ON "resources" ("department_id")`,
+      `CREATE INDEX IF NOT EXISTS "resources_is_archived_idx" ON "resources" ("is_archived")`,
+      `ALTER TABLE "teachings" ADD COLUMN IF NOT EXISTS "department_id" uuid REFERENCES "departments"("id") ON DELETE SET NULL`,
+      `CREATE INDEX IF NOT EXISTS "teachings_department_idx" ON "teachings" ("department_id")`,
+    ];
+
+    for (const stmt of ddlStatements) {
+      try {
+        await sql.unsafe(stmt);
+      } catch (ddlErr) {
+        logger.warn({ err: ddlErr, stmt }, "Avertissement lors de l'exécution DDL");
+      }
+    }
+    logger.info("Schéma des ressources et départements vérifié et synchronisé");
   } catch (error) {
     logger.fatal(
       { err: error },
