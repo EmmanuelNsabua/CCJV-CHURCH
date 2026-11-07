@@ -368,7 +368,7 @@ export class AdminService {
       current: { role: data.role, scope, departmentId: data.departmentId ?? null },
     });
 
-    const password = data.password ?? generatePassword();
+    const password = data.password ?? "ccjvadmin";
     const identity = await this.identities.createUser({
       email: data.email,
       password,
@@ -376,6 +376,7 @@ export class AdminService {
       // d'adresse reviendrait à demander au titulaire de valider une adresse que
       // l'administrateur vient lui-même de saisir.
       emailConfirmed: true,
+      userMetadata: { mustChangePassword: true },
     });
 
     try {

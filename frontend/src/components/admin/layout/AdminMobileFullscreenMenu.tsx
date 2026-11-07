@@ -48,9 +48,26 @@ const gridMenuItems: GridMenuItem[] = [
   { label: "Témoignages", href: "/admin/testimonies", icon: MessageSquareQuote, category: "Communauté" },
   { label: "Départements", href: "/admin/departments", icon: Users, category: "Communauté" },
   { label: "Éditeur de pages", href: "/admin/pages", icon: Layers, category: "Configuration" },
+  { label: "Paramètres", href: "/admin/settings", icon: Layers, category: "Configuration" },
   { label: "Administrateurs", href: "/admin/administrateurs", icon: Shield, category: "Configuration" },
   { label: "Logs système", href: "/admin/logs", icon: Terminal, category: "Configuration", requiredRole: "SUPER_ADMIN" },
 ];
+
+const HREF_TO_MODULE_ID: Record<string, string> = {
+  "/admin": "overview",
+  "/admin/publications": "publications",
+  "/admin/enseignements": "teachings",
+  "/admin/agenda": "agenda",
+  "/admin/media": "media",
+  "/admin/ressources": "resources",
+  "/admin/prayers": "prayers",
+  "/admin/testimonies": "testimonies",
+  "/admin/departments": "departments",
+  "/admin/pages": "pages",
+  "/admin/settings": "settings",
+  "/admin/administrateurs": "admins",
+  "/admin/logs": "logs",
+};
 
 export function AdminMobileFullscreenMenu({
   isOpen,
@@ -61,9 +78,20 @@ export function AdminMobileFullscreenMenu({
 
   if (!isOpen) return null;
 
-  const visibleMenuItems = gridMenuItems.filter(
-    (item) => !item.requiredRole || item.requiredRole === adminProfile?.role,
-  );
+  const allowed = adminProfile?.allowedNavModules;
+  const isGlobal = adminProfile?.scope === "GLOBAL";
+
+  const visibleMenuItems = gridMenuItems.filter((item) => {
+    // Si allowedNavModules est fourni par le backend
+    if (allowed && allowed.length > 0) {
+      const moduleId = HREF_TO_MODULE_ID[item.href];
+      if (moduleId) return allowed.includes(moduleId);
+    }
+    const isGlobalCategory = item.category === "Communauté" || item.category === "Configuration";
+    if (isGlobalCategory && !isGlobal) return false;
+    if (item.requiredRole && item.requiredRole !== adminProfile?.role) return false;
+    return true;
+  });
 
   return (
     <div

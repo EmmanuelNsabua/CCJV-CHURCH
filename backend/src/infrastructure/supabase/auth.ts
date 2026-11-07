@@ -28,6 +28,7 @@ export interface AuthenticatedUser {
   email: string | null;
   /** Rôle porté par le jeton Supabase (`authenticated`, `service_role`…). */
   tokenRole: string | null;
+  userMetadata?: Record<string, unknown> | null;
 }
 
 /**
@@ -48,10 +49,16 @@ export async function verifyAccessToken(
       throw new AuthRequiredError("Jeton sans identifiant de sujet");
     }
 
+    const userMetadata =
+      typeof payload.user_metadata === "object" && payload.user_metadata !== null
+        ? (payload.user_metadata as Record<string, unknown>)
+        : null;
+
     return {
       userId,
       email: readString(payload, "email"),
       tokenRole: readString(payload, "role"),
+      userMetadata,
     };
   } catch (error) {
     if (error instanceof AuthRequiredError) throw error;

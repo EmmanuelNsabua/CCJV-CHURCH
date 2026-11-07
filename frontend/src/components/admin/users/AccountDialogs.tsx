@@ -16,6 +16,7 @@ import {
 } from "@/lib/api/endpoints";
 import type { AdminProfile, AdminRole } from "@/lib/api/types";
 import { ApiError } from "@/lib/api/client";
+import { formatPersonName } from "@/lib/utils";
 
 /**
  * Dialogues de gestion des comptes d'administration.
@@ -48,6 +49,8 @@ interface AccountDialogProps {
   readonly submitLabel: string;
   readonly isDanger?: boolean;
   readonly onClose: () => void;
+  readonly onBack?: () => void;
+  readonly backLabel?: string;
   readonly onSubmit: () => void;
   readonly children: ReactNode;
 }
@@ -64,6 +67,8 @@ function AccountDialog({
   submitLabel,
   isDanger = false,
   onClose,
+  onBack,
+  backLabel,
   onSubmit,
   children,
 }: AccountDialogProps) {
@@ -161,11 +166,21 @@ function AccountDialog({
           )}
 
           <div className="flex flex-wrap items-center justify-end gap-3 border-t border-ccjv-line/70 pt-4">
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                disabled={isSubmitting}
+                className="inline-flex h-10 items-center border border-ccjv-line px-4 font-sans text-xs font-medium text-ccjv-ink transition-colors hover:border-ccjv-ink hover:bg-ccjv-offwhite disabled:opacity-40 cursor-pointer"
+              >
+                {backLabel ?? "Précédent"}
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="inline-flex h-10 items-center border border-ccjv-line px-4 font-sans text-xs font-medium text-ccjv-ink transition-colors hover:border-ccjv-ink disabled:opacity-40"
+              className="inline-flex h-10 items-center border border-ccjv-line px-4 font-sans text-xs font-medium text-ccjv-ink transition-colors hover:border-ccjv-ink disabled:opacity-40 cursor-pointer"
             >
               Annuler
             </button>
@@ -219,12 +234,10 @@ interface CreateAccountDialogProps {
 }
 
 /**
- * Création d'un compte et de son habilitation.
- *
- * Le mot de passe initial est **facultatif** : laissé vide, le serveur en génère
- * un et ne le renvoie jamais (il doit alors être transmis par un canal sûr, ou
- * remplacé par le titulaire). Le champ n'est donc pas obligatoire, et l'écran le
- * dit au lieu de laisser croire qu'un mot de passe connu existe forcément.
+ * Création d'un compte en deux étapes avec transition fluide :
+ * 1. Identité (Nom complet, Adresse email)
+ * 2. Responsabilité (Habilitation, Département pour les responsables)
+ * Mot de passe défini par défaut à 'ccjvadmin' avec modification obligatoire à la 1re connexion.
  */
 export function CreateAccountDialog({
   isOpen,
@@ -233,45 +246,77 @@ export function CreateAccountDialog({
   onClose,
   onCreated,
 }: CreateAccountDialogProps) {
+  const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState("");
-  const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [accountRole, setAccountRole] = useState<AdminRole>("DEPARTMENT_MANAGER");
-  const [departmentId, setDepartmentId] = useState("");
-  const [password, setPassword] = useState("");
+
+  // Résolution stricte des départements Ecodim et Presse
+  const ecodimDept = departments.find(
+    (d) => /ecod/i.test(d.name) || d.id === "d0000000-0000-4000-8000-000000000004",
+  ) ?? { id: "d0000000-0000-4000-8000-000000000004", name: "Ecodim" };
+
+  const presseDept = departments.find(
+    (d) => /presse/i.test(d.name) || d.id === "d0000000-0000-4000-8000-00000000000a",
+  ) ?? { id: "d0000000-0000-4000-8000-00000000000a", name: "Presse" };
+
+  const [departmentId, setDepartmentId] = useState<string>(ecodimDept.id);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
+    setStep(1);
     setEmail("");
-    setUsername("");
     setDisplayName("");
     setAccountRole("DEPARTMENT_MANAGER");
-    setDepartmentId("");
-    setPassword("");
+    setDepartmentId(ecodimDept.id);
     setError(null);
-  }, [isOpen, role]);
+  }, [isOpen, role, ecodimDept.id]);
 
   const isManager = accountRole === "DEPARTMENT_MANAGER";
 
-  const handleSubmit = async () => {
-    if (!email.trim() || !username.trim()) {
-      setError("L'adresse électronique et le nom d'utilisateur sont obligatoires.");
+  const handleNextStep = () => {
+    const trimmedName = displayName.trim();
+    const trimmedEmail = email.trim();
+
+    if (!trimmedName) {
+      setError("Le nom complet est obligatoire.");
       return;
     }
-    if (isManager && !departmentId) {
-      setError("Un responsable de département doit être rattaché à un département.");
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      setError("Veuillez saisir une adresse électronique valide.");
       return;
     }
 
+    setError(null);
+    setStep(2);
+  };
+
+  const handleSubmit = async () => {
+    if (isManager && !departmentId) {
+      setError("Veuillez sélectionner le département de rattachement.");
+      return;
+    }
+
+    const formattedName = formatPersonName(displayName);
+    const slugName = formattedName
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+    const emailPrefix = email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "");
+    const generatedUsername = (slugName.length >= 3 ? slugName : `${emailPrefix}-admin`).slice(0, 50);
+
     const payload: CreateAdminUserPayload = {
       email: email.trim(),
-      username: username.trim(),
-      displayName: displayName.trim() || null,
+      username: generatedUsername,
+      displayName: formattedName,
       role: accountRole,
-      departmentId: isManager ? departmentId : null,
-      ...(password ? { password } : {}),
+      departmentId: isManager ? (departmentId || ecodimDept.id) : null,
+      password: "ccjvadmin",
     };
 
     setIsSubmitting(true);
@@ -290,90 +335,94 @@ export function CreateAccountDialog({
   return (
     <AccountDialog
       isOpen={isOpen}
-      title="Créer un compte d'administration"
-      description="Le rôle demandé est vérifié côté serveur : il ne peut pas dépasser vos propres droits."
+      title="Créer un administrateur"
+      description={
+        step === 1
+          ? "Étape 1 sur 2 : Identité de l'agent"
+          : "Étape 2 sur 2 : Habilitation et affectation"
+      }
       isSubmitting={isSubmitting}
       error={error}
-      submitLabel="Créer le compte"
+      submitLabel={step === 1 ? "Suivant →" : isSubmitting ? "Création…" : "Créer l'administrateur"}
       onClose={onClose}
-      onSubmit={() => void handleSubmit()}
-    >
-      <FormField label="Adresse électronique de connexion" required>
-        <Input
-          type="email"
-          value={email}
-          autoComplete="off"
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="prenom.nom@exemple.org"
-        />
-      </FormField>
-
-      <FormField label="Nom d'utilisateur" required hint="Identifiant interne, affiché dans l'annuaire.">
-        <Input
-          value={username}
-          autoComplete="off"
-          onChange={(event) => setUsername(event.target.value)}
-          placeholder="prenom-nom"
-        />
-      </FormField>
-
-      <FormField label="Nom affiché" hint="Facultatif.">
-        <Input
-          value={displayName}
-          onChange={(event) => setDisplayName(event.target.value)}
-          placeholder="Prénom Nom"
-        />
-      </FormField>
-
-      <FormField
-        label="Rôle"
-        required
-        hint={
-          role === "ADMIN"
-            ? "En tant qu'ADMIN, vous ne pouvez créer que des responsables de département."
-            : "Un SUPER_ADMIN peut créer les trois rôles."
+      onBack={step === 2 ? () => setStep(1) : undefined}
+      backLabel="← Précédent"
+      onSubmit={() => {
+        if (step === 1) {
+          handleNextStep();
+        } else {
+          void handleSubmit();
         }
-      >
-        <Select
-          value={accountRole}
-          onChange={(event) => setAccountRole(event.target.value as AdminRole)}
-        >
-          <option value="DEPARTMENT_MANAGER">Responsable de département</option>
-          {(role === "SUPER_ADMIN" || accountRole === "ADMIN") && (
-            <option value="ADMIN">Administrateur</option>
-          )}
-          {role === "SUPER_ADMIN" && <option value="SUPER_ADMIN">Super administrateur</option>}
-        </Select>
-      </FormField>
+      }}
+    >
+      {step === 1 ? (
+        <div key="step-1" className="space-y-4 animate-in fade-in duration-200">
+          <FormField label="Nom complet" required hint="La première lettre sera mise en majuscule automatiquement.">
+            <Input
+              value={displayName}
+              autoComplete="off"
+              onChange={(event) => setDisplayName(event.target.value)}
+              placeholder="Ex. Gaëtan Kabamba"
+              required
+            />
+          </FormField>
 
-      {isManager && (
-        <FormField label="Département de rattachement" required>
-          <Select
-            value={departmentId}
-            onChange={(event) => setDepartmentId(event.target.value)}
+          <FormField label="Adresse email de connexion" required hint="Sera utilisée comme identifiant de connexion.">
+            <Input
+              type="email"
+              value={email}
+              autoComplete="off"
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="Ex. gaetan@ccjv.org"
+              required
+            />
+          </FormField>
+        </div>
+      ) : (
+        <div key="step-2" className="space-y-4 animate-in fade-in duration-200">
+          <div className="bg-ccjv-offwhite border border-ccjv-line p-3 text-xs flex items-center justify-between">
+            <span className="text-ccjv-ink-secondary">Identité :</span>
+            <span className="font-semibold text-ccjv-ink">{formatPersonName(displayName)} ({email})</span>
+          </div>
+
+          <FormField
+            label="Habilitation (Rôle)"
+            required
+            hint={
+              role === "ADMIN"
+                ? "En tant qu'administrateur, vous pouvez affecter des responsables de département ou administrateurs."
+                : "Un Super administrateur peut créer tous les rôles."
+            }
           >
-            <option value="">— Choisir un département —</option>
-            {departments.map((department) => (
-              <option key={department.id} value={department.id}>
-                {department.name}
-              </option>
-            ))}
-          </Select>
-        </FormField>
-      )}
+            <Select
+              value={accountRole}
+              onChange={(event) => setAccountRole(event.target.value as AdminRole)}
+            >
+              <option value="DEPARTMENT_MANAGER">Responsable département</option>
+              <option value="ADMIN">Administrateur</option>
+              {role === "SUPER_ADMIN" && <option value="SUPER_ADMIN">Super administrateur</option>}
+            </Select>
+          </FormField>
 
-      <FormField
-        label="Mot de passe initial"
-        hint="Facultatif. Laissé vide, le serveur en génère un : il n'est ni affiché ni renvoyé, et devra être réinitialisé depuis cette page. Sinon, 12 caractères minimum — transmettez-le par un canal sûr."
-      >
-        <Input
-          type="password"
-          value={password}
-          autoComplete="new-password"
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder="••••••••••••"
-        />
-      </FormField>
+          {isManager && (
+            <FormField label="Département" required hint="Choisissez parmi les départements autorisés.">
+              <Select
+                value={departmentId}
+                onChange={(event) => setDepartmentId(event.target.value)}
+              >
+                <option value={ecodimDept.id}>Ecodim</option>
+                <option value={presseDept.id}>Presse</option>
+              </Select>
+            </FormField>
+          )}
+
+          <div className="border border-ccjv-line bg-ccjv-offwhite/80 p-3 text-xs text-ccjv-ink-secondary leading-relaxed">
+            <span className="font-semibold text-ccjv-ink">Mot de passe temporaire : </span>
+            Le mot de passe initial par défaut est <code className="bg-white px-1.5 py-0.5 border border-ccjv-line font-mono font-bold text-ccjv-green">ccjvadmin</code>.
+            L&apos;administrateur aura l&apos;obligation stricte de le modifier dès sa toute première connexion avant d&apos;accéder aux écrans du back-office.
+          </div>
+        </div>
+      )}
     </AccountDialog>
   );
 }

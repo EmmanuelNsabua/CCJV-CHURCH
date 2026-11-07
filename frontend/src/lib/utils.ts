@@ -149,4 +149,27 @@ export function formatRelativeTime(
   return diffYears === 1 ? "Il y a 1 an" : `Il y a ${diffYears} ans`;
 }
 
+/**
+ * Met en majuscule la première lettre de chaque mot d'un nom ou d'un prénom.
+ * Gère également les noms composés reliés par un tiret (ex: "jean-paul" -> "Jean-Paul").
+ */
+export function formatPersonName(name: string | null | undefined): string {
+  if (!name || typeof name !== "string") return "";
+  const trimmed = name.trim();
+  if (trimmed.length === 0) return "";
+
+  return trimmed
+    .split(/\s+/)
+    .map((word) => {
+      return word
+        .split("-")
+        .map((part) => {
+          if (part.length === 0) return "";
+          return part.charAt(0).toUpperCase() + part.slice(1);
+        })
+        .join("-");
+    })
+    .join(" ");
+}
+
 

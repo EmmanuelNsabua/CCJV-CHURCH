@@ -48,6 +48,7 @@ export class SupabaseAdminIdentityProvider implements AdminIdentityProvider {
       email: identity.email,
       password: identity.password,
       email_confirm: identity.emailConfirmed,
+      user_metadata: identity.userMetadata ?? { mustChangePassword: true },
     });
 
     if (error) {
@@ -159,6 +160,7 @@ export class SupabaseAdminIdentityProvider implements AdminIdentityProvider {
   async updatePassword(id: string, password: string): Promise<void> {
     const { error } = await this.supabase.auth.admin.updateUserById(id, {
       password,
+      user_metadata: { mustChangePassword: false },
     });
 
     if (error) {

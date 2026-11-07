@@ -34,6 +34,7 @@ import {
 } from "@/lib/api/endpoints";
 import { ApiError } from "@/lib/api/client";
 import type { AdminProfile, AdminRole } from "@/lib/api/types";
+import { formatPersonName } from "@/lib/utils";
 
 const ROLE_LABEL: Record<AdminRole, string> = {
   SUPER_ADMIN: "Super administrateur",
@@ -377,7 +378,7 @@ export default function AdminAccountsPage() {
                   <div className="flex-1 min-w-0 pr-6">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-serif text-lg font-semibold text-ccjv-ink truncate">
-                        {item.displayName || item.username}
+                        {formatPersonName(item.displayName || item.username)}
                       </h3>
                       {isMe && (
                         <span className="font-sans text-[10px] font-bold uppercase tracking-wider text-ccjv-green border border-ccjv-green/30 bg-ccjv-green-soft px-1.5 py-0.2">
@@ -578,7 +579,10 @@ export default function AdminAccountsPage() {
         departments={departments}
         onClose={() => setIsCreateOpen(false)}
         onCreated={(newProfile) => {
-          toast.success(`Le compte « ${newProfile.username} » a été créé.`, "Compte créé");
+          toast.success(
+            `Le compte « ${formatPersonName(newProfile.displayName || newProfile.username)} » a été créé.`,
+            "Compte créé",
+          );
           void loadProfiles();
         }}
       />
@@ -627,7 +631,7 @@ function ActivationModal({
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isCurrentlyActive = target.isActive !== false;
-  const name = target.displayName || target.username;
+  const name = formatPersonName(target.displayName || target.username);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">

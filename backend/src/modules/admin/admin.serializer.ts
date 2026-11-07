@@ -21,6 +21,8 @@ export interface AdminProfileDto {
   scope?: AdminScope;
   departmentId?: string | null;
   avatarUrl?: string;
+  mustChangePassword?: boolean;
+  allowedNavModules?: string[];
 }
 
 export interface AdminProfileSummaryDto extends AdminProfileDto {
@@ -40,15 +42,65 @@ export interface AdminProfileSummaryDto extends AdminProfileDto {
   email: string | null;
 }
 
-export function toAdminProfileDto(profile: AdminProfile): AdminProfileDto {
+function formatCapitalizedName(name: string | null | undefined): string | null {
+  if (!name) return null;
+  const trimmed = name.trim();
+  if (trimmed.length === 0) return null;
+  return trimmed
+    .split(/\s+/)
+    .map((word) =>
+      word
+        .split("-")
+        .map((part) => (part.length > 0 ? part.charAt(0).toUpperCase() + part.slice(1) : ""))
+        .join("-"),
+    )
+    .join(" ");
+}
+
+export function toAdminProfileDto(
+  profile: AdminProfile,
+  options?: { mustChangePassword?: boolean },
+): AdminProfileDto {
+  const isGlobal = profile.scope === "GLOBAL";
+  const isSuperAdmin = profile.role === "SUPER_ADMIN";
+
+  const allowedNavModules = [
+    "overview",
+    "publications",
+    "teachings",
+    "agenda",
+    "media",
+    "resources",
+  ];
+
+  if (isGlobal) {
+    allowedNavModules.push(
+      "prayers",
+      "testimonies",
+      "departments",
+      "pages",
+      "settings",
+      "admins",
+    );
+    if (isSuperAdmin) {
+      allowedNavModules.push("logs");
+    }
+  }
+
+  const capitalizedDisplayName =
+    formatCapitalizedName(profile.displayName) ??
+    (profile.username ? profile.username.charAt(0).toUpperCase() + profile.username.slice(1) : null);
+
   return {
     id: profile.id,
     username: profile.username,
-    displayName: profile.displayName,
+    displayName: capitalizedDisplayName,
     role: profile.role,
     scope: profile.scope,
     departmentId: profile.departmentId,
     avatarUrl: `${env.SUPABASE_URL}/storage/v1/object/public/${env.SUPABASE_STORAGE_BUCKET}/avatars/${profile.id}.jpg`,
+    mustChangePassword: options?.mustChangePassword ?? false,
+    allowedNavModules,
   };
 }
 

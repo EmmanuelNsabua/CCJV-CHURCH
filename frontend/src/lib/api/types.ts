@@ -290,6 +290,8 @@ export interface AdminProfile {
   createdAt?: string;
   email?: string | null;
   avatarUrl?: string | null;
+  mustChangePassword?: boolean;
+  allowedNavModules?: string[];
 }
 
 export interface AdminMediaItem {

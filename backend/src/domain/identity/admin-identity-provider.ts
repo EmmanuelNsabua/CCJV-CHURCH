@@ -37,6 +37,8 @@ export interface IdentityToCreate {
    * création resterait bloquée tant qu'il ne l'aurait pas fait.
    */
   emailConfirmed: boolean;
+  /** Métadonnées utilisateur (ex: indicateur de premier mot de passe à changer). */
+  userMetadata?: Record<string, unknown>;
 }
 
 export interface CreatedIdentity {

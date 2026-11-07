@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { Badge } from "@/components/ui/Badge";
-import { cn } from "@/lib/utils";
+import { cn, formatPersonName } from "@/lib/utils";
 
 export interface AdminTopbarProps {
   className?: string;
@@ -107,14 +107,19 @@ export function AdminTopbar({ className }: AdminTopbarProps) {
   };
 
   // Liste des raccourcis de recherche rapide
+  const isGlobal = adminProfile?.scope === "GLOBAL";
   const searchResults = [
     { title: "Publications", href: "/admin/publications", icon: BookOpen, cat: "Contenu" },
     { title: "Enseignements", href: "/admin/enseignements", icon: GraduationCap, cat: "Contenu" },
     { title: "Agenda & Cultes", href: "/admin/agenda", icon: Calendar, cat: "Contenu" },
     { title: "Médiathèque", href: "/admin/media", icon: ImageIcon, cat: "Contenu" },
     { title: "Ressources", href: "/admin/ressources", icon: FileText, cat: "Contenu" },
-    { title: "Éditeur de pages", href: "/admin/pages", icon: Layers, cat: "Configuration" },
-    { title: "Départements", href: "/admin/departments", icon: Users, cat: "Communauté" },
+    ...(isGlobal
+      ? [
+          { title: "Éditeur de pages", href: "/admin/pages", icon: Layers, cat: "Configuration" },
+          { title: "Départements", href: "/admin/departments", icon: Users, cat: "Communauté" },
+        ]
+      : []),
   ].filter((item) => item.title.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
@@ -252,10 +257,10 @@ export function AdminTopbar({ className }: AdminTopbarProps) {
               aria-label="Menu profil utilisateur"
             >
               <div className="flex h-6 w-6 items-center justify-center bg-ccjv-green text-white font-sans text-xs font-semibold rounded-none">
-                {adminProfile?.displayName?.charAt(0).toUpperCase() || "A"}
+                {formatPersonName(adminProfile?.displayName || adminProfile?.username || user?.email?.split("@")[0] || "A").charAt(0).toUpperCase()}
               </div>
               <span className="hidden md:inline text-xs font-medium text-ccjv-ink max-w-[120px] truncate">
-                {adminProfile?.displayName || user?.email?.split("@")[0]}
+                {formatPersonName(adminProfile?.displayName || adminProfile?.username || user?.email?.split("@")[0] || "Admin")}
               </span>
             </button>
 
@@ -264,18 +269,22 @@ export function AdminTopbar({ className }: AdminTopbarProps) {
               <div className="absolute right-0 mt-2 w-64 bg-white border border-ccjv-line rounded-none shadow-lg z-50 animate-in fade-in-50 duration-150">
                 <div className="p-3.5 border-b border-ccjv-line bg-ccjv-offwhite">
                   <p className="font-semibold text-xs text-ccjv-ink truncate">
-                    {adminProfile?.displayName || "Administrateur"}
+                    {formatPersonName(adminProfile?.displayName || adminProfile?.username || "Administrateur")}
                   </p>
                   <p className="text-[11px] font-mono text-ccjv-ink-secondary truncate">
                     {user?.email}
                   </p>
                   <div className="mt-2">
                     <Badge
-                      variant={role === "SUPER_ADMIN" ? "warning" : "info"}
+                      variant={role === "SUPER_ADMIN" ? "warning" : role === "ADMIN" ? "info" : "neutral"}
                       className="text-[9px]"
                     >
                       <Shield className="h-3 w-3 mr-1" />
-                      {role === "SUPER_ADMIN" ? "SUPER ADMINISTRATEUR" : "ADMINISTRATEUR"}
+                      {role === "SUPER_ADMIN"
+                        ? "SUPER ADMINISTRATEUR"
+                        : role === "ADMIN"
+                        ? "ADMINISTRATEUR"
+                        : "RESPONSABLE DÉPARTEMENT"}
                     </Badge>
                   </div>
                 </div>

@@ -48,7 +48,13 @@ export function createAdminController(service: AdminService) {
      * compte absent ou désactivé n'atteint jamais ce controller.
      */
     me(req: Request, res: Response): void {
-      sendItem(res, toAdminProfileDto(service.currentProfile(req.admin)));
+      const mustChange = Boolean(req.auth?.userMetadata?.mustChangePassword);
+      sendItem(
+        res,
+        toAdminProfileDto(service.currentProfile(req.admin), {
+          mustChangePassword: mustChange,
+        }),
+      );
     },
 
     /** `GET /admin/profiles` — administration : collection paginée. */

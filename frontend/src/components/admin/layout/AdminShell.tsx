@@ -6,17 +6,28 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminTopbar } from "./AdminTopbar";
 import { AdminMobileFullscreenMenu } from "./AdminMobileFullscreenMenu";
-import { Menu, X } from "lucide-react";
+import { MandatoryPasswordChangeScreen } from "@/components/admin/auth/MandatoryPasswordChangeScreen";
+import { Menu, Shield, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface AdminShellProps {
   children: React.ReactNode;
 }
 
+const GLOBAL_ONLY_PREFIXES = [
+  "/admin/settings",
+  "/admin/administrateurs",
+  "/admin/pages",
+  "/admin/prayers",
+  "/admin/testimonies",
+  "/admin/departments",
+  "/admin/logs",
+];
+
 export function AdminShell({ children }: AdminShellProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, adminProfile, user, refreshProfile } = useAuth();
 
   // État du menu plein écran mobile
   const [fullscreenMobileMenuOpen, setFullscreenMobileMenuOpen] = useState(false);
@@ -24,11 +35,23 @@ export function AdminShell({ children }: AdminShellProps) {
   // Écran de connexion exempté de la coquille d'administration
   const isLoginPage = pathname === "/admin/login" || pathname === "/admin/connexion";
 
+  const isGlobalScope = adminProfile?.scope === "GLOBAL";
+  const isGlobalOnlyRoute = GLOBAL_ONLY_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !isLoginPage) {
       router.replace("/admin/login");
     }
   }, [isAuthenticated, isLoading, isLoginPage, router]);
+
+  // Protection stricte de route : refuser l'accès aux sections globales pour les responsables de département
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && adminProfile && !isGlobalScope && isGlobalOnlyRoute) {
+      router.replace("/admin");
+    }
+  }, [isLoading, isAuthenticated, adminProfile, isGlobalScope, isGlobalOnlyRoute, router]);
 
   // Fermer automatiquement le menu mobile si la route change
   useEffect(() => {
@@ -54,6 +77,31 @@ export function AdminShell({ children }: AdminShellProps) {
 
   if (!isAuthenticated) {
     return null;
+  }
+
+  // Obligation de changement de mot de passe à la première connexion avant d'accéder au portail
+  const mustChangePassword = Boolean(
+    adminProfile?.mustChangePassword || user?.user_metadata?.mustChangePassword,
+  );
+  if (mustChangePassword) {
+    return <MandatoryPasswordChangeScreen onSuccess={() => void refreshProfile()} />;
+  }
+
+  // Écran de blocage si un responsable tente d'accéder manuellement à une route d'administration générale
+  if (isGlobalOnlyRoute && !isGlobalScope) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-ccjv-offwhite p-6">
+        <div className="max-w-md w-full border border-ccjv-line bg-white p-8 text-center shadow-lg animate-in fade-in">
+          <div className="inline-flex h-12 w-12 items-center justify-center bg-[#fef2f2] text-[#b91c1c] mb-4">
+            <Shield className="h-6 w-6" />
+          </div>
+          <h2 className="font-serif text-lg font-bold text-ccjv-ink">Accès réservé</h2>
+          <p className="mt-2 font-sans text-xs text-ccjv-ink-secondary leading-relaxed">
+            Ce module est strictement réservé à l&apos;Administration Générale. Redirection vers votre espace de travail…
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (

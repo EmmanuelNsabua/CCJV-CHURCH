@@ -176,19 +176,44 @@ export function AdminSidebar({ onCloseMobile, className }: AdminSidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentType = searchParams.get("type");
-  const { role } = useAuth();
+  const { role, adminProfile } = useAuth();
 
-  // Navigation filtrée strictement selon le rôle (les modules exclus, ex: Logs pour non-superadmin, sont masqués)
+  // Navigation injectée et filtrée strictement selon le rôle et le scope retournés par le backend
   const filteredNavSections = useMemo(() => {
+    const allowed = adminProfile?.allowedNavModules;
+    const isGlobal = adminProfile?.scope === "GLOBAL";
+
     return adminNavSections
       .map((section) => ({
         ...section,
-        items: section.items.filter(
-          (item) => !item.requiredRole || item.requiredRole === role,
-        ),
+        items: section.items.filter((item) => {
+          // Si le backend fournit allowedNavModules (autorité backend), filtrer strictement dessus
+          if (allowed && allowed.length > 0) {
+            return allowed.includes(item.id);
+          }
+          // Règle de sécurité stricte : les modules Communauté et Configuration exigent un scope GLOBAL
+          const isGlobalOnlyItem = [
+            "prayers",
+            "testimonies",
+            "departments",
+            "pages",
+            "settings",
+            "admins",
+            "logs",
+          ].includes(item.id);
+
+          if (isGlobalOnlyItem && !isGlobal) {
+            return false;
+          }
+
+          if (item.requiredRole && item.requiredRole !== role) {
+            return false;
+          }
+          return true;
+        }),
       }))
       .filter((section) => section.items.length > 0);
-  }, [role]);
+  }, [role, adminProfile]);
 
   // Initialisation intelligente selon la route courante
   const [activeSubMenuId, setActiveSubMenuId] = useState<string | null>(() => {
