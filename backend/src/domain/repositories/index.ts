@@ -379,10 +379,14 @@ export interface ResourceInput {
   name: string;
   description?: string | null;
   file: string;
+  departmentId?: string | null;
+  isArchived?: boolean;
 }
 
 export interface ResourceFilters {
   search?: string;
+  departmentId?: string | null;
+  isArchived?: boolean;
 }
 
 export interface ResourceRepository {

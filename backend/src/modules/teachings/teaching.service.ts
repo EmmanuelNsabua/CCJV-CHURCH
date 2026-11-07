@@ -55,10 +55,15 @@ export class TeachingService {
     const page = query.page ?? 1;
     const offset = (page - 1) * limit;
 
+    let departmentId = query.departmentId;
+    if (actor?.role === "DEPARTMENT_MANAGER" && actor.departmentId) {
+      departmentId = actor.departmentId;
+    }
+
     return this.repo.list({
       status,
       scope: query.scope,
-      departmentId: query.departmentId,
+      departmentId,
       search: query.search,
       limit,
       offset,

@@ -24,7 +24,7 @@ export function createResourceController(service: ResourceService) {
       const page = query.page ?? 1;
       const limit = query.limit ?? 20;
 
-      const { items, total } = await service.list(query);
+      const { items, total } = await service.list(query, req.admin);
       sendCollection<Resource>(res, items, page, limit, total);
     },
 
@@ -38,27 +38,27 @@ export function createResourceController(service: ResourceService) {
 
     async create(req: Request, res: Response): Promise<void> {
       const body = req.body as CreateResourceInput;
-      const resource = await service.create(body);
+      const resource = await service.create(body, req.admin);
       sendItem(res, resource, 201);
     },
 
     async update(req: Request, res: Response): Promise<void> {
       const { id } = validatedParams<ResourceIdParams>(req);
       const body = req.body as UpdateResourceInput;
-      const resource = await service.update(id, body);
+      const resource = await service.update(id, body, req.admin);
       sendItem(res, resource);
     },
 
     async replaceFile(req: Request, res: Response): Promise<void> {
       const { id } = validatedParams<ResourceIdParams>(req);
       const body = req.body as ReplaceResourceFileInput;
-      const resource = await service.replaceFile(id, body);
+      const resource = await service.replaceFile(id, body, req.admin);
       sendItem(res, resource);
     },
 
     async remove(req: Request, res: Response): Promise<void> {
       const { id } = validatedParams<ResourceIdParams>(req);
-      await service.remove(id);
+      await service.remove(id, req.admin);
       sendNoContent(res);
     },
   };

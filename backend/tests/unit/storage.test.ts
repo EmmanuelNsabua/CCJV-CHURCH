@@ -14,9 +14,9 @@ import { supabaseAdmin } from "@/infrastructure/supabase/client";
 
 describe("StorageService — gestion multimédia, sécurité et plafonds volumétriques", () => {
   let storage: StorageService;
-  const mockUpload = jest.fn<any>();
-  const mockGetPublicUrl = jest.fn<any>();
-  const mockRemove = jest.fn<any>();
+  const mockUpload = jest.fn<() => Promise<any>>();
+  const mockGetPublicUrl = jest.fn<() => any>();
+  const mockRemove = jest.fn<() => Promise<any>>();
 
   beforeEach(() => {
     jest.clearAllMocks();

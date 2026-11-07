@@ -8,6 +8,7 @@ import { FormField } from "@/components/admin/forms/FormField";
 import { Input } from "@/components/admin/forms/Input";
 import { Textarea } from "@/components/admin/forms/Textarea";
 import { useToast } from "@/components/admin/feedback/ToastContext";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { uploadAdminMedia } from "@/lib/api/endpoints";
 import type { Resource, CreateResourcePayload, UpdateResourcePayload } from "@/lib/api/types";
 
@@ -24,6 +25,7 @@ export function ResourceForm({
 }: ResourceFormProps) {
   const router = useRouter();
   const toast = useToast();
+  const { adminProfile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [name, setName] = useState(initialData?.name || "");
@@ -92,10 +94,16 @@ export function ResourceForm({
 
     setIsSubmitting(true);
     try {
+      const effectiveDepartmentId =
+        adminProfile?.role === "DEPARTMENT_MANAGER" && adminProfile?.departmentId
+          ? adminProfile.departmentId
+          : (initialData?.departmentId ?? undefined);
+
       const payload: CreateResourcePayload = {
         name: name.trim(),
         description: description.trim() ? description.trim() : undefined,
         file: fileUrl.trim(),
+        departmentId: effectiveDepartmentId,
       };
 
       await onSubmit(payload);

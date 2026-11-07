@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import type { AuthDependencies } from "@/presentation/middlewares/auth";
-import { requireAuthenticatedAdmin } from "@/presentation/middlewares/auth";
+import { optionalAdmin, requireAuthenticatedAdmin } from "@/presentation/middlewares/auth";
 import { validate } from "@/presentation/middlewares/validate";
 import { authorize, ResourcePolicy } from "@/presentation/policies";
 import { createResourceController } from "./resource.controller";
@@ -40,9 +40,9 @@ export function createResourceRouter(deps: ResourceRouterDeps): Router {
   const controller = createResourceController(deps.service);
   const admin = requireAuthenticatedAdmin(deps.authDeps);
 
-  // --- Routes publiques (sans authentification) -----------------------------
-  router.get("/", validate({ query: resourceListQuerySchema }), controller.list);
-  router.get("/:id", validate({ params: idOrSlugParamSchema }), controller.get);
+  // --- Routes publiques (avec authentification optionnelle pour filtrage de périmètre) -
+  router.get("/", optionalAdmin(deps.authDeps), validate({ query: resourceListQuerySchema }), controller.list);
+  router.get("/:id", optionalAdmin(deps.authDeps), validate({ params: idOrSlugParamSchema }), controller.get);
 
   // --- Routes d'administration ----------------------------------------------
   router.post(

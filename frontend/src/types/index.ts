@@ -117,6 +117,8 @@ export interface Resource {
   slug: string;
   description?: string | null;
   file: string; // URL directe ou référence stable au PDF Supabase Storage
+  departmentId?: string | null;
+  isArchived?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

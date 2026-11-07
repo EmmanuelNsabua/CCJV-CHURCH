@@ -29,7 +29,12 @@ export class PublicationService {
   constructor(private readonly publications: PublicationRepository) {}
 
   /** Lecture publique : les brouillons sont exclus, quoi qu'il arrive. */
-  async list(query: PublicationListQuery): Promise<ListResult<Publication>> {
+  async list(query: PublicationListQuery, actor?: AdminProfile | null): Promise<ListResult<Publication>> {
+    let departmentId = query.departmentId;
+    if (actor?.role === "DEPARTMENT_MANAGER" && actor.departmentId) {
+      departmentId = actor.departmentId;
+    }
+
     return this.publications.list(
       { limit: query.limit, offset: toOffset(query.page, query.limit) },
       {
@@ -37,7 +42,7 @@ export class PublicationService {
         category: query.category,
         status: "PUBLISHED",
         scope: query.scope,
-        departmentId: query.departmentId,
+        departmentId,
       },
       query.sort,
     );

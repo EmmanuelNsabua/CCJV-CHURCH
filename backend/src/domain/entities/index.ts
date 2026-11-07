@@ -284,6 +284,8 @@ export interface Resource {
   slug: string;
   description: string | null;
   file: string;
+  departmentId?: string | null;
+  isArchived?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

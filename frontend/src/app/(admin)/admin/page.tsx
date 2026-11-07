@@ -18,6 +18,7 @@ import {
   listAdminPublications,
   listAdminEvents,
   listAdminMedia,
+  getResources,
 } from "@/lib/api/endpoints";
 import type { PublicationRecord, Event } from "@/lib/api/types";
 import { formatLongDate } from "@/lib/utils";
@@ -38,11 +39,16 @@ export default function AdminDashboardPage() {
 
     async function loadDashboardData() {
       try {
+        const deptFilter =
+          adminProfile?.role === "DEPARTMENT_MANAGER" && adminProfile?.departmentId
+            ? { departmentId: adminProfile.departmentId }
+            : {};
+
         const [pubsRes, evtsRes, mediaRes, resourcesRes] = await Promise.allSettled([
-          listAdminPublications({ limit: 5 }),
-          listAdminEvents({ limit: 5 }),
+          listAdminPublications({ limit: 5, ...deptFilter }),
+          listAdminEvents({ limit: 5, ...deptFilter }),
           listAdminMedia({ limit: 50 }),
-          listAdminPublications({ category: "RESSOURCE", limit: 50 }),
+          getResources({ limit: 50, ...deptFilter }),
         ]);
 
         if (isMounted) {
@@ -50,35 +56,35 @@ export default function AdminDashboardPage() {
             setPublications(pubsRes.value.data || []);
             setTotalPubs(pubsRes.value.meta?.total ?? pubsRes.value.data.length);
           } else {
-            setTotalPubs(3);
+            setTotalPubs(0);
           }
 
           if (evtsRes.status === "fulfilled") {
             setEvents(evtsRes.value.data || []);
             setTotalEvts(evtsRes.value.meta?.total ?? evtsRes.value.data.length);
           } else {
-            setTotalEvts(7);
+            setTotalEvts(0);
           }
 
           if (mediaRes.status === "fulfilled") {
             setTotalMedia(mediaRes.value.meta?.total ?? mediaRes.value.data.length);
           } else {
-            setTotalMedia(41);
+            setTotalMedia(0);
           }
 
           if (resourcesRes.status === "fulfilled") {
             setTotalResources(resourcesRes.value.meta?.total ?? resourcesRes.value.data.length);
           } else {
-            setTotalResources(8);
+            setTotalResources(0);
           }
         }
       } catch (err) {
         console.warn("[dashboard] Erreur chargement dashboard :", err);
         if (isMounted) {
-          setTotalPubs((prev) => prev ?? 3);
-          setTotalEvts((prev) => prev ?? 7);
-          setTotalMedia((prev) => prev ?? 41);
-          setTotalResources((prev) => prev ?? 8);
+          setTotalPubs((prev) => prev ?? 0);
+          setTotalEvts((prev) => prev ?? 0);
+          setTotalMedia((prev) => prev ?? 0);
+          setTotalResources((prev) => prev ?? 0);
         }
       } finally {
         if (isMounted) {
@@ -92,7 +98,7 @@ export default function AdminDashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [adminProfile]);
 
   const displayName = adminProfile?.displayName || user?.email?.split("@")[0] || "Administrateur";
 

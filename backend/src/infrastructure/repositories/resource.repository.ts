@@ -1,4 +1,4 @@
-import { asc, count, desc, eq, ilike, ne, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, ne, or } from "drizzle-orm";
 import type { Resource } from "@/domain/entities";
 import type {
   ListOptions,
@@ -28,6 +28,8 @@ function toEntity(row: ResourceRow): Resource {
     slug: row.slug,
     description: row.description,
     file: row.file,
+    departmentId: row.departmentId ?? null,
+    isArchived: row.isArchived ?? false,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -40,12 +42,26 @@ export class DrizzleResourceRepository implements ResourceRepository {
     options: ListOptions,
     filters: ResourceFilters = {},
   ): Promise<ListResult<Resource>> {
-    const where = filters.search
-      ? or(
+    const conditions = [];
+
+    if (filters.search) {
+      conditions.push(
+        or(
           ilike(resources.name, `%${filters.search}%`),
           ilike(resources.description, `%${filters.search}%`),
-        )
-      : undefined;
+        ),
+      );
+    }
+
+    if (filters.departmentId) {
+      conditions.push(eq(resources.departmentId, filters.departmentId));
+    }
+
+    if (filters.isArchived !== undefined) {
+      conditions.push(eq(resources.isArchived, filters.isArchived));
+    }
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
 
     const rows = await this.db
       .select()
@@ -116,6 +132,8 @@ export class DrizzleResourceRepository implements ResourceRepository {
         slug,
         description: data.description ?? null,
         file: data.file,
+        departmentId: data.departmentId ?? null,
+        isArchived: data.isArchived ?? false,
       })
       .returning();
 
@@ -133,6 +151,8 @@ export class DrizzleResourceRepository implements ResourceRepository {
     if (data.name !== undefined) patch.name = data.name;
     if (data.description !== undefined) patch.description = data.description;
     if (data.file !== undefined) patch.file = data.file;
+    if (data.departmentId !== undefined) patch.departmentId = data.departmentId;
+    if (data.isArchived !== undefined) patch.isArchived = data.isArchived;
 
     if (Object.keys(patch).length === 0) {
       return this.findById(id);

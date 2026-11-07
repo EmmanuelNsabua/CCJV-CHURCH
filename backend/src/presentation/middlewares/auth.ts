@@ -85,6 +85,32 @@ export function requireAdmin(deps: AuthDependencies): RequestHandler {
 }
 
 /**
+ * Tente d'authentifier un administrateur s'il transmet un jeton Bearer valide,
+ * sans bloquer la requête en cas d'absence de jeton (pour les routes de lecture publiques).
+ */
+export function optionalAdmin(deps: AuthDependencies): RequestHandler {
+  return async (req: Request, _res: Response, next: NextFunction) => {
+    try {
+      const token = extractBearerToken(req.headers.authorization);
+      if (!token) {
+        next();
+        return;
+      }
+      req.auth = await verifyAccessToken(token);
+      if (req.auth) {
+        const profile = await deps.adminProfiles.findById(req.auth.userId);
+        if (profile && profile.isActive) {
+          req.admin = profile;
+        }
+      }
+      next();
+    } catch {
+      next();
+    }
+  };
+}
+
+/**
  * Exige un rôle parmi ceux autorisés.
  *
  * ⚠️ **Aucune route ne doit plus l'utiliser.** Depuis le Lot 1c, la décision de

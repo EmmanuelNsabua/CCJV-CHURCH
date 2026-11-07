@@ -3,18 +3,19 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Plus } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/layout/AdminPageHeader";
-import { AdminEntityGrid, AdminEntityCard } from "@/components/admin/cards";
+import { AdminEntityGrid, AdminResourceCard } from "@/components/admin/cards";
 import { Pagination } from "@/components/admin/tables/Pagination";
 import { ConfirmModal } from "@/components/admin/feedback/ConfirmModal";
 import { useToast } from "@/components/admin/feedback/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/admin/forms/Select";
-import { getResources, deleteResource } from "@/lib/api/endpoints";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { getResources, deleteResource, archiveResource } from "@/lib/api/endpoints";
 import type { Resource } from "@/lib/api/types";
-import { formatLongDate } from "@/lib/utils";
 
 export default function RessourcesAdminListPage() {
   const toast = useToast();
+  const { adminProfile } = useAuth();
 
   const [resources, setResources] = useState<Resource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,9 +36,15 @@ export default function RessourcesAdminListPage() {
     setIsLoading(true);
     setError(null);
     try {
+      const deptFilter =
+        adminProfile?.role === "DEPARTMENT_MANAGER" && adminProfile?.departmentId
+          ? { departmentId: adminProfile.departmentId }
+          : {};
+
       const res = await getResources({
         page: 1,
         limit: 100,
+        ...deptFilter,
       });
       setResources(res.data || []);
     } catch (err: unknown) {
@@ -47,11 +54,29 @@ export default function RessourcesAdminListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [adminProfile, toast]);
 
   useEffect(() => {
     fetchResources();
   }, [fetchResources]);
+
+  const handleArchive = async (item: Resource) => {
+    try {
+      const nextArchived = !item.isArchived;
+      await archiveResource(item.id, nextArchived);
+      setResources((prev) =>
+        prev.map((r) => (r.id === item.id ? { ...r, isArchived: nextArchived } : r)),
+      );
+      toast.success(
+        nextArchived
+          ? `Le document "${item.name}" a été archivé.`
+          : `Le document "${item.name}" a été désarchivé.`,
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erreur lors de l'archivage.";
+      toast.error(msg);
+    }
+  };
 
   const handleDelete = async () => {
     if (!itemToDelete) return;
@@ -139,8 +164,9 @@ export default function RessourcesAdminListPage() {
         </div>
       )}
 
-      {/* Grille 2 × x des ressources */}
+      {/* Grille des cartes horizontales de ressources */}
       <AdminEntityGrid
+        className="grid grid-cols-1 xl:grid-cols-2 gap-4"
         items={paginatedData}
         keyExtractor={(item) => item.id}
         isLoading={isLoading}
@@ -153,26 +179,18 @@ export default function RessourcesAdminListPage() {
           </Button>
         }
         renderItem={(item) => (
-          <AdminEntityCard
+          <AdminResourceCard
+            key={item.id}
             id={item.id}
-            title={item.name}
-            detailHref={`/admin/ressources/${item.id}`}
-            imageUrl={null}
-            subtitle="Document d'édification (PDF)"
+            name={item.name}
+            file={item.file}
             description={item.description}
-            statusBadge={{
-              label: "Document PDF",
-              variant: "neutral",
-            }}
-            dateLabel={
-              item.createdAt
-                ? `Ajouté le : ${formatLongDate(item.createdAt.slice(0, 10))}`
-                : undefined
-            }
+            createdAt={item.createdAt}
+            isArchived={item.isArchived}
+            onArchive={() => handleArchive(item)}
             onDelete={() => setItemToDelete(item)}
-            deleteTitle="Supprimer cette ressource"
-            deleteAriaLabel={`Supprimer ${item.name}`}
-            viewLabel="Voir plus"
+            editHref={`/admin/ressources/${item.id}`}
+            detailHref={`/admin/ressources/${item.id}`}
           />
         )}
       />

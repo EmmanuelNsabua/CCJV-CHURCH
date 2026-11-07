@@ -9,6 +9,7 @@ import { Input } from "@/components/admin/forms/Input";
 import { Textarea } from "@/components/admin/forms/Textarea";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/admin/feedback/ToastContext";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { AdminMediaField, type AdminMediaValue } from "@/components/admin/media/AdminMediaField";
 import type { PublicationRecord, CreatePublicationPayload } from "@/lib/api/types";
 import { slugify } from "@/lib/utils";
@@ -26,6 +27,7 @@ export function PublicationForm({
 }: PublicationFormProps) {
   const router = useRouter();
   const toast = useToast();
+  const { adminProfile } = useAuth();
 
   const [title, setTitle] = useState(initialData?.title || "");
   const [description, setDescription] = useState(initialData?.description || "");
@@ -100,17 +102,21 @@ export function PublicationForm({
       return;
     }
 
-    // Règle CCJV : Auteur attribué automatiquement (Ecodume si Ecodume, sinon Presse)
-    const effectiveAuthor =
+    // Règle CCJV : Auteur et périmètre attribués automatiquement selon le département
+    const isEcodim =
+      adminProfile?.departmentId === "d0000000-0000-4000-8000-000000000004" ||
+      initialData?.departmentId === "d0000000-0000-4000-8000-000000000004" ||
       initialData?.author === "Ecodume" ||
-      initialData?.departmentId === "d0000000-0000-4000-8000-000000000004"
-        ? "Ecodume"
-        : "Presse";
+      (adminProfile?.role === "DEPARTMENT_MANAGER" && /ecod/i.test(adminProfile?.displayName || ""));
 
+    const effectiveAuthor = isEcodim ? "Ecodume" : "Presse";
+    const effectiveScope = isEcodim ? "ECODIM" : "CCJV";
     const effectiveDepartmentId =
-      effectiveAuthor === "Ecodume"
-        ? "d0000000-0000-4000-8000-000000000004"
-        : "d0000000-0000-4000-8000-00000000000a"; // Presse & Communication
+      adminProfile?.role === "DEPARTMENT_MANAGER" && adminProfile?.departmentId
+        ? adminProfile.departmentId
+        : (isEcodim
+            ? "d0000000-0000-4000-8000-000000000004"
+            : "d0000000-0000-4000-8000-00000000000a"); // Presse & Communication
 
     const effectiveSlug = initialData?.slug || slugify(title.trim());
     const effectiveCoverImage = coverMedia?.url || undefined;
@@ -122,6 +128,7 @@ export function PublicationForm({
       type: "TEXTE",
       category: initialData?.category || "ENSEIGNEMENT",
       departmentId: effectiveDepartmentId,
+      scope: effectiveScope,
       author: effectiveAuthor,
       description: description.trim() || undefined,
       coverMediaId: effectiveCoverMediaId,

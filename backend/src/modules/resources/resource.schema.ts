@@ -7,6 +7,8 @@ export const resourceSchema = z.object({
   slug: z.string().min(1).max(220),
   description: z.string().nullable().optional(),
   file: z.string().min(1, "La référence au fichier PDF est obligatoire"),
+  departmentId: z.string().uuid().nullable().optional(),
+  isArchived: z.boolean().optional(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
@@ -16,6 +18,8 @@ export const createResourceSchema = z.object({
   slug: z.string().max(220).optional(),
   description: z.string().max(2000).nullable().optional(),
   file: z.string().min(1, "Le fichier PDF est obligatoire"),
+  departmentId: z.string().uuid("L'identifiant de département doit être un UUID valide").nullable().optional(),
+  isArchived: z.boolean().optional(),
 });
 
 export const updateResourceSchema = z.object({
@@ -23,6 +27,8 @@ export const updateResourceSchema = z.object({
   slug: z.string().max(220).optional(),
   description: z.string().max(2000).nullable().optional(),
   file: z.string().min(1).optional(),
+  departmentId: z.string().uuid("L'identifiant de département doit être un UUID valide").nullable().optional(),
+  isArchived: z.boolean().optional(),
 });
 
 export const replaceResourceFileSchema = z.object({
@@ -39,6 +45,10 @@ export const replaceResourceFileSchema = z.object({
  */
 export const resourceListQuerySchema = paginationQuerySchema.extend({
   search: z.string().trim().optional(),
+  departmentId: z.string().uuid("L'identifiant de département doit être un UUID valide").optional(),
+  isArchived: z
+    .preprocess((val) => (val === "true" ? true : val === "false" ? false : val), z.boolean().optional())
+    .optional(),
 });
 
 export type CreateResourceInput = z.infer<typeof createResourceSchema>;

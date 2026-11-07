@@ -1281,6 +1281,8 @@ export interface ResourceListQuery {
   page?: number;
   limit?: number;
   search?: string;
+  departmentId?: string | null;
+  isArchived?: boolean;
 }
 
 /** Liste des ressources publiques (`GET /resources`). */
@@ -1293,6 +1295,8 @@ export async function getResources(
       page: query.page,
       limit: query.limit,
       search: query.search,
+      departmentId: query.departmentId ?? undefined,
+      isArchived: query.isArchived !== undefined ? String(query.isArchived) : undefined,
     }),
     options,
   );
@@ -1303,6 +1307,14 @@ export async function getResources(
     data: [],
     meta: { page: query.page ?? 1, limit: query.limit ?? 20, total: 0, totalPages: 0 },
   };
+}
+
+/** Archive ou désarchive une ressource (`PATCH /resources/:id`). */
+export async function archiveResource(
+  id: string,
+  isArchived: boolean,
+): Promise<Resource> {
+  return updateResource(id, { isArchived });
 }
 
 /** Fiche d'une ressource (`GET /resources/:idOrSlug`). */

@@ -27,15 +27,18 @@ export function createPublicationController(service: PublicationService) {
       const { page, limit, type, category, scope, departmentId, sort } =
         validatedQuery<PublicationListQuery>(req);
 
-      const { items, total } = await service.list({
-        page,
-        limit,
-        type,
-        category,
-        scope,
-        departmentId,
-        sort,
-      });
+      const { items, total } = await service.list(
+        {
+          page,
+          limit,
+          type,
+          category,
+          scope,
+          departmentId,
+          sort,
+        },
+        req.admin,
+      );
 
       sendCollection(res, items.map(toPublicationDto), page, limit, total);
     },

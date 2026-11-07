@@ -309,6 +309,7 @@ export interface CreatePublicationPayload {
   slug?: string;
   type: PublicationType;
   category?: string;
+  scope?: "CCJV" | "ECODIM";
   departmentId?: string;
   author?: string;
   description?: string;
@@ -481,6 +482,8 @@ export interface CreateResourcePayload extends Record<string, unknown> {
   slug?: string;
   description?: string | null;
   file: string; // URL directe ou référence stable au PDF Supabase Storage
+  departmentId?: string | null;
+  isArchived?: boolean;
 }
 
 export interface UpdateResourcePayload extends Record<string, unknown> {
@@ -488,6 +491,8 @@ export interface UpdateResourcePayload extends Record<string, unknown> {
   slug?: string;
   description?: string | null;
   file?: string;
+  departmentId?: string | null;
+  isArchived?: boolean;
 }
 
 /* -------------------------------------------------------------------------- */

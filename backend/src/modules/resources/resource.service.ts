@@ -1,6 +1,6 @@
-import type { Resource } from "@/domain/entities";
+import type { AdminProfile, Resource } from "@/domain/entities";
 import type { ListResult, ResourceRepository } from "@/domain/repositories";
-import { NotFoundError, ValidationError } from "@/shared/errors/app-error";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error";
 import { toOffset } from "@/shared/http/pagination";
 import { slugify, uniqueSlug } from "@/shared/utils/slug";
 import type {
@@ -13,10 +13,19 @@ import type {
 export class ResourceService {
   constructor(private readonly resources: ResourceRepository) {}
 
-  async list(query: ResourceListQuery): Promise<ListResult<Resource>> {
+  async list(query: ResourceListQuery, actor?: AdminProfile | null): Promise<ListResult<Resource>> {
+    let departmentId = query.departmentId;
+    if (actor?.role === "DEPARTMENT_MANAGER" && actor.departmentId) {
+      departmentId = actor.departmentId;
+    }
+
     return this.resources.list(
       { limit: query.limit, offset: toOffset(query.page, query.limit) },
-      { search: query.search },
+      {
+        search: query.search,
+        departmentId,
+        isArchived: query.isArchived,
+      },
     );
   }
 
@@ -43,8 +52,13 @@ export class ResourceService {
   /**
    * Publication directe : toute ressource créée est immédiatement disponible.
    */
-  async create(data: CreateResourceInput): Promise<Resource> {
+  async create(data: CreateResourceInput, actor?: AdminProfile | null): Promise<Resource> {
     this.assertPdfFile(data.file);
+
+    let departmentId = data.departmentId ?? null;
+    if (actor?.role === "DEPARTMENT_MANAGER" && actor.departmentId) {
+      departmentId = actor.departmentId;
+    }
 
     const slug = await this.resolveSlug(data.name, data.slug);
 
@@ -53,18 +67,28 @@ export class ResourceService {
         name: data.name,
         description: data.description ?? null,
         file: data.file,
+        departmentId,
+        isArchived: data.isArchived ?? false,
       },
       slug,
     );
   }
 
-  async update(id: string, data: UpdateResourceInput): Promise<Resource> {
+  async update(id: string, data: UpdateResourceInput, actor?: AdminProfile | null): Promise<Resource> {
     const existing = await this.resources.findById(id);
     if (!existing) {
       throw new NotFoundError(
         "RESOURCE_NOT_FOUND",
         `Aucune ressource ne correspond à l'identifiant ${id}`,
       );
+    }
+
+    if (actor?.role === "DEPARTMENT_MANAGER") {
+      if (existing.departmentId && existing.departmentId !== actor.departmentId) {
+        throw new ForbiddenError(
+          "Vous n'avez pas l'autorisation de modifier une ressource rattachée à un autre département",
+        );
+      }
     }
 
     if (data.file !== undefined) {
@@ -85,13 +109,21 @@ export class ResourceService {
   /**
    * Remplacement direct du PDF : conserve le nom, slug et description.
    */
-  async replaceFile(id: string, data: ReplaceResourceFileInput): Promise<Resource> {
+  async replaceFile(id: string, data: ReplaceResourceFileInput, actor?: AdminProfile | null): Promise<Resource> {
     const existing = await this.resources.findById(id);
     if (!existing) {
       throw new NotFoundError(
         "RESOURCE_NOT_FOUND",
         `Aucune ressource ne correspond à l'identifiant ${id}`,
       );
+    }
+
+    if (actor?.role === "DEPARTMENT_MANAGER") {
+      if (existing.departmentId && existing.departmentId !== actor.departmentId) {
+        throw new ForbiddenError(
+          "Vous n'avez pas l'autorisation de modifier une ressource rattachée à un autre département",
+        );
+      }
     }
 
     this.assertPdfFile(data.file);
@@ -107,13 +139,21 @@ export class ResourceService {
     return updated;
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, actor?: AdminProfile | null): Promise<void> {
     const existing = await this.resources.findById(id);
     if (!existing) {
       throw new NotFoundError(
         "RESOURCE_NOT_FOUND",
         `Aucune ressource ne correspond à l'identifiant ${id}`,
       );
+    }
+
+    if (actor?.role === "DEPARTMENT_MANAGER") {
+      if (existing.departmentId && existing.departmentId !== actor.departmentId) {
+        throw new ForbiddenError(
+          "Vous n'avez pas l'autorisation de supprimer une ressource rattachée à un autre département",
+        );
+      }
     }
 
     const removed = await this.resources.remove(id);

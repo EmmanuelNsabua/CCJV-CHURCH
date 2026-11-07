@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { AuthDependencies } from "@/presentation/middlewares/auth";
-import { requireAuthenticatedAdmin } from "@/presentation/middlewares/auth";
+import { optionalAdmin, requireAuthenticatedAdmin } from "@/presentation/middlewares/auth";
 import { authorize, PublicationPolicy } from "@/presentation/policies";
 import { validate } from "@/presentation/middlewares/validate";
 import { createPublicationController } from "./publication.controller";
@@ -38,7 +38,7 @@ export function createPublicationRouter(deps: PublicationRouterDeps): Router {
   // --- Lecture publique (jamais de brouillon) --------------------------------
   router.get("/featured", controller.featured);
   router.get("/archives", validate({ query: listPublicationQuerySchema }), controller.archives);
-  router.get("/", validate({ query: listPublicationQuerySchema }), controller.list);
+  router.get("/", optionalAdmin(deps.authDeps), validate({ query: listPublicationQuerySchema }), controller.list);
   router.get(
     "/:idOrSlug",
     validate({ params: publicationIdOrSlugSchema }),
