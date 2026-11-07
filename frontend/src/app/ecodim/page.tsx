@@ -112,7 +112,7 @@ export default async function EcodimPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-12 sm:mt-16">
           <div className="group relative aspect-[4/3] overflow-hidden border border-ccjv-line bg-white shadow-xs">
             <Image
-              src={images.ecodim}
+              src={images.foi}
               alt="Enfants réunis à l'École du Dimanche CCJV"
               fill
               priority
@@ -126,7 +126,7 @@ export default async function EcodimPage() {
 
           <div className="group relative aspect-[4/3] overflow-hidden border border-ccjv-line bg-white shadow-xs">
             <Image
-              src={images.assemblee}
+              src={images.adoration}
               alt="Louange et écoute de la parole de Dieu"
               fill
               priority
@@ -227,7 +227,7 @@ export default async function EcodimPage() {
           {/* Image 1 : Verticale */}
           <div className="relative aspect-[3/4] border border-ccjv-line bg-white overflow-hidden shadow-xs">
             <Image
-              src={images.assemblee}
+              src={images.adoration}
               alt="Rassemblement des enfants et chants de louange"
               fill
               sizes="(max-width: 768px) 100vw, 33vw"

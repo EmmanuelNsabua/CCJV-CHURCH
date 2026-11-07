@@ -31,13 +31,12 @@ const envSchema = z.object({
   /**
    * Plafond **absolu** d'un téléversement, en octets.
    *
-   * Porté à 20 Mo : une photo de téléphone tient largement dans 5 Mo, mais un
-   * document PDF (bulletin, programme, brochure) les dépasse régulièrement. Ce
-   * plafond est la borne mémoire du serveur (multer bufferise en RAM) ; le
-   * plafond réellement appliqué dépend ensuite du dossier — `StorageService`
-   * maintient les images à 5 Mo.
+   * Fixé par défaut à 250 Mo (262_144_000 octets) afin de permettre
+   * l'importation de vidéos d'enseignements et cultes volumineux (> 100 Mo)
+   * ainsi que des enregistrements audio complets.
+   * Reste entièrement surchargeable via la variable d'environnement MAX_UPLOAD_BYTES.
    */
-  MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(20_971_520),
+  MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(262_144_000),
 
   LOG_LEVEL: z
     .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])

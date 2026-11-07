@@ -34,6 +34,10 @@ export const images = {
   communaute: "/media/ccjv-30.jpeg",
   /** Ministère des enfants (Ecodim). */
   ecodim: "https://fcdyqwconmymcznsaykw.supabase.co/storage/v1/object/public/ccjv-media/pages/3ac64c4e-feb1-41f3-8ca9-4a7a35fd1915.jpg",
+  /** Image de la foi */
+  foi: "https://fcdyqwconmymcznsaykw.supabase.co/storage/v1/object/public/ccjv-media/pages/7f986717-f307-48cb-890d-1cdfb579cad8.jpg",
+  /** Image de la louange */
+  adoration: "https://fcdyqwconmymcznsaykw.supabase.co/storage/v1/object/public/ccjv-media/pages/7028662f-97ac-4941-ad7e-daac3e636bb9.jpg",
   /** Début de l'Ecodim */
   ecodimAncien: "https://fcdyqwconmymcznsaykw.supabase.co/storage/v1/object/public/ccjv-media/pages/64cefa2b-a0b3-468c-b8a5-bf243ed3aaa1.jpg",
   /** Portrait grand format (vertical). */

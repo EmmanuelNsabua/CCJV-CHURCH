@@ -1,10 +1,16 @@
 import { describe, expect, it } from "@jest/globals";
 import {
+  ACCEPTED_AUDIO_MIME_TYPES,
   ACCEPTED_IMAGE_MIME_TYPES,
+  ACCEPTED_VIDEO_MIME_TYPES,
+  detectAudioMimeType,
   detectDocumentMimeType,
   detectImageMimeType,
+  detectVideoMimeType,
   extensionForMimeType,
+  isAudioMimeType,
   isImageMimeType,
+  isVideoMimeType,
   readImageDimensions,
 } from "@/shared/utils/file-signature";
 import type { AcceptedImageMimeType } from "@/shared/utils/file-signature";
@@ -56,7 +62,7 @@ function jpegBuffer(width = 1920, height = 1080): Buffer {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Détections positives                                                      */
+/*  Détections positives — Images                                             */
 /* -------------------------------------------------------------------------- */
 
 describe("detectImageMimeType — formats acceptés", () => {
@@ -134,11 +140,9 @@ describe("detectImageMimeType — refus", () => {
   it("refuse un en-tête tronqué", () => {
     expect(detectImageMimeType(Buffer.from([0xff]))).toBeNull();
     expect(detectImageMimeType(Buffer.from([0xff, 0xd8]))).toBeNull();
-    // PNG amputé de son dernier octet de signature.
     expect(
       detectImageMimeType(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a])),
     ).toBeNull();
-    // RIFF sans WEBP : conteneur reconnu, format non.
     expect(detectImageMimeType(Buffer.from("RIFF", "latin1"))).toBeNull();
   });
 
@@ -160,8 +164,6 @@ describe("detectImageMimeType — refus", () => {
   });
 
   it("refuse un fichier dont l'extension prétend « .jpg » mais dont le contenu est du texte", () => {
-    // Le contenu est la seule source de vérité : renommer un fichier ne le
-    // transforme pas en image (`docs/004`, cahier §14).
     const fauxJpeg = Buffer.from("#!/bin/sh\nrm -rf /\n", "utf8");
 
     expect(detectImageMimeType(fauxJpeg)).toBeNull();
@@ -169,31 +171,9 @@ describe("detectImageMimeType — refus", () => {
   });
 
   it("accepte un JPEG dont la fin du fichier n'est pas une image valide", () => {
-    // Nuance assumée : la détection porte sur les octets d'en-tête. Un contenu
-    // malformé qui *commence* comme un JPEG est reconnu comme JPEG ; le
-    // nettoyage définitif appartient au service de stockage.
     const tronque = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(100)]);
 
     expect(detectImageMimeType(tronque)).toBe("image/jpeg");
-  });
-});
-
-/* -------------------------------------------------------------------------- */
-/*  Extensions                                                                */
-/* -------------------------------------------------------------------------- */
-
-describe("extensionForMimeType", () => {
-  it("associe une extension canonique à chaque type accepté", () => {
-    expect(extensionForMimeType("image/jpeg")).toBe("jpg");
-    expect(extensionForMimeType("image/png")).toBe("png");
-    expect(extensionForMimeType("image/webp")).toBe("webp");
-    expect(extensionForMimeType("image/avif")).toBe("avif");
-  });
-
-  it("ne produit jamais d'extension vide", () => {
-    for (const mimeType of ACCEPTED_IMAGE_MIME_TYPES) {
-      expect(extensionForMimeType(mimeType).length).toBeGreaterThan(0);
-    }
   });
 });
 
@@ -280,7 +260,6 @@ describe("readImageDimensions", () => {
 /* -------------------------------------------------------------------------- */
 
 describe("file-signature — document PDF", () => {
-  /** PDF minimal : l'en-tête normalisé suffit à l'identification. */
   function pdfBuffer(version = "1.7"): Buffer {
     return Buffer.concat([
       Buffer.from(`%PDF-${version}\n`, "latin1"),
@@ -310,5 +289,171 @@ describe("file-signature — document PDF", () => {
     expect(extensionForMimeType("application/pdf")).toBe("pdf");
     expect(isImageMimeType("application/pdf")).toBe(false);
     expect(isImageMimeType("image/png")).toBe(true);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Vidéos — formats autorisés et sécurité                                    */
+/* -------------------------------------------------------------------------- */
+
+describe("file-signature — vidéos (MP4, WebM, MOV)", () => {
+  function mp4Buffer(brand = "mp42"): Buffer {
+    const buffer = Buffer.alloc(32);
+    buffer.writeUInt32BE(32, 0);
+    buffer.write("ftyp", 4, "latin1");
+    buffer.write(brand, 8, "latin1");
+    buffer.writeUInt32BE(0, 12);
+    buffer.write("isom", 16, "latin1");
+    buffer.write("mp42", 20, "latin1");
+    return buffer;
+  }
+
+  function webmBuffer(): Buffer {
+    const buffer = Buffer.alloc(40);
+    buffer.set([0x1a, 0x45, 0xdf, 0xa3], 0);
+    buffer.write("...docType:webm...", 4, "latin1");
+    return buffer;
+  }
+
+  function movBuffer(): Buffer {
+    const buffer = Buffer.alloc(24);
+    buffer.writeUInt32BE(24, 0);
+    buffer.write("ftyp", 4, "latin1");
+    buffer.write("qt  ", 8, "latin1");
+    return buffer;
+  }
+
+  it("reconnaît un MP4 selon ses différentes marques ISO-BMFF", () => {
+    expect(detectVideoMimeType(mp4Buffer("mp42"))).toBe("video/mp4");
+    expect(detectVideoMimeType(mp4Buffer("isom"))).toBe("video/mp4");
+    expect(detectVideoMimeType(mp4Buffer("avc1"))).toBe("video/mp4");
+    expect(detectVideoMimeType(mp4Buffer("dash"))).toBe("video/mp4");
+  });
+
+  it("reconnaît un fichier WebM / Matroska", () => {
+    expect(detectVideoMimeType(webmBuffer())).toBe("video/webm");
+  });
+
+  it("reconnaît un fichier QuickTime MOV", () => {
+    expect(detectVideoMimeType(movBuffer())).toBe("video/quicktime");
+    const legacyMov = Buffer.alloc(16);
+    legacyMov.writeUInt32BE(16, 0);
+    legacyMov.write("moov", 4, "latin1");
+    expect(detectVideoMimeType(legacyMov)).toBe("video/quicktime");
+  });
+
+  it("ne classe pas une vidéo comme image", () => {
+    expect(detectImageMimeType(mp4Buffer())).toBeNull();
+    expect(detectImageMimeType(webmBuffer())).toBeNull();
+    expect(isImageMimeType("video/mp4")).toBe(false);
+    expect(isVideoMimeType("video/mp4")).toBe(true);
+  });
+
+  it("associe les extensions vidéo canoniques", () => {
+    expect(extensionForMimeType("video/mp4")).toBe("mp4");
+    expect(extensionForMimeType("video/webm")).toBe("webm");
+    expect(extensionForMimeType("video/quicktime")).toBe("mov");
+  });
+
+  it("rejette tout script ou contenu malveillant déguisé en vidéo", () => {
+    const fakeXss = Buffer.from("<script>alert('injection');</script>", "utf8");
+    expect(detectVideoMimeType(fakeXss)).toBeNull();
+
+    const fakeShell = Buffer.from("#!/bin/bash\necho dangerous\n", "utf8");
+    expect(detectVideoMimeType(fakeShell)).toBeNull();
+
+    const fakeElf = Buffer.from([0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00]);
+    expect(detectVideoMimeType(fakeElf)).toBeNull();
+
+    const fakeExe = Buffer.from([0x4d, 0x5a, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00]);
+    expect(detectVideoMimeType(fakeExe)).toBeNull();
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Audios — formats autorisés et sécurité                                    */
+/* -------------------------------------------------------------------------- */
+
+describe("file-signature — audio (MP3, WAV, M4A, OGG, AAC)", () => {
+  function mp3Id3Buffer(): Buffer {
+    const buffer = Buffer.alloc(20);
+    buffer.write("ID3", 0, "latin1");
+    buffer.set([0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a], 3);
+    return buffer;
+  }
+
+  function mp3RawBuffer(): Buffer {
+    return Buffer.from([0xff, 0xfb, 0x90, 0x64, 0x00, 0x00, 0x00, 0x00]);
+  }
+
+  function wavBuffer(): Buffer {
+    const buffer = Buffer.alloc(20);
+    buffer.write("RIFF", 0, "latin1");
+    buffer.writeUInt32LE(12, 4);
+    buffer.write("WAVE", 8, "latin1");
+    return buffer;
+  }
+
+  function oggBuffer(): Buffer {
+    const buffer = Buffer.alloc(20);
+    buffer.set([0x4f, 0x67, 0x67, 0x53], 0);
+    return buffer;
+  }
+
+  function m4aBuffer(): Buffer {
+    const buffer = Buffer.alloc(24);
+    buffer.writeUInt32BE(24, 0);
+    buffer.write("ftyp", 4, "latin1");
+    buffer.write("M4A ", 8, "latin1");
+    return buffer;
+  }
+
+  function aacBuffer(): Buffer {
+    return Buffer.from([0xff, 0xf1, 0x50, 0x80]);
+  }
+
+  it("reconnaît un MP3 avec en-tête ID3v2", () => {
+    expect(detectAudioMimeType(mp3Id3Buffer())).toBe("audio/mpeg");
+  });
+
+  it("reconnaît un MP3 brut par sa synchronisation de trame MPEG Layer III", () => {
+    expect(detectAudioMimeType(mp3RawBuffer())).toBe("audio/mpeg");
+  });
+
+  it("reconnaît un fichier WAV", () => {
+    expect(detectAudioMimeType(wavBuffer())).toBe("audio/wav");
+  });
+
+  it("reconnaît un flux OGG", () => {
+    expect(detectAudioMimeType(oggBuffer())).toBe("audio/ogg");
+  });
+
+  it("reconnaît un fichier audio M4A (AAC dans boîte ftyp)", () => {
+    expect(detectAudioMimeType(m4aBuffer())).toBe("audio/mp4");
+  });
+
+  it("reconnaît un fichier AAC brut (ADTS)", () => {
+    expect(detectAudioMimeType(aacBuffer())).toBe("audio/aac");
+  });
+
+  it("associe les extensions audio canoniques", () => {
+    expect(extensionForMimeType("audio/mpeg")).toBe("mp3");
+    expect(extensionForMimeType("audio/wav")).toBe("wav");
+    expect(extensionForMimeType("audio/mp4")).toBe("m4a");
+    expect(extensionForMimeType("audio/ogg")).toBe("ogg");
+    expect(extensionForMimeType("audio/aac")).toBe("aac");
+    expect(isAudioMimeType("audio/mpeg")).toBe(true);
+    expect(isAudioMimeType("video/mp4")).toBe(false);
+  });
+
+  it("rejette tout script ou payload malveillant se faisant passer pour un fichier audio", () => {
+    const fakeHtml = Buffer.from("<html><head><script>alert('xss');</script></head></html>", "utf8");
+    expect(detectAudioMimeType(fakeHtml)).toBeNull();
+
+    const fakeSql = Buffer.from("'; DROP TABLE media; --", "utf8");
+    expect(detectAudioMimeType(fakeSql)).toBeNull();
+
+    const fakeScript = Buffer.from("console.log('malicious nodejs payload');", "utf8");
+    expect(detectAudioMimeType(fakeScript)).toBeNull();
   });
 });

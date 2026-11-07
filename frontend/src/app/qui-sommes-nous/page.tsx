@@ -49,7 +49,7 @@ export default async function QuiSommesNousPage() {
   const communityFaces = facesRead.status === "ok" ? facesRead.data : [];
 
   return (
-    <div className="relative w-full overflow-hidden bg-ccjv-offwhite text-ccjv-ink selection:bg-ccjv-green selection:text-white">
+    <div className="relative w-full bg-ccjv-offwhite text-ccjv-ink selection:bg-ccjv-green selection:text-white">
       {/* =========================================================================
           HERO : « Une histoire qui commence »
           ========================================================================= */}
@@ -207,9 +207,6 @@ export default async function QuiSommesNousPage() {
             {/* Jalon 1 : Ecodim */}
             <Reveal className="lg:col-span-6">
               <div className="border border-ccjv-line p-8 lg:p-10 bg-white">
-                <span className="font-sans text-xs font-bold tracking-[0.2em] text-ccjv-green uppercase">
-                  02 Juillet 2023
-                </span>
                 <h3 className="mt-3 font-serif text-2xl font-semibold">
                   Naissance de l&apos;Ecodim
                 </h3>
@@ -234,9 +231,6 @@ export default async function QuiSommesNousPage() {
             <Reveal delay={120} className="lg:col-span-6">
               <div className="border border-ccjv-line p-8 lg:p-10 bg-white h-full flex flex-col justify-between">
                 <div>
-                  <span className="font-sans text-xs font-bold tracking-[0.2em] text-ccjv-green uppercase">
-                    Déploiement
-                  </span>
                   <h3 className="mt-3 font-serif text-2xl font-semibold">
                     Chorale, Groupes & Ministères
                   </h3>
@@ -464,74 +458,9 @@ export default async function QuiSommesNousPage() {
       </section>
 
       {/* =========================================================================
-          LES VISAGES : Humaniser la communauté
-          ========================================================================= */}
-      <section className="relative bg-ccjv-cream/30 py-20 lg:py-28 border-y border-ccjv-line">
-        <div className="container">
-          <div className="mx-auto max-w-3xl text-center">
-            <h2 className="text-[clamp(1.8rem,1rem+2vw,2.8rem)] leading-tight">
-              « Une église n&apos;est pas un bâtiment : <br />
-              ce sont des personnes qui marchent ensemble. »
-            </h2>
-            <p className="mt-4 text-ccjv-ink-secondary">
-              Derrière chaque rencontre, il y a des visages dévoués, des
-              familles engagées et des cœurs accueillants.
-            </p>
-          </div>
-
-          {facesRead.status === "unreachable" ? (
-            <ContentUnavailable
-              className="mt-14"
-              resource="Les visages de la communauté"
-            />
-          ) : communityFaces.length > 0 ? (
-            <div className="mt-14 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-              {communityFaces.map((face) => (
-                <div
-                  key={face.id}
-                  className="group relative overflow-hidden bg-white border border-ccjv-line p-3 text-center transition-all duration-300 hover:shadow-md"
-                >
-                  <div className="relative aspect-[3/4] w-full overflow-hidden bg-ccjv-line">
-                    <Image
-                      src={face.photo}
-                      alt={face.name}
-                      fill
-                      sizes="(max-width: 640px) 50vw, 20vw"
-                      className="object-cover"
-                    />
-                  </div>
-                  <h3 className="mt-3 font-serif text-base font-semibold text-ccjv-ink">
-                    {face.name}
-                  </h3>
-                  <p className="mt-1 font-sans text-xs text-ccjv-ink-secondary line-clamp-2">
-                    {face.caption}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              className="mt-14"
-              title="Aucun portrait publié pour le moment"
-              description="Les visages publiés depuis le back-office apparaîtront ici."
-            />
-          )}
-
-          <div className="mt-12 text-center">
-            <Link
-              href="/organisation"
-              className="inline-flex items-center gap-2 font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-green uppercase transition-colors hover:text-ccjv-green-strong"
-            >
-              Découvrir nos équipes et notre organisation →
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* =========================================================================
           GRANDE RESPIRATION FINALE : « L'histoire continue »
           ========================================================================= */}
-      <section className="relative py-24 lg:py-36 text-center">
+      <section className="relative py-24 lg:py-36 text-center bg-ccjv-cream">
         <div className="container max-w-2xl">
           <Reveal>
             <CrossMark size="xl" className="mx-auto text-ccjv-green" />
@@ -577,7 +506,7 @@ export default async function QuiSommesNousPage() {
                 href="/vie-de-leglise/ou-nous-trouver"
                 className="inline-flex items-center justify-center border border-white/40 bg-white/5 px-8 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-white uppercase transition-all duration-300 hover:bg-white/15"
               >
-                Où nous trouver & Horaires
+                Nous-trouver
               </Link>
             </div>
           </Reveal>

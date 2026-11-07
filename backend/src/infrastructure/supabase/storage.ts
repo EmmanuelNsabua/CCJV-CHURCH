@@ -10,10 +10,16 @@ import {
 import {
   ACCEPTED_DOCUMENT_MIME_TYPES,
   ACCEPTED_IMAGE_MIME_TYPES,
+  ACCEPTED_VIDEO_MIME_TYPES,
+  ACCEPTED_AUDIO_MIME_TYPES,
   detectDocumentMimeType,
   detectImageMimeType,
+  detectVideoMimeType,
+  detectAudioMimeType,
   extensionForMimeType,
   isImageMimeType,
+  isVideoMimeType,
+  isAudioMimeType,
   readImageDimensions,
   type AcceptedUploadMimeType,
 } from "@/shared/utils/file-signature";
@@ -23,8 +29,9 @@ import {
  * et permet d'appliquer des politiques différentes par la suite
  * (docs/018 §8).
  *
- * `resources` est le seul dossier documentaire : il accueille les PDF de
- * l'espace Ressources, tous les autres n'acceptent que des images.
+ * `resources` accueille les documents PDF (bulletins, brochures, guides).
+ * `pages`, `publications` et `testimonies` accueillent la médiathèque multimédia (images, vidéos, audios).
+ * Les autres dossiers restent réservés aux photos éditoriales (bannières, trombinoscopes).
  */
 export type StorageFolder =
   | "events"
@@ -35,6 +42,12 @@ export type StorageFolder =
   | "community"
   | "pages"
   | "resources";
+
+const ALL_MEDIA_TYPES: readonly AcceptedUploadMimeType[] = [
+  ...ACCEPTED_IMAGE_MIME_TYPES,
+  ...ACCEPTED_VIDEO_MIME_TYPES,
+  ...ACCEPTED_AUDIO_MIME_TYPES,
+];
 
 /**
  * Types acceptés **par dossier**.
@@ -51,11 +64,11 @@ const ACCEPTED_TYPES_BY_FOLDER: Record<
 > = {
   events: ACCEPTED_IMAGE_MIME_TYPES,
   departments: ACCEPTED_IMAGE_MIME_TYPES,
-  publications: ACCEPTED_IMAGE_MIME_TYPES,
+  publications: ALL_MEDIA_TYPES,
   leaders: ACCEPTED_IMAGE_MIME_TYPES,
-  testimonies: ACCEPTED_IMAGE_MIME_TYPES,
+  testimonies: ALL_MEDIA_TYPES,
   community: ACCEPTED_IMAGE_MIME_TYPES,
-  pages: ACCEPTED_IMAGE_MIME_TYPES,
+  pages: ALL_MEDIA_TYPES,
   resources: ACCEPTED_DOCUMENT_MIME_TYPES,
 };
 
@@ -73,9 +86,9 @@ export function acceptedMimeTypesFor(folder: StorageFolder): readonly string[] {
 /**
  * Type réel du fichier, limité à ce que le dossier accepte.
  *
- * Les deux détections sont tentées puis confrontées à la liste du dossier :
- * un contenu qui n'est ni image ni document reconnu, ou qui ne correspond pas
- * au dossier, donne `null` — jamais un type « par défaut ».
+ * Les détections sont tentées puis confrontées à la liste du dossier :
+ * un contenu qui n'est ni image, ni vidéo, ni audio, ni document reconnu,
+ * ou qui ne correspond pas au dossier visé, donne `null` — jamais un type « par défaut ».
  */
 function detectAcceptedMimeType(
   buffer: Buffer,
@@ -83,6 +96,12 @@ function detectAcceptedMimeType(
 ): AcceptedUploadMimeType | null {
   const imageType = detectImageMimeType(buffer);
   if (imageType !== null && accepted.includes(imageType)) return imageType;
+
+  const videoType = detectVideoMimeType(buffer);
+  if (videoType !== null && accepted.includes(videoType)) return videoType;
+
+  const audioType = detectAudioMimeType(buffer);
+  if (audioType !== null && accepted.includes(audioType)) return audioType;
 
   const documentType = detectDocumentMimeType(buffer);
   if (documentType !== null && accepted.includes(documentType)) {
@@ -95,12 +114,17 @@ function detectAcceptedMimeType(
 /**
  * Plafond propre aux **images**, en octets (5 Mo).
  *
- * `MAX_UPLOAD_BYTES` est la borne mémoire du serveur ; ce plafond-ci est une
+ * `MAX_UPLOAD_BYTES` est la borne mémoire absolue du serveur ; ce plafond-ci est une
  * règle éditoriale : une photo d'événement de plus de 5 Mo alourdit les pages
- * publiques sans rien apporter à l'écran. Les documents (`resources`) disposent
- * de la borne haute, un PDF de 8 Mo étant parfaitement normal.
+ * publiques sans rien apporter à l'écran.
  */
 export const IMAGE_MAX_BYTES = 5_242_880;
+
+/** Plafond propre aux fichiers **audio** (100 Mo pour les longs enregistrements). */
+export const AUDIO_MAX_BYTES = 104_857_600;
+
+/** Plafond propre aux fichiers **vidéo** (300 Mo pour les enseignements et cultes vidéo). */
+export const VIDEO_MAX_BYTES = 314_572_800;
 
 export interface UploadedFile {
   bucket: string;
@@ -131,14 +155,6 @@ export class StorageService {
     alt?: string | null,
   ): Promise<UploadedFile & { alt: string | null }> {
     const accepted = acceptedMimeTypesFor(folder);
-    const maxBytes =
-      folder === "resources"
-        ? env.MAX_UPLOAD_BYTES
-        : Math.min(env.MAX_UPLOAD_BYTES, IMAGE_MAX_BYTES);
-
-    if (file.size > maxBytes) {
-      throw new PayloadTooLargeError(maxBytes);
-    }
 
     if (file.buffer.length === 0) {
       throw new UnsupportedMediaTypeError(accepted);
@@ -147,6 +163,23 @@ export class StorageService {
     const mimeType = detectAcceptedMimeType(file.buffer, ACCEPTED_TYPES_BY_FOLDER[folder]);
     if (!mimeType) {
       throw new UnsupportedMediaTypeError(accepted);
+    }
+
+    // Plafond adapté selon la nature du média détecté
+    let maxBytes: number;
+    if (isImageMimeType(mimeType)) {
+      maxBytes = Math.min(env.MAX_UPLOAD_BYTES, IMAGE_MAX_BYTES);
+    } else if (isAudioMimeType(mimeType)) {
+      maxBytes = Math.min(env.MAX_UPLOAD_BYTES, AUDIO_MAX_BYTES);
+    } else if (isVideoMimeType(mimeType)) {
+      maxBytes = Math.min(env.MAX_UPLOAD_BYTES, VIDEO_MAX_BYTES);
+    } else {
+      // Document (PDF)
+      maxBytes = env.MAX_UPLOAD_BYTES;
+    }
+
+    if (file.size > maxBytes) {
+      throw new PayloadTooLargeError(maxBytes);
     }
 
     const extension = extensionForMimeType(mimeType);
