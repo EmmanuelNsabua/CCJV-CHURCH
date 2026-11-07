@@ -63,23 +63,64 @@ export class DrizzleResourceRepository implements ResourceRepository {
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const rows = await this.db
-      .select()
-      .from(resources)
-      .where(where)
-      .orderBy(desc(resources.createdAt), asc(resources.name))
-      .limit(options.limit)
-      .offset(options.offset);
+    try {
+      const rows = await this.db
+        .select()
+        .from(resources)
+        .where(where)
+        .orderBy(desc(resources.createdAt), asc(resources.name))
+        .limit(options.limit)
+        .offset(options.offset);
 
-    const [totals] = await this.db
-      .select({ value: count() })
-      .from(resources)
-      .where(where);
+      const [totals] = await this.db
+        .select({ value: count() })
+        .from(resources)
+        .where(where);
 
-    return {
-      items: rows.map(toEntity),
-      total: totals?.value ?? 0,
-    };
+      return {
+        items: rows.map(toEntity),
+        total: totals?.value ?? 0,
+      };
+    } catch (err: unknown) {
+      const isMissingColumn =
+        String(err).includes("column") &&
+        (String(err).includes("department_id") || String(err).includes("is_archived"));
+
+      if (isMissingColumn) {
+        const rows = await this.db
+          .select({
+            id: resources.id,
+            name: resources.name,
+            slug: resources.slug,
+            description: resources.description,
+            file: resources.file,
+            createdAt: resources.createdAt,
+            updatedAt: resources.updatedAt,
+          })
+          .from(resources)
+          .orderBy(desc(resources.createdAt), asc(resources.name))
+          .limit(options.limit)
+          .offset(options.offset);
+
+        const [totals] = await this.db.select({ value: count() }).from(resources);
+
+        return {
+          items: rows.map((r) => ({
+            id: r.id,
+            name: r.name,
+            slug: r.slug,
+            description: r.description,
+            file: r.file,
+            departmentId: null,
+            isArchived: false,
+            createdAt: r.createdAt,
+            updatedAt: r.updatedAt,
+          })),
+          total: totals?.value ?? 0,
+        };
+      }
+      throw err;
+    }
   }
 
   async findById(id: string): Promise<Resource | null> {

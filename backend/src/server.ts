@@ -14,6 +14,16 @@ async function main(): Promise<void> {
   try {
     await sql`select 1`;
     logger.info("Connexion PostgreSQL établie");
+
+    // Assurer l'existence des colonnes et index sur les tables étendues (idempotent)
+    await sql`
+      ALTER TABLE "resources" ADD COLUMN IF NOT EXISTS "department_id" uuid REFERENCES "departments"("id") ON DELETE SET NULL;
+      ALTER TABLE "resources" ADD COLUMN IF NOT EXISTS "is_archived" boolean DEFAULT false NOT NULL;
+      CREATE INDEX IF NOT EXISTS "resources_department_idx" ON "resources" ("department_id");
+      CREATE INDEX IF NOT EXISTS "resources_is_archived_idx" ON "resources" ("is_archived");
+      ALTER TABLE "teachings" ADD COLUMN IF NOT EXISTS "department_id" uuid REFERENCES "departments"("id") ON DELETE SET NULL;
+    `;
+    logger.info("Schéma des ressources et enseignements vérifié et synchronisé");
   } catch (error) {
     logger.fatal(
       { err: error },
