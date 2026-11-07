@@ -236,10 +236,22 @@ export class TeachingService {
   async updateBiblicalReferences(
     id: string,
     references: BiblicalReferenceInput[],
+    actor?: AdminProfile | null,
   ): Promise<BiblicalReference[]> {
     const existing = await this.repo.findById(id);
     if (!existing) {
       throw new TeachingNotFoundError(id);
+    }
+
+    if (actor?.role === "DEPARTMENT_MANAGER") {
+      if (
+        existing.scope === "CCJV" ||
+        (existing.departmentId && existing.departmentId !== actor.departmentId)
+      ) {
+        throw new ForbiddenError(
+          "Ce contenu relève du site général CCJV et ne peut pas être modifié par un responsable départemental",
+        );
+      }
     }
 
     validateBiblicalReferences(references);
@@ -253,10 +265,22 @@ export class TeachingService {
   async updateMedias(
     id: string,
     medias: TeachingMediaInput[],
+    actor?: AdminProfile | null,
   ): Promise<TeachingMedia[]> {
     const existing = await this.repo.findById(id);
     if (!existing) {
       throw new TeachingNotFoundError(id);
+    }
+
+    if (actor?.role === "DEPARTMENT_MANAGER") {
+      if (
+        existing.scope === "CCJV" ||
+        (existing.departmentId && existing.departmentId !== actor.departmentId)
+      ) {
+        throw new ForbiddenError(
+          "Ce contenu relève du site général CCJV et ne peut pas être modifié par un responsable départemental",
+        );
+      }
     }
 
     // Vérifier l'existence de chaque média

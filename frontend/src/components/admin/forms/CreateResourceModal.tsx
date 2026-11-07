@@ -5,7 +5,6 @@ import {
   X,
   Upload,
   FileText,
-  FileSpreadsheet,
   FileCode,
   BookOpen,
   ArrowRight,
@@ -33,12 +32,7 @@ const ACCEPTED_EXTENSIONS = [
   ".docx",
   ".ppt",
   ".pptx",
-  ".xls",
-  ".xlsx",
   ".txt",
-  ".odt",
-  ".odp",
-  ".ods",
 ];
 
 export interface CreateResourceModalProps {
@@ -73,16 +67,10 @@ function getFileIcon(extension: string) {
       return <BookOpen className="h-6 w-6 text-purple-600 shrink-0" />;
     case "doc":
     case "docx":
-    case "odt":
       return <FileText className="h-6 w-6 text-blue-600 shrink-0" />;
     case "ppt":
     case "pptx":
-    case "odp":
       return <FileText className="h-6 w-6 text-amber-600 shrink-0" />;
-    case "xls":
-    case "xlsx":
-    case "ods":
-      return <FileSpreadsheet className="h-6 w-6 text-emerald-600 shrink-0" />;
     default:
       return <FileCode className="h-6 w-6 text-ccjv-ink-secondary shrink-0" />;
   }
@@ -384,9 +372,8 @@ export function CreateResourceModal({
         <div className="grid grid-cols-2 h-1 bg-ccjv-line/40">
           <div className="h-full bg-ccjv-green transition-all duration-300" />
           <div
-            className={`h-full transition-all duration-300 ${
-              step === 2 ? "bg-ccjv-green" : "bg-transparent"
-            }`}
+            className={`h-full transition-all duration-300 ${step === 2 ? "bg-ccjv-green" : "bg-transparent"
+              }`}
           />
         </div>
 
@@ -408,7 +395,7 @@ export function CreateResourceModal({
                 ref={fileInputRef}
                 type="file"
                 multiple={false}
-                accept=".pdf,.epub,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.odt,.odp,.ods"
+                accept=".pdf,.epub,.doc,.docx,.ppt,.pptx,.txt"
                 onChange={handleFileInputChange}
                 className="hidden"
               />
@@ -419,11 +406,10 @@ export function CreateResourceModal({
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-none p-8 text-center cursor-pointer transition-all duration-150 flex flex-col items-center justify-center gap-3 ${
-                    isDragOver
+                  className={`border-2 border-dashed rounded-none p-8 text-center cursor-pointer transition-all duration-150 flex flex-col items-center justify-center gap-3 ${isDragOver
                       ? "border-ccjv-green bg-emerald-50/50 scale-[0.99]"
                       : "border-ccjv-line hover:border-ccjv-green bg-neutral-50/50"
-                  }`}
+                    }`}
                 >
                   <div className="w-12 h-12 bg-white border border-ccjv-line flex items-center justify-center text-ccjv-green shadow-xs">
                     <Upload className="h-6 w-6" />
@@ -439,7 +425,7 @@ export function CreateResourceModal({
                   </div>
 
                   <div className="mt-2 text-[11px] text-ccjv-ink-secondary/80 max-w-xs leading-relaxed">
-                    Un seul fichier • Formats acceptés : PDF, EPUB, DOC, DOCX, PPT, PPTX, XLS, XLSX • Max 25 Mo
+                    Un seul fichier • Formats acceptés : PDF, EPUB, DOC, DOCX, PPT, PPTX • Max 25 Mo
                   </div>
 
                   <Button
@@ -622,3 +608,4 @@ export function CreateResourceModal({
     </div>
   );
 }
+

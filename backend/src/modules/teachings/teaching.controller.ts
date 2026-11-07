@@ -65,14 +65,14 @@ export function createTeachingController(service: TeachingService) {
     ): Promise<void> {
       const { id } = validatedParams<TeachingIdParams>(req);
       const { references } = req.body as UpdateBiblicalReferencesBody;
-      const updated = await service.updateBiblicalReferences(id, references);
+      const updated = await service.updateBiblicalReferences(id, references, req.admin);
       sendItem(res, updated.map(toBiblicalReferenceDto));
     },
 
     async updateMedias(req: Request, res: Response): Promise<void> {
       const { id } = validatedParams<TeachingIdParams>(req);
       const { medias } = req.body as UpdateTeachingMediasBody;
-      const updated = await service.updateMedias(id, medias);
+      const updated = await service.updateMedias(id, medias, req.admin);
       sendItem(res, updated.map(toTeachingMediaDto));
     },
 

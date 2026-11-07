@@ -575,6 +575,69 @@ describe("TeachingService — Tests unitaires métier", () => {
       expect(found.id).toBe("draft-1");
     });
 
+    it("permet à un responsable départemental de modifier les références bibliques de son périmètre", async () => {
+      const deptTeaching = teachingFixture({
+        id: "dept-teach-1",
+        scope: "ECODIM",
+        departmentId: "d0000000-0000-4000-8000-000000000004",
+      });
+      teachingRepo.items.set("dept-teach-1", deptTeaching);
+
+      const managerActor = {
+        id: "manager-id",
+        username: "manager",
+        displayName: "Gaetan Mulumba",
+        scope: "DEPARTMENT" as const,
+        role: "DEPARTMENT_MANAGER" as const,
+        departmentId: "d0000000-0000-4000-8000-000000000004",
+        fullName: "Gaetan Mulumba",
+        email: "gaetan@ccjv.local",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const refs = await service.updateBiblicalReferences(
+        "dept-teach-1",
+        [{ book: "Jean", startChapter: 3, startVerse: 16 }],
+        managerActor,
+      );
+
+      expect(refs).toHaveLength(1);
+      expect(refs[0].book).toBe("Jean");
+    });
+
+    it("interdit à un responsable départemental de modifier les références d'un enseignement CCJV global", async () => {
+      const globalTeaching = teachingFixture({
+        id: "global-teach-1",
+        scope: "CCJV",
+        departmentId: null,
+      });
+      teachingRepo.items.set("global-teach-1", globalTeaching);
+
+      const managerActor = {
+        id: "manager-id",
+        username: "manager",
+        displayName: "Gaetan Mulumba",
+        scope: "DEPARTMENT" as const,
+        role: "DEPARTMENT_MANAGER" as const,
+        departmentId: "d0000000-0000-4000-8000-000000000004",
+        fullName: "Gaetan Mulumba",
+        email: "gaetan@ccjv.local",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await expect(
+        service.updateBiblicalReferences(
+          "global-teach-1",
+          [{ book: "Jean", startChapter: 3, startVerse: 16 }],
+          managerActor,
+        ),
+      ).rejects.toThrow("Ce contenu relève du site général CCJV");
+    });
+
     it("permet l'archivage et retire l'enseignement de la liste active publique", async () => {
       teachingRepo.items.set(
         TEACHING_ID,

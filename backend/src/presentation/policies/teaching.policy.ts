@@ -78,14 +78,14 @@ export const TeachingPolicy = createPolicy<TeachingPolicyResource>(
         if (admin.role === "DEPARTMENT_MANAGER") {
           if (
             resource &&
-            (resource.scope === "ECODIM" ||
-              (resource.departmentId && resource.departmentId === admin.departmentId))
+            (resource.scope === "CCJV" ||
+              (resource.departmentId && resource.departmentId !== admin.departmentId))
           ) {
-            return allow();
+            return deny(
+              "Ce contenu relève du site général CCJV et ne peut pas être modifié par un responsable départemental",
+            );
           }
-          return deny(
-            "Ce contenu relève du site général CCJV et ne peut pas être modifié par un responsable départemental",
-          );
+          return allow();
         }
         return deny("Action non autorisée");
       },
@@ -100,14 +100,14 @@ export const TeachingPolicy = createPolicy<TeachingPolicyResource>(
         if (admin.role === "DEPARTMENT_MANAGER") {
           if (
             resource &&
-            (resource.scope === "ECODIM" ||
-              (resource.departmentId && resource.departmentId === admin.departmentId))
+            (resource.scope === "CCJV" ||
+              (resource.departmentId && resource.departmentId !== admin.departmentId))
           ) {
-            return allow();
+            return deny(
+              "Ce contenu relève du site général CCJV et ne peut pas être publié par un responsable départemental",
+            );
           }
-          return deny(
-            "Ce contenu relève du site général CCJV et ne peut pas être publié par un responsable départemental",
-          );
+          return allow();
         }
         return deny("Action non autorisée");
       },
@@ -122,12 +122,12 @@ export const TeachingPolicy = createPolicy<TeachingPolicyResource>(
         if (admin.role === "DEPARTMENT_MANAGER") {
           if (
             resource &&
-            (resource.scope === "ECODIM" ||
-              (resource.departmentId && resource.departmentId === admin.departmentId))
+            (resource.scope === "CCJV" ||
+              (resource.departmentId && resource.departmentId !== admin.departmentId))
           ) {
-            return allow();
+            return deny("Action réservée au périmètre attribué");
           }
-          return deny("Action réservée au périmètre attribué");
+          return allow();
         }
         return deny("Action non autorisée");
       },
@@ -142,12 +142,12 @@ export const TeachingPolicy = createPolicy<TeachingPolicyResource>(
         if (admin.role === "DEPARTMENT_MANAGER") {
           if (
             resource &&
-            (resource.scope === "ECODIM" ||
-              (resource.departmentId && resource.departmentId === admin.departmentId))
+            (resource.scope === "CCJV" ||
+              (resource.departmentId && resource.departmentId !== admin.departmentId))
           ) {
-            return allow();
+            return deny("Action réservée au périmètre attribué");
           }
-          return deny("Action réservée au périmètre attribué");
+          return allow();
         }
         return deny("Action non autorisée");
       },
