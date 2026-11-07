@@ -2,29 +2,45 @@ import type { Request, Response, NextFunction } from "express";
 import { logStore, type LogLevel } from "./log-store";
 
 /**
+ * Vérifie si une requête GET correspond à un endpoint technique ou de polling à haute fréquence
+ * qui ne doit pas encombrer le journal d'audit du Super Admin ("GET /admin/logs", "/admin/me", "/ping", "/health").
+ */
+function isExcludedRoutineEndpoint(method: string, path: string): boolean {
+  if (method !== "GET") return false;
+  const p = path.toLowerCase();
+  return (
+    p === "/" ||
+    p === "/ping" ||
+    p === "/health" ||
+    p === "/api/v1" ||
+    p === "/api/v1/" ||
+    p.endsWith("/ping") ||
+    p.endsWith("/health") ||
+    p.includes("/admin/logs") ||
+    p.includes("/admin/me")
+  );
+}
+
+/**
  * Middleware de capture des événements d'audit en temps réel pour le Super Admin.
  * Enregistre les requêtes importantes, les mutations, et toutes les erreurs (4xx, 5xx).
  */
 export function auditHttpLogger() {
   return (req: Request, res: Response, next: NextFunction) => {
-    // Ignorer les sondes périodiques de santé pour ne pas polluer l'affichage temps réel
     const path = req.originalUrl?.split("?")[0] || req.url;
-    if (
-      path === "/health" ||
-      path === "/ping" ||
-      path === "/" ||
-      path.endsWith("/health")
-    ) {
-      next();
-      return;
-    }
 
     const startTime = Date.now();
 
     // Capturer la fin de la réponse
     res.on("finish", () => {
-      const durationMs = Date.now() - startTime;
       const statusCode = res.statusCode;
+
+      // Ignorer impérativement les requêtes de routine et de polling réussies (< 400)
+      if (isExcludedRoutineEndpoint(req.method, path) && statusCode < 400) {
+        return;
+      }
+
+      const durationMs = Date.now() - startTime;
 
       let level: LogLevel = "info";
       if (statusCode >= 500) {

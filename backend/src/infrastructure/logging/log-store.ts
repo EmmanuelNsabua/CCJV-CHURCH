@@ -87,6 +87,22 @@ class LogStore {
   getLogs(options: LogFilterOptions = {}): { data: LogEntry[]; meta: LogStoreStats } {
     let result = this.logs;
 
+    // Éliminer systématiquement les requêtes GET réussies à haute fréquence (polling de logs, me, ping, health)
+    result = result.filter((log) => {
+      if (log.method === "GET" && log.path && (log.statusCode ?? 200) < 400) {
+        const p = log.path.toLowerCase();
+        if (
+          p.includes("/admin/logs") ||
+          p.includes("/admin/me") ||
+          p.endsWith("/ping") ||
+          p.endsWith("/health")
+        ) {
+          return false;
+        }
+      }
+      return true;
+    });
+
     if (options.since) {
       const sinceTime = new Date(options.since).getTime();
       if (!Number.isNaN(sinceTime)) {

@@ -127,6 +127,23 @@ export default function AdminLogsPage() {
   // Filtrage combiné (niveau + recherche texte)
   const filteredLogs = useMemo(() => {
     return logs.filter((log) => {
+      // Masquer les requêtes de routine et de polling à haute fréquence
+      if (
+        log.method === "GET" &&
+        (log.statusCode === 200 || log.statusCode === 304) &&
+        log.path
+      ) {
+        const p = log.path.toLowerCase();
+        if (
+          p.includes("/admin/logs") ||
+          p.includes("/admin/me") ||
+          p.endsWith("/ping") ||
+          p.endsWith("/health")
+        ) {
+          return false;
+        }
+      }
+
       if (selectedLevel !== "ALL" && log.level !== selectedLevel) {
         return false;
       }
