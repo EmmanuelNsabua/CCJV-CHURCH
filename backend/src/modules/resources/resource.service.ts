@@ -53,7 +53,7 @@ export class ResourceService {
    * Publication directe : toute ressource créée est immédiatement disponible.
    */
   async create(data: CreateResourceInput, actor?: AdminProfile | null): Promise<Resource> {
-    this.assertPdfFile(data.file);
+    this.assertDocumentFile(data.file);
 
     let departmentId = data.departmentId ?? null;
     if (actor?.role === "DEPARTMENT_MANAGER" && actor.departmentId) {
@@ -92,7 +92,7 @@ export class ResourceService {
     }
 
     if (data.file !== undefined) {
-      this.assertPdfFile(data.file);
+      this.assertDocumentFile(data.file);
     }
 
     const updated = await this.resources.update(id, data);
@@ -126,7 +126,7 @@ export class ResourceService {
       }
     }
 
-    this.assertPdfFile(data.file);
+    this.assertDocumentFile(data.file);
 
     const updated = await this.resources.replaceFile(id, data.file);
     if (!updated) {
@@ -165,10 +165,27 @@ export class ResourceService {
     }
   }
 
-  private assertPdfFile(file: string): void {
+  private assertDocumentFile(file: string): void {
     const cleanUrl = file.toLowerCase().split("?")[0] ?? "";
-    if (!cleanUrl.endsWith(".pdf") && !cleanUrl.includes(".pdf")) {
-      throw new ValidationError("Le fichier doit obligatoirement être un document PDF");
+    const allowed = [
+      ".pdf",
+      ".epub",
+      ".doc",
+      ".docx",
+      ".ppt",
+      ".pptx",
+      ".xls",
+      ".xlsx",
+      ".txt",
+      ".odt",
+      ".odp",
+      ".ods",
+    ];
+    const isDoc = allowed.some((ext) => cleanUrl.endsWith(ext) || cleanUrl.includes(ext));
+    if (!isDoc) {
+      throw new ValidationError(
+        "Le fichier doit obligatoirement être un document valide (PDF, EPUB, DOC, DOCX, PPT, PPTX, XLS, XLSX, TXT)",
+      );
     }
   }
 

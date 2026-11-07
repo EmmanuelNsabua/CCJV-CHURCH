@@ -79,9 +79,14 @@ describe("StorageService — gestion multimédia, sécurité et plafonds volumé
       expect(accepted).not.toContain("application/pdf");
     });
 
-    it("réserve le dossier 'resources' exclusivement aux documents PDF", () => {
+    it("réserve le dossier 'resources' exclusivement aux documents (PDF, EPUB, Office)", () => {
       const accepted = acceptedMimeTypesFor("resources");
-      expect(accepted).toEqual(["application/pdf"]);
+      expect(accepted).toContain("application/pdf");
+      expect(accepted).toContain("application/epub+zip");
+      expect(accepted).toContain("application/msword");
+      expect(accepted).toContain("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+      expect(accepted).not.toContain("image/jpeg");
+      expect(accepted).not.toContain("video/mp4");
     });
 
     it("réserve le dossier 'events' exclusivement aux photos", () => {

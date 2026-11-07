@@ -41,8 +41,10 @@ export function ResourceForm({
     if (!files || files.length === 0) return;
 
     const file = files[0];
-    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-      toast.error("Veuillez sélectionner un document au format PDF.");
+    const allowed = [".pdf", ".epub", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".txt", ".odt"];
+    const ext = `.${file.name.split(".").pop()?.toLowerCase() ?? ""}`;
+    if (!allowed.includes(ext) && file.type !== "application/pdf") {
+      toast.error("Veuillez sélectionner un document valide (PDF, EPUB, DOC, DOCX, PPT, PPTX, etc.).");
       return;
     }
 
@@ -166,10 +168,10 @@ export function ResourceForm({
         {/* Fichier PDF */}
         <div className="space-y-2 border-t border-ccjv-line pt-6">
           <label className="block text-xs font-semibold uppercase tracking-wider text-ccjv-ink">
-            Document PDF <span className="text-red-600">*</span>
+            Document à télécharger <span className="text-red-600">*</span>
           </label>
           <p className="text-xs text-ccjv-ink-secondary">
-            Téléversez un document PDF ou saisissez l'URL d'un fichier déjà stocké.
+            Téléversez un document (PDF, EPUB, DOCX, etc.) ou saisissez l'URL d'un fichier déjà stocké.
           </p>
 
           <div className="mt-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -178,7 +180,7 @@ export function ResourceForm({
               ref={fileInputRef}
               onChange={handleFileUpload}
               className="hidden"
-              accept="application/pdf,.pdf"
+              accept=".pdf,.epub,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.odt"
             />
             <Button
               type="button"
@@ -190,7 +192,7 @@ export function ResourceForm({
               className="shrink-0"
             >
               <Upload className="h-4 w-4" />
-              {isUploading ? "Téléversement..." : "Sélectionner un PDF"}
+              {isUploading ? "Téléversement..." : "Sélectionner un document"}
             </Button>
 
             <div className="flex-1">

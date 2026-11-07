@@ -46,14 +46,21 @@ export const ACCEPTED_AUDIO_MIME_TYPES = [
 export type AcceptedAudioMimeType = (typeof ACCEPTED_AUDIO_MIME_TYPES)[number];
 
 /**
- * Types acceptés pour un **document téléchargeable** (ressources PDF).
+ * Types acceptés pour un **document téléchargeable** (ressources).
  *
- * Un PDF n'est pas une photo : il n'a ni dimensions ni usage de couverture. Il
- * relève donc d'une liste distincte, que le dossier de destination décide
- * (voir `StorageService`). Mélanger les deux listes autoriserait un PDF à la
- * place d'une image d'événement, et inversement.
+ * Support étendu : PDF, EPUB, documents bureautiques Office et texte libre.
  */
-export const ACCEPTED_DOCUMENT_MIME_TYPES = ["application/pdf"] as const;
+export const ACCEPTED_DOCUMENT_MIME_TYPES = [
+  "application/pdf",
+  "application/epub+zip",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.oasis.opendocument.text",
+] as const;
 
 export type AcceptedDocumentMimeType =
   (typeof ACCEPTED_DOCUMENT_MIME_TYPES)[number];
@@ -256,6 +263,22 @@ export function extensionForMimeType(mimeType: AcceptedUploadMimeType): string {
       return "avif";
     case "application/pdf":
       return "pdf";
+    case "application/epub+zip":
+      return "epub";
+    case "application/msword":
+      return "doc";
+    case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+      return "docx";
+    case "application/vnd.ms-powerpoint":
+      return "ppt";
+    case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+      return "pptx";
+    case "application/vnd.ms-excel":
+      return "xls";
+    case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+      return "xlsx";
+    case "application/vnd.oasis.opendocument.text":
+      return "odt";
     case "video/mp4":
       return "mp4";
     case "video/webm":
@@ -299,14 +322,58 @@ export function isAudioMimeType(
 /**
  * Retourne le type MIME de document déduit du contenu, ou `null`.
  *
- * PDF : l'en-tête normalisé est `%PDF-` suivi du numéro de version (`%PDF-1.7`).
- * Les octets sont lus, pas l'extension : un `.pdf` renommé est refusé, et un
- * PDF renommé en `.jpg` est reconnu pour ce qu'il est.
+ * Reconnaît :
+ * - PDF : `%PDF-`
+ * - EPUB / OpenXML (DOCX, PPTX, XLSX) / ODT : Conteneurs ZIP `PK\x03\x04`
+ * - MS Office classique (DOC, PPT, XLS) : Conteneurs OLE2 CFBF
+ * - Texte brut (TXT)
  */
 export function detectDocumentMimeType(
   buffer: Buffer,
 ): AcceptedDocumentMimeType | null {
+  if (buffer.length === 0) return null;
+
+  // PDF : %PDF-
   if (asciiAt(buffer, 0, "%PDF-")) return "application/pdf";
+
+  // ZIP-based Office / OpenDocument / EPUB : PK\x03\x04
+  if (startsWith(buffer, [0x50, 0x4b, 0x03, 0x04])) {
+    const headerChunk = buffer.subarray(0, Math.min(buffer.length, 4096)).toString("latin1");
+
+    if (headerChunk.includes("mimetypeapplication/epub+zip") || headerChunk.includes("META-INF/container.xml")) {
+      return "application/epub+zip";
+    }
+    if (headerChunk.includes("word/")) {
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    }
+    if (headerChunk.includes("ppt/")) {
+      return "application/vnd.ms-powerpoint";
+    }
+    if (headerChunk.includes("xl/")) {
+      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    }
+    if (headerChunk.includes("application/vnd.oasis.opendocument.text")) {
+      return "application/vnd.oasis.opendocument.text";
+    }
+    if (headerChunk.includes("[Content_Types].xml")) {
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    }
+
+    return "application/epub+zip";
+  }
+
+  // OLE2 Binary Format (MS Office classique 97-2003 : .doc, .ppt, .xls)
+  if (startsWith(buffer, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])) {
+    const chunk = buffer.subarray(0, Math.min(buffer.length, 4096)).toString("latin1");
+    if (chunk.includes("PowerPoint")) {
+      return "application/vnd.ms-powerpoint";
+    }
+    if (chunk.includes("Workbook") || chunk.includes("Book")) {
+      return "application/vnd.ms-excel";
+    }
+    return "application/msword";
+  }
+
   return null;
 }
 

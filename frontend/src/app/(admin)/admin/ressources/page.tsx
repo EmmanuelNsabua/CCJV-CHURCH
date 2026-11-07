@@ -9,6 +9,7 @@ import { ConfirmModal } from "@/components/admin/feedback/ConfirmModal";
 import { useToast } from "@/components/admin/feedback/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/admin/forms/Select";
+import { CreateResourceModal } from "@/components/admin/forms/CreateResourceModal";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { getResources, deleteResource, archiveResource } from "@/lib/api/endpoints";
 import type { Resource } from "@/lib/api/types";
@@ -31,6 +32,9 @@ export default function RessourcesAdminListPage() {
   // Suppression
   const [itemToDelete, setItemToDelete] = useState<Resource | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Modale d'ajout de ressource (remplace la page /new par une modale atomique 2 étapes)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const fetchResources = useCallback(async () => {
     setIsLoading(true);
@@ -129,10 +133,11 @@ export default function RessourcesAdminListPage() {
         description="Guides d'études, livrets de jeûne, plans de lecture et documents PDF proposés en téléchargement libre."
         actions={
           <Button
-            href="/admin/ressources/new"
+            type="button"
             variant="primary"
             size="sm"
             className="font-semibold"
+            onClick={() => setIsCreateModalOpen(true)}
           >
             <Plus className="h-4 w-4" />
             Nouvelle ressource
@@ -171,9 +176,14 @@ export default function RessourcesAdminListPage() {
         keyExtractor={(item) => item.id}
         isLoading={isLoading}
         emptyTitle="Aucune ressource pour le moment"
-        emptyDescription="Cliquez sur « Nouvelle ressource » pour mettre un document PDF en ligne."
+        emptyDescription="Cliquez sur « Nouvelle ressource » pour mettre un document PDF, EPUB ou Office en ligne."
         emptyAction={
-          <Button href="/admin/ressources/new" size="sm" variant="primary">
+          <Button
+            type="button"
+            size="sm"
+            variant="primary"
+            onClick={() => setIsCreateModalOpen(true)}
+          >
             <Plus className="h-4 w-4" />
             Ajouter une ressource
           </Button>
@@ -214,6 +224,12 @@ export default function RessourcesAdminListPage() {
         confirmLabel="Supprimer définitivement"
         isLoading={isDeleting}
         variant="danger"
+      />
+      {/* Modal de création atomique d'une nouvelle ressource */}
+      <CreateResourceModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onCreated={fetchResources}
       />
     </div>
   );
