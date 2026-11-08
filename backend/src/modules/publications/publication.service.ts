@@ -96,12 +96,10 @@ export class PublicationService {
     const slug = await this.resolveSlug(input.title, requestedSlug);
     const created = await this.publications.create(input, slug);
 
-    // **Règle globale des 3** (`docs/035` §1) : une publication créée
-    // directement en ligne passe par le quota, jamais par une écriture de statut.
-    // Sans ce détour, créer une quatrième publication `PUBLISHED` laisserait le
-    // site à quatre publications — la règle serait décrite, pas appliquée.
+    // Une publication créée directement en ligne reste activement publiée
+    // sans forcer l'archivage prématuré des publications précédentes.
     if (created.status === "PUBLISHED") {
-      return (await this.publications.publishWithQuota(created.id, created.publishedAt)) ?? created;
+      return created;
     }
 
     return created;

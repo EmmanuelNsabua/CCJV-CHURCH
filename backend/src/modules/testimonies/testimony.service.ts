@@ -10,10 +10,10 @@ import { NotFoundError, ValidationError } from "@/shared/errors/app-error";
 import type { PublicSubmitTestimonyBody } from "./testimony.schema";
 
 const ALLOWED_TRANSITIONS: Record<TestimonyStatus, TestimonyStatus[]> = {
-  PENDING: ["PUBLISHED", "REJECTED"],
-  PUBLISHED: ["PENDING", "ARCHIVED"],
-  REJECTED: ["PENDING"],
-  ARCHIVED: ["PUBLISHED", "PENDING"],
+  PENDING: ["PUBLISHED", "REJECTED", "ARCHIVED"],
+  PUBLISHED: ["PENDING", "REJECTED", "ARCHIVED"],
+  REJECTED: ["PENDING", "PUBLISHED", "ARCHIVED"],
+  ARCHIVED: ["PUBLISHED", "PENDING", "REJECTED"],
 };
 
 /**

@@ -91,7 +91,7 @@ export interface Event {
   practicalInfo?: string[];
 }
 
-export type PublicationAuthor = "Presse" | "Ecodume";
+export type PublicationAuthor = "Presse" | "Ecodim";
 
 export interface Publication {
   id: string;
@@ -105,7 +105,7 @@ export interface Publication {
   publishedAt: string; // date ISO "YYYY-MM-DD"
   /** Rubrique éditoriale : actualité, enseignement, média, ressource. */
   category?: "ACTUALITE" | "ENSEIGNEMENT" | "MEDIA" | "RESSOURCE";
-  /** Auteur éditorial : Presse ou Ecodume */
+  /** Auteur éditorial : Presse ou Ecodim */
   author?: PublicationAuthor | string;
   /** Corps éditorial (publications de type TEXTE). */
   body?: string[];

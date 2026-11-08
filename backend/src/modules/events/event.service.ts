@@ -153,6 +153,7 @@ export class EventService {
         endDate,
         location: input.location,
         imageMediaId: input.imageMediaId,
+        imageUrl: input.imageUrl,
       });
     }
 
@@ -187,6 +188,7 @@ export class EventService {
       endDate: existing.endDate,
       location: existing.location,
       imageMediaId: existing.imageMediaId,
+      imageUrl: existing.imageUrl,
     });
 
     const published = await this.events.publish(existing.id);
@@ -269,6 +271,7 @@ export class EventService {
     endDate?: string;
     location?: string | null;
     imageMediaId?: string | null;
+    imageUrl?: string | null;
   }): void {
     if (!event.title || event.title.trim().length < 2) {
       throw new ValidationError("Un titre valide est requis pour publier un événement");
@@ -285,8 +288,8 @@ export class EventService {
     if (!event.location || event.location.trim().length === 0) {
       throw new ValidationError("Un lieu est obligatoire pour publier un événement");
     }
-    if (!event.imageMediaId) {
-      throw new ValidationError("Une miniature issue de la bibliothèque est obligatoire pour publier un événement");
+    if (!event.imageMediaId && !event.imageUrl) {
+      throw new ValidationError("Une affiche ou miniature est requise pour publier un événement");
     }
   }
 

@@ -59,6 +59,7 @@ export interface MediaItem {
 /** Département minimal attendu (issu de `GET /departments`). */
 export interface CatalogueDepartment {
   name: string;
+  bannerImage?: string | null;
   gallery?: readonly string[];
 }
 
@@ -66,6 +67,8 @@ export interface CatalogueDepartment {
 export interface CatalogueEvent {
   title: string;
   eventDate: string;
+  imageUrl?: string | null;
+  bannerImage?: string | null;
   gallery?: readonly string[];
 }
 
@@ -88,6 +91,15 @@ export interface CatalogueInput {
 
 /** Rubrique dont les médias n'appartiennent pas à la Médiathèque. */
 const EXCLUDED_CATEGORY = "ENSEIGNEMENT";
+
+export function resolveMediaSrc(value: string | undefined | null): string | null {
+  if (!value || typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("/")) return trimmed;
+  return `/media/${trimmed}`;
+}
 
 function isHttpUrl(value: string | undefined | null): value is string {
   return typeof value === "string" && /^https?:\/\//i.test(value.trim());
@@ -125,8 +137,9 @@ export function buildMediaCatalogue(input: CatalogueInput): MediaItem[] {
 
   // 1. Illustrations de publications (photographies) — les plus récentes en tête.
   for (const publication of input.photoPublications) {
-    const url = publication.coverImage ?? publication.contentUrl;
-    if (!isHttpUrl(url)) continue;
+    const raw = publication.coverImage ?? publication.contentUrl;
+    const url = resolveMediaSrc(raw);
+    if (!url) continue;
 
     push({
       id: url,
@@ -143,20 +156,17 @@ export function buildMediaCatalogue(input: CatalogueInput): MediaItem[] {
   // 2. Vidéos publiées, hors enseignements (hors périmètre de la Médiathèque).
   for (const publication of input.videoPublications) {
     if (publication.category === EXCLUDED_CATEGORY) continue;
-    const url = publication.contentUrl;
-    if (!isHttpUrl(url)) continue;
+    const raw = publication.contentUrl;
+    const url = resolveMediaSrc(raw);
+    if (!url) continue;
+
+    const thumb = resolveMediaSrc(publication.coverImage);
 
     push({
       id: url,
       kind: "video",
       src: url,
-      /*
-       * Le modèle ne porte aucune affiche de vidéo : la tuile reste donc un
-       * aplat sombre avec un repère de lecture, jamais une image d'emprunt.
-       */
-      thumbnailUrl: isHttpUrl(publication.coverImage)
-        ? (publication.coverImage as string)
-        : null,
+      thumbnailUrl: thumb,
       origin: publication.title,
       date: normalizeDate(publication.publishedAt),
       alt: publication.title,
@@ -164,13 +174,28 @@ export function buildMediaCatalogue(input: CatalogueInput): MediaItem[] {
     });
   }
 
-  // 3. Galeries d'événements — photographies datées.
+  // 3. Galeries et affiches d'événements — photographies datées.
   const eventsByDate = [...input.events].sort((a, b) =>
     b.eventDate.localeCompare(a.eventDate),
   );
   for (const event of eventsByDate) {
-    for (const url of event.gallery ?? []) {
-      if (!isHttpUrl(url)) continue;
+    const poster = resolveMediaSrc(event.imageUrl ?? event.bannerImage);
+    if (poster) {
+      push({
+        id: poster,
+        kind: "photo",
+        src: poster,
+        thumbnailUrl: poster,
+        origin: event.title,
+        date: normalizeDate(event.eventDate),
+        alt: event.title,
+        youtubeId: null,
+      });
+    }
+
+    for (const raw of event.gallery ?? []) {
+      const url = resolveMediaSrc(raw);
+      if (!url) continue;
       push({
         id: url,
         kind: "photo",
@@ -184,10 +209,25 @@ export function buildMediaCatalogue(input: CatalogueInput): MediaItem[] {
     }
   }
 
-  // 4. Galeries de départements — photographies sans date propre.
+  // 4. Galeries et bannières de départements — photographies sans date propre.
   for (const department of input.departments) {
-    for (const url of department.gallery ?? []) {
-      if (!isHttpUrl(url)) continue;
+    const banner = resolveMediaSrc(department.bannerImage);
+    if (banner) {
+      push({
+        id: banner,
+        kind: "photo",
+        src: banner,
+        thumbnailUrl: banner,
+        origin: department.name,
+        date: null,
+        alt: department.name,
+        youtubeId: null,
+      });
+    }
+
+    for (const raw of department.gallery ?? []) {
+      const url = resolveMediaSrc(raw);
+      if (!url) continue;
       push({
         id: url,
         kind: "photo",

@@ -112,9 +112,9 @@ export const seedDataset: SeedDataset = {
     "site.addressLine1": "Quartier Hewa Bora",
     "site.addressLine2": "Avenue Djoloko",
     "site.addressLine3": "Lubumbashi, République démocratique du Congo",
-    // Horaire de démonstration — à confirmer par CCJV.
-    "site.scheduleAdults": "Dimanche · 09h00",
-    "site.scheduleChildren": "Dimanche · 09h00 (Ecodim, pendant le culte)",
+    // Horaires cultuels officiels CCJV
+    "site.scheduleAdults": "Dimanche · 08h30 – 11h30",
+    "site.scheduleChildren": "Dimanche · 08h30 – 11h30 (Ecodim, pendant le culte)",
     // Numéro de démonstration — à remplacer par le numéro réel.
     "site.whatsappNumber": "+243 123 456 789",
     "site.whatsappHref": "https://wa.me/243123456789",
@@ -132,16 +132,16 @@ export const seedDataset: SeedDataset = {
     {
       day: "Dimanche",
       title: "Culte dominical",
-      timeLabel: "09h00",
+      timeLabel: "08h30 – 11h30",
       audience: "Toute l'assemblée",
-      isConfirmed: false,
+      isConfirmed: true,
     },
     {
       day: "Dimanche",
       title: "Ecodim",
-      timeLabel: "09h00",
+      timeLabel: "08h30 – 11h30",
       audience: "Enfants — pendant le culte",
-      isConfirmed: false,
+      isConfirmed: true,
     },
     // CONFIRMÉ par CCJV
     {
@@ -338,7 +338,7 @@ export const seedDataset: SeedDataset = {
       gallery: ["ccjv-16.jpeg", "ccjv-15.jpeg", "ccjv-08.jpeg", "ccjv-36.jpeg"],
     },
     {
-      name: "L'Ecodume",
+      name: "Ecodim",
       description:
         "Né le 2 juillet 2023, l'Ecodim accueille les enfants pendant les cultes pour leur transmettre la Parole à travers des enseignements adaptés, des chants et des activités créatives.",
       responsibleName: "Équipe pastorale Ecodim",
@@ -485,7 +485,7 @@ export const seedDataset: SeedDataset = {
       image: "ccjv-13.jpeg",
       banner: "ccjv-13.jpeg",
       gallery: ["ccjv-13.jpeg", "ccjv-15.jpeg", "ccjv-23.jpeg", "ccjv-31.jpeg"],
-      departmentName: "L'Ecodume",
+      departmentName: "Ecodim",
       practicalInfo: [
         "Pour les enfants de 3 à 12 ans.",
         "Encadrement assuré par l'équipe Ecodim.",
@@ -782,7 +782,7 @@ export const seedDataset: SeedDataset = {
       scope: "Ecodim (Enfants)",
       bio: "Veille sur l'encadrement des plus jeunes.",
       photo: "ccjv-19.jpeg",
-      departmentName: "L'Ecodume",
+      departmentName: "Ecodim",
     },
     {
       name: "Coordination Pédagogique — Ecodim",
@@ -790,7 +790,7 @@ export const seedDataset: SeedDataset = {
       scope: "Ecodim (Enfants)",
       bio: "Enseignement biblique adapté et créatif.",
       photo: "ccjv-18.jpeg",
-      departmentName: "L'Ecodume",
+      departmentName: "Ecodim",
     },
 
     // 05. Affaires Sociales

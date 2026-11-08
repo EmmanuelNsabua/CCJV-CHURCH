@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { Publication } from "@/domain/entities";
 import { planPublication } from "@/domain/rules/publication-quota";
@@ -426,7 +426,9 @@ export class DrizzlePublicationRepository implements PublicationRepository {
         )!,
       );
     } else {
-      if (filters.scope !== undefined) {
+      if (filters.scope === "CCJV") {
+        conditions.push(or(eq(publications.scope, "CCJV"), isNull(publications.scope))!);
+      } else if (filters.scope !== undefined) {
         conditions.push(eq(publications.scope, filters.scope));
       }
       if (filters.departmentId !== undefined) {

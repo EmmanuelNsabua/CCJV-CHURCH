@@ -1,7 +1,6 @@
-import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { CrossMark } from "@/components/shared/CrossMark";
-import { images } from "@/data/images";
+import { HeroSlideshow } from "./HeroSlideshow";
 
 /**
  * 01 — L'INVITATION (Hero V3).
@@ -33,27 +32,8 @@ export function Hero({ featuredTestimony }: HeroProps = {}) {
         aria-hidden="true"
       />
 
-      {/* Conteneur Image : plein écran en arrière-plan sur mobile, colonne droite sur desktop */}
-      <div className="absolute inset-0 z-0 bg-ccjv-line min-[900px]:relative min-[900px]:inset-auto min-[900px]:order-2 min-[900px]:z-auto min-[900px]:min-h-svh">
-        <Image
-          src={images.portraitLarge}
-          alt=""
-          fill
-          priority
-          sizes="(max-width: 900px) 100vw, 50vw"
-          className="object-cover"
-        />
-        {/* Overlay sombre sur mobile pour garantir un contraste parfait du texte */}
-        <div
-          className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/65 to-black/40 min-[900px]:hidden"
-          aria-hidden="true"
-        />
-        {/* Motif architectural discret : arche évoquant les baies d'église (visible sur desktop) */}
-        <span
-          className="pointer-events-none absolute inset-x-8 top-8 bottom-8 rounded-t-full border border-ccjv-cream/35 max-[900px]:hidden"
-          aria-hidden="true"
-        />
-      </div>
+      {/* Conteneur Image / Diaporama de photos d'assemblée */}
+      <HeroSlideshow />
 
       {/* Conteneur Texte : aligné vers le bas de l'écran (items-end), sur l'image sur mobile et colonne gauche sur desktop */}
       <div className="relative z-10 flex min-h-svh items-end bg-transparent px-[clamp(24px,5vw,72px)] pt-[120px] pb-16 text-white min-[900px]:order-1 min-[900px]:bg-ccjv-black min-[900px]:pb-20 max-[900px]:pb-20">

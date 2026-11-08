@@ -200,15 +200,16 @@ export function MediaViewer({
             )}
           </div>
         ) : (
-          <div className="relative h-full w-full">
+          <div className="relative flex items-center justify-center w-full h-full max-h-[calc(100vh-140px)] max-w-6xl mx-auto overflow-hidden">
             <Image
               src={item.src}
               alt={item.alt}
               fill
-              sizes="100vw"
+              unoptimized={item.src.startsWith("http")}
+              sizes="(max-width: 1200px) 100vw, 1200px"
               priority
               onError={() => setFailed(true)}
-              className="object-contain"
+              className="object-contain max-h-full max-w-full select-none"
             />
           </div>
         )}

@@ -72,6 +72,7 @@ const baseEventFields = {
   location: z.string().trim().max(150, "Le lieu est trop long").nullish(),
   // Miniature & bandeau
   imageMediaId: z.uuid("L'identifiant de miniature doit être un UUID").nullish(),
+  imageUrl: z.string().trim().nullish(),
   bannerMediaId: z.uuid("L'identifiant de média doit être un UUID").nullish(),
   // Statut
   status: z.enum(["DRAFT", "PUBLISHED", "CANCELLED"]).optional(),

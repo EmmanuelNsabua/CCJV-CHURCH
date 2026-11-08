@@ -17,8 +17,12 @@ async function main(): Promise<void> {
 
     // Assurer l'existence des départements de référence et colonnes nécessaires (idempotent)
     const ddlStatements = [
-      `INSERT INTO "departments" ("id", "name", "slug", "position") VALUES ('d0000000-0000-4000-8000-000000000004', 'Ecodim', 'ecodume', 4) ON CONFLICT ("id") DO NOTHING`,
+      `INSERT INTO "departments" ("id", "name", "slug", "position") VALUES ('d0000000-0000-4000-8000-000000000004', 'Ecodim', 'ecodume', 4) ON CONFLICT ("id") DO UPDATE SET "name" = 'Ecodim'`,
+      `UPDATE "departments" SET "name" = 'Ecodim' WHERE "id" = 'd0000000-0000-4000-8000-000000000004'`,
       `INSERT INTO "departments" ("id", "name", "slug", "position") VALUES ('d0000000-0000-4000-8000-00000000000a', 'Presse', 'presse', 10) ON CONFLICT ("id") DO NOTHING`,
+      `UPDATE "site_settings" SET "value" = 'Dimanche · 08h30 – 11h30' WHERE "key" = 'site.scheduleAdults'`,
+      `UPDATE "site_settings" SET "value" = 'Dimanche · 08h30 – 11h30 (Ecodim, pendant le culte)' WHERE "key" = 'site.scheduleChildren'`,
+      `UPDATE "schedule_entries" SET "time_label" = '08h30 – 11h30', "is_confirmed" = true WHERE "day" = 'Dimanche'`,
       `ALTER TABLE "resources" ADD COLUMN IF NOT EXISTS "department_id" uuid REFERENCES "departments"("id") ON DELETE SET NULL`,
       `ALTER TABLE "resources" ADD COLUMN IF NOT EXISTS "is_archived" boolean DEFAULT false NOT NULL`,
       `CREATE INDEX IF NOT EXISTS "resources_department_idx" ON "resources" ("department_id")`,

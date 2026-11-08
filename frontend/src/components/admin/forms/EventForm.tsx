@@ -14,12 +14,13 @@ import { AdminMediaField, type AdminMediaValue } from "@/components/admin/media/
 import type { Event, EventLifecycleStatus } from "@/lib/api/types";
 import { getDepartments } from "@/lib/api";
 import { slugify } from "@/lib/utils";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 const DEFAULT_DEPARTMENTS = [
   { id: "d0000000-0000-4000-8000-000000000001", name: "Les Serviteurs" },
   { id: "d0000000-0000-4000-8000-000000000002", name: "La Chorale Grand Groupe CCVJ" },
   { id: "d0000000-0000-4000-8000-000000000003", name: "La Chorale de Cano Vocal" },
-  { id: "d0000000-0000-4000-8000-000000000004", name: "L'Ecodume" },
+  { id: "d0000000-0000-4000-8000-000000000004", name: "Ecodim" },
   { id: "d0000000-0000-4000-8000-000000000005", name: "Affaires Sociales" },
   { id: "d0000000-0000-4000-8000-000000000006", name: "Hygiène et Ancienneté" },
   { id: "d0000000-0000-4000-8000-000000000007", name: "Protocole" },
@@ -37,6 +38,9 @@ export interface EventFormProps {
 export function EventForm({ initialData, onSubmit, isEditing = false }: EventFormProps) {
   const router = useRouter();
   const toast = useToast();
+  const { adminProfile } = useAuth();
+  const isGlobalAdmin = adminProfile?.role === "SUPER_ADMIN" || adminProfile?.role === "ADMIN";
+  const userDeptId = adminProfile?.role === "DEPARTMENT_MANAGER" ? adminProfile.departmentId : null;
 
   const [title, setTitle] = useState(initialData?.title || "");
   const [slug, setSlug] = useState(initialData?.slug || "");
@@ -52,9 +56,9 @@ export function EventForm({ initialData, onSubmit, isEditing = false }: EventFor
 
   const [status, setStatus] = useState<EventLifecycleStatus>(initialStatus);
 
-  // Département organisateur facultatif
+  // Département organisateur obligatoire pour la policy
   const [departmentId, setDepartmentId] = useState<string>(
-    initialData?.departmentId || "",
+    initialData?.departmentId || userDeptId || "d0000000-0000-4000-8000-000000000001",
   );
   const [departments, setDepartments] = useState(DEFAULT_DEPARTMENTS);
 
@@ -110,7 +114,7 @@ export function EventForm({ initialData, onSubmit, isEditing = false }: EventFor
         ? (initialData.status as EventLifecycleStatus)
         : "DRAFT");
     setStatus(initSt);
-    setDepartmentId(initialData.departmentId || "");
+    setDepartmentId(initialData.departmentId || userDeptId || "d0000000-0000-4000-8000-000000000001");
     setLocation(initialData.location || "Temple Principal CCJV, Lubumbashi");
     const rawSt = initialData.startDate || initialData.eventDate;
     if (rawSt) setStartDate(rawSt.slice(0, 10));
@@ -170,7 +174,7 @@ export function EventForm({ initialData, onSubmit, isEditing = false }: EventFor
     const payload: Record<string, unknown> = {
       title: title.trim(),
       slug: slug.trim() || slugify(title),
-      departmentId: departmentId.trim() ? departmentId.trim() : null,
+      departmentId: departmentId.trim() || (userDeptId ?? "d0000000-0000-4000-8000-000000000001"),
       description: description.trim() || undefined,
       excerpt: excerpt.trim() || undefined,
       status,
@@ -282,6 +286,24 @@ export function EventForm({ initialData, onSubmit, isEditing = false }: EventFor
                 error={Boolean(errors.title)}
               />
             </FormField>
+
+            {isGlobalAdmin ? (
+              <FormField label="Département organisateur" hint="Département responsable de la programmation de l'activité">
+                <Select
+                  value={departmentId}
+                  onChange={(e) => setDepartmentId(e.target.value)}
+                  options={departments.map((d) => ({
+                    value: d.id,
+                    label: d.name,
+                  }))}
+                />
+              </FormField>
+            ) : (
+              <div className="p-3 bg-ccjv-sand/30 border border-ccjv-line text-xs text-ccjv-ink">
+                <span className="font-semibold">Département organisateur : </span>
+                {departments.find((d) => d.id === departmentId)?.name || "Ecodim"}
+              </div>
+            )}
 
             <FormField label="Lieu" required error={errors.location}>
               <Input

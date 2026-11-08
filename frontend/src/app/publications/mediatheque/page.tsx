@@ -46,7 +46,7 @@ export const metadata: Metadata = pageMetadata({
  * galerie partielle présentée comme complète serait un mensonge silencieux.
  */
 export default async function MediathequePage() {
-  const [departmentsRead, eventsRead, photosRead, videosRead] = await Promise.all([
+  const [departmentsRead, eventsRead, photosRead, videosRead, mediaCategoryRead] = await Promise.all([
     readOrUnavailable((options) => getDepartments(options)),
     readOrUnavailable((options) => getEvents({ limit: 100 }, options)),
     readOrUnavailable((options) =>
@@ -55,20 +55,29 @@ export default async function MediathequePage() {
     readOrUnavailable((options) =>
       getPublications({ type: "VIDEO", limit: 100 }, options),
     ),
+    readOrUnavailable((options) =>
+      getPublications({ category: "MEDIA", limit: 100 }, options),
+    ),
   ]);
 
-  const unavailable =
-    departmentsRead.status === "unreachable" ||
-    eventsRead.status === "unreachable" ||
-    photosRead.status === "unreachable" ||
+  const allUnreachable =
+    departmentsRead.status === "unreachable" &&
+    eventsRead.status === "unreachable" &&
+    photosRead.status === "unreachable" &&
     videosRead.status === "unreachable";
 
-  const items: MediaItem[] = unavailable
+  const unavailable = allUnreachable;
+
+  const rawPhotos = photosRead.status === "ok" ? photosRead.data : [];
+  const rawMediaPubs = mediaCategoryRead.status === "ok" ? mediaCategoryRead.data : [];
+  const combinedPhotos = [...rawPhotos, ...rawMediaPubs];
+
+  const items: MediaItem[] = allUnreachable
     ? []
     : buildMediaCatalogue({
         departments: departmentsRead.status === "ok" ? departmentsRead.data : [],
         events: eventsRead.status === "ok" ? eventsRead.data : [],
-        photoPublications: photosRead.status === "ok" ? photosRead.data : [],
+        photoPublications: combinedPhotos,
         videoPublications: videosRead.status === "ok" ? videosRead.data : [],
       });
 

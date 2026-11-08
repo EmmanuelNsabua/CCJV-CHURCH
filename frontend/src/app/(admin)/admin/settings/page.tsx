@@ -163,9 +163,9 @@ export default function AdminSettingsPage() {
       );
     }
     if (activeSection === "schedule") {
-      return (
-        (currentSettings["site.timezone"] ?? "Africa/Lubumbashi") !==
-        (initialSettings["site.timezone"] ?? "Africa/Lubumbashi")
+      const keys = ["site.timezone", "site.scheduleAdults", "site.scheduleChildren"];
+      return keys.some(
+        (k) => (currentSettings[k] ?? "") !== (initialSettings[k] ?? ""),
       );
     }
     return false;
@@ -242,7 +242,7 @@ export default function AdminSettingsPage() {
       } else if (activeSection === "contact") {
         keysToSave = ["site.supportEmail", "site.whatsappNumber", "site.whatsappHref"];
       } else if (activeSection === "schedule") {
-        keysToSave = ["site.timezone"];
+        keysToSave = ["site.timezone", "site.scheduleAdults", "site.scheduleChildren"];
       }
 
       const payload: Record<string, string> = {};
@@ -640,6 +640,42 @@ export default function AdminSettingsPage() {
                       <Plus className="h-4 w-4 mr-1.5" />
                       <span>Ajouter un programme</span>
                     </Button>
+                  </div>
+                </div>
+
+                {/* Horaires cultuels officiels affichés sur le site public */}
+                <div className="bg-[#fafaf7] border border-ccjv-line p-5 rounded-none space-y-4">
+                  <div className="flex items-center justify-between border-b border-ccjv-line/60 pb-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-ccjv-ink">
+                      Horaires Cultuels Officiels (Site Public & En-têtes)
+                    </h3>
+                    <span className="text-[11px] text-ccjv-ink-secondary">
+                      Mis à jour en temps réel sur la page d&apos;accueil et la page Où nous trouver
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      label="Culte dominical principal (Adultes)"
+                      hint="Exemple : Dimanche · 08h30 – 11h30"
+                    >
+                      <Input
+                        value={currentSettings["site.scheduleAdults"] || ""}
+                        onChange={(e) => handleFieldChange("site.scheduleAdults", e.target.value)}
+                        placeholder="Dimanche · 08h30 – 11h30"
+                        disabled={isSaving}
+                      />
+                    </FormField>
+                    <FormField
+                      label="Culte des enfants (Ecodim)"
+                      hint="Exemple : Dimanche · 08h30 – 11h30 (Ecodim, pendant le culte)"
+                    >
+                      <Input
+                        value={currentSettings["site.scheduleChildren"] || ""}
+                        onChange={(e) => handleFieldChange("site.scheduleChildren", e.target.value)}
+                        placeholder="Dimanche · 08h30 – 11h30 (Ecodim, pendant le culte)"
+                        disabled={isSaving}
+                      />
+                    </FormField>
                   </div>
                 </div>
 

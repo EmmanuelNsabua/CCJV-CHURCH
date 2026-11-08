@@ -1807,6 +1807,52 @@ export async function submitPublicPrayerRequest(
   });
 }
 
+export interface PrayerRequestRecord {
+  id: string;
+  requestText: string;
+  requesterName: string | null;
+  requesterContact: string | null;
+  confidentiality: "private" | "community";
+  status: "NEW" | "PRAYED";
+  handledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Consultation administrative des intentions de prière (ADMIN pastoral uniquement). */
+export async function getAdminPrayerRequests(
+  params: { status?: "NEW" | "PRAYED"; page?: number; limit?: number } = {},
+  options: PublicReadOptions = {},
+): Promise<CollectionResponse<PrayerRequestRecord>> {
+  return apiFetchOrThrow<CollectionResponse<PrayerRequestRecord>>(
+    withQuery("/prayer-requests", params),
+    { ...options, method: "GET" },
+  );
+}
+
+/** Marquer une intention comme portée en prière (ADMIN uniquement). */
+export async function markPrayerRequestPrayed(
+  id: string,
+  options: PublicReadOptions = {},
+): Promise<PrayerRequestRecord> {
+  return apiFetchOrThrow<PrayerRequestRecord>(`/prayer-requests/${encodeURIComponent(id)}`, {
+    ...options,
+    method: "PATCH",
+    body: { status: "PRAYED" },
+  });
+}
+
+/** Supprimer définitivement une intention de prière. */
+export async function deletePrayerRequest(
+  id: string,
+  options: PublicReadOptions = {},
+): Promise<void> {
+  await apiFetchOrThrow(`/prayer-requests/${encodeURIComponent(id)}`, {
+    ...options,
+    method: "DELETE",
+  });
+}
+
 /* -------------------------------------------------------------------------- */
 /* Paramètres de l'église, Horaires et Liens Sociaux (Administration)          */
 /* -------------------------------------------------------------------------- */

@@ -7,11 +7,12 @@ import { ArrowLeft, Save, Plus, Trash2, Send } from "lucide-react";
 import { FormField } from "@/components/admin/forms/FormField";
 import { Input } from "@/components/admin/forms/Input";
 import { Textarea } from "@/components/admin/forms/Textarea";
+import { Select } from "@/components/admin/forms/Select";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/admin/feedback/ToastContext";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { AdminMediaField, type AdminMediaValue } from "@/components/admin/media/AdminMediaField";
-import type { PublicationRecord, CreatePublicationPayload } from "@/lib/api/types";
+import type { PublicationRecord, CreatePublicationPayload, PublicationCategory } from "@/lib/api/types";
 import { slugify } from "@/lib/utils";
 
 export interface PublicationFormProps {
@@ -31,6 +32,9 @@ export function PublicationForm({
 
   const [title, setTitle] = useState(initialData?.title || "");
   const [description, setDescription] = useState(initialData?.description || "");
+  const [category, setCategory] = useState<PublicationCategory>(
+    initialData?.category || "ACTUALITE",
+  );
 
   // Média de couverture
   const resolveInitialMedia = (data?: PublicationRecord): AdminMediaValue | null => {
@@ -57,6 +61,9 @@ export function PublicationForm({
     if (!initialData) return;
     setTitle(initialData.title || "");
     setDescription(initialData.description || "");
+    if (initialData.category) {
+      setCategory(initialData.category);
+    }
     setCoverMedia(resolveInitialMedia(initialData));
     if (initialData.body && initialData.body.length > 0) {
       setBodyParagraphs(initialData.body);
@@ -106,10 +113,10 @@ export function PublicationForm({
     const isEcodim =
       adminProfile?.departmentId === "d0000000-0000-4000-8000-000000000004" ||
       initialData?.departmentId === "d0000000-0000-4000-8000-000000000004" ||
-      initialData?.author === "Ecodume" ||
+      initialData?.author === "Ecodim" ||
       (adminProfile?.role === "DEPARTMENT_MANAGER" && /ecod/i.test(adminProfile?.displayName || ""));
 
-    const effectiveAuthor = isEcodim ? "Ecodume" : "Presse";
+    const effectiveAuthor = isEcodim ? "Ecodim" : "Presse";
     const effectiveScope = isEcodim ? "ECODIM" : "CCJV";
     const effectiveDepartmentId =
       adminProfile?.role === "DEPARTMENT_MANAGER" && adminProfile?.departmentId
@@ -126,7 +133,7 @@ export function PublicationForm({
       title: title.trim(),
       slug: effectiveSlug,
       type: "TEXTE",
-      category: initialData?.category || "ENSEIGNEMENT",
+      category,
       departmentId: effectiveDepartmentId,
       scope: effectiveScope,
       author: effectiveAuthor,
@@ -315,8 +322,30 @@ export function PublicationForm({
           </div>
         </div>
 
-        {/* Colonne droite DÉROULANTE : UNIQUEMENT MÉDIA & COUVERTURE */}
+        {/* Colonne droite DÉROULANTE : RUBRIQUE ÉDITORIALE & MÉDIA */}
         <div className="space-y-6">
+          {/* Bloc Rubrique éditoriale */}
+          <div className="bg-white border border-ccjv-line p-6 rounded-none space-y-5">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-ccjv-ink border-b border-ccjv-line pb-3">
+              Rubrique Éditoriale
+            </h2>
+            <FormField
+              label="Rubrique / Section"
+              hint="Détermine dans quelle section du site la publication apparaîtra"
+            >
+              <Select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as PublicationCategory)}
+                options={[
+                  { value: "ACTUALITE", label: "Actualité / Annonce de l'église" },
+                  { value: "ENSEIGNEMENT", label: "Enseignement / Note pastorale" },
+                  { value: "MEDIA", label: "Reportage / Album photos" },
+                  { value: "RESSOURCE", label: "Ressource documentaire" },
+                ]}
+              />
+            </FormField>
+          </div>
+
           <div className="bg-white border border-ccjv-line p-6 rounded-none space-y-5">
             <h2 className="text-sm font-bold uppercase tracking-wider text-ccjv-ink border-b border-ccjv-line pb-3">
               Média & Couverture

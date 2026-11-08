@@ -91,6 +91,9 @@ export default function AdminTestimoniesPage() {
   ) => {
     setActionLoadingId(id);
     try {
+      setTestimonies((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)),
+      );
       await updateTestimonyStatus(id, newStatus, notes);
       toast.success(
         newStatus === "PUBLISHED"
@@ -117,6 +120,9 @@ export default function AdminTestimoniesPage() {
   const handleToggleHero = async (item: AdminTestimony) => {
     setActionLoadingId(item.id);
     try {
+      setTestimonies((prev) =>
+        prev.map((t) => (t.id === item.id ? { ...t, isFeatured: !item.isFeatured } : t)),
+      );
       await setTestimonyFeatured(item.id, !item.isFeatured);
       toast.success(
         !item.isFeatured
