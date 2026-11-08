@@ -173,12 +173,20 @@ export class DrizzleTeachingRepository implements TeachingRepository {
       conditions.push(eq(teachings.status, filter.status));
     }
 
-    if (filter.scope) {
-      conditions.push(eq(teachings.scope, filter.scope));
-    }
-
-    if (filter.departmentId) {
-      conditions.push(eq(teachings.departmentId, filter.departmentId));
+    if (filter.scope === "ECODIM" || filter.departmentId === "d0000000-0000-4000-8000-000000000004") {
+      conditions.push(
+        or(
+          eq(teachings.scope, "ECODIM"),
+          eq(teachings.departmentId, "d0000000-0000-4000-8000-000000000004"),
+        )!,
+      );
+    } else {
+      if (filter.scope) {
+        conditions.push(eq(teachings.scope, filter.scope));
+      }
+      if (filter.departmentId) {
+        conditions.push(eq(teachings.departmentId, filter.departmentId));
+      }
     }
 
     if (filter.search && filter.search.trim()) {

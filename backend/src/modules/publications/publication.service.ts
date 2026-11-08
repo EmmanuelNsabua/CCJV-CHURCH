@@ -28,11 +28,18 @@ import type {
 export class PublicationService {
   constructor(private readonly publications: PublicationRepository) {}
 
-  /** Lecture publique : les brouillons sont exclus, quoi qu'il arrive. */
+  /** Lecture des publications : les brouillons sont exclus en lecture publique non authentifiée. */
   async list(query: PublicationListQuery, actor?: AdminProfile | null): Promise<ListResult<Publication>> {
+    const isBackoffice = Boolean(actor);
+    const status = isBackoffice ? query.status : "PUBLISHED";
+
     let departmentId = query.departmentId;
+    let scope = query.scope;
     if (actor?.role === "DEPARTMENT_MANAGER" && actor.departmentId) {
       departmentId = actor.departmentId;
+      if (actor.departmentId === "d0000000-0000-4000-8000-000000000004") {
+        scope = "ECODIM";
+      }
     }
 
     return this.publications.list(
@@ -40,17 +47,28 @@ export class PublicationService {
       {
         type: query.type,
         category: query.category,
-        status: "PUBLISHED",
-        scope: query.scope,
+        status,
+        scope,
         departmentId,
       },
       query.sort,
     );
   }
 
-  /** Lecture publique unitaire : un brouillon est indistinguable d'un absent. */
-  async get(idOrSlug: string): Promise<Publication> {
-    return this.require(idOrSlug, false);
+  /** Lecture unitaire : un brouillon est accessible à un administrateur connecté. */
+  async get(idOrSlug: string, actor?: AdminProfile | null): Promise<Publication> {
+    const isBackoffice = Boolean(actor);
+    const pub = await this.require(idOrSlug, isBackoffice);
+    if (
+      isBackoffice &&
+      actor?.role === "DEPARTMENT_MANAGER" &&
+      pub.status !== "PUBLISHED" &&
+      pub.departmentId !== actor.departmentId &&
+      !(actor.departmentId === "d0000000-0000-4000-8000-000000000004" && pub.scope === "ECODIM")
+    ) {
+      throw notFound(idOrSlug);
+    }
+    return pub;
   }
 
   async create(data: CreatePublicationBody, actor?: AdminProfile | null): Promise<Publication> {

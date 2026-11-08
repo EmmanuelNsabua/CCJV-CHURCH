@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Calendar, Trash2, Pencil, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { departmentBadgeStyles, type DepartmentBadgeInfo } from "@/lib/departments";
 
 export type AdminCardStatusVariant = "success" | "neutral" | "warning" | "error";
 
@@ -22,6 +23,7 @@ export interface AdminEntityCardProps {
   imageUrl?: string | null;
   imageAlt?: string;
   statusBadge?: AdminCardStatus;
+  departmentBadge?: DepartmentBadgeInfo;
   dateLabel?: string;
   onDelete?: () => void;
   deleteTitle?: string;
@@ -46,6 +48,7 @@ export function AdminEntityCard({
   imageUrl,
   imageAlt,
   statusBadge,
+  departmentBadge,
   dateLabel,
   onDelete,
   deleteTitle = "Supprimer cet élément",
@@ -83,6 +86,18 @@ export function AdminEntityCard({
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#f8f7f4] to-[#ebe7de] text-ccjv-ink-secondary/60">
             <ImageIcon className="h-8 w-8 text-ccjv-line stroke-[1.5]" />
+          </div>
+        )}
+
+        {/* Badge de département en haut à gauche sans arrondis (rounded-none) */}
+        {departmentBadge && (
+          <div
+            className={cn(
+              "absolute top-3 left-3 z-10 rounded-none px-2.5 py-1 font-sans text-[0.68rem] font-bold uppercase tracking-[0.1em] shadow-xs",
+              departmentBadgeStyles[departmentBadge.variant || "neutral"],
+            )}
+          >
+            {departmentBadge.label}
           </div>
         )}
 

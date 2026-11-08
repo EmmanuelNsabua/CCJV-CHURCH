@@ -110,13 +110,18 @@ export class EventService {
     }
   }
 
-  async list(query: EventListQuery): Promise<ListResult<Event>> {
+  async list(query: EventListQuery, actor?: AdminProfile | null): Promise<ListResult<Event>> {
+    let departmentId = query.departmentId;
+    if (actor?.role === "DEPARTMENT_MANAGER" && actor.departmentId) {
+      departmentId = actor.departmentId;
+    }
+
     return this.events.list(
       { limit: query.limit, offset: toOffset(query.page, query.limit) },
       {
         status: query.status,
         view: query.view,
-        departmentId: query.departmentId,
+        departmentId,
       },
       query.sort,
     );

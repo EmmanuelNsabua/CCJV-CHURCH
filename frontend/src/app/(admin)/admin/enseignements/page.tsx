@@ -9,19 +9,24 @@ import { ConfirmModal } from "@/components/admin/feedback/ConfirmModal";
 import { useToast } from "@/components/admin/feedback/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/admin/forms/Select";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { getDepartmentBadge, ECODIM_DEPARTMENT_ID, PRESSE_DEPARTMENT_ID } from "@/lib/departments";
 import { listEnseignements, deleteEnseignement } from "@/lib/api/endpoints";
 import type { EnseignementRecord } from "@/lib/api/types";
 import { formatLongDate } from "@/lib/utils";
 
 export default function EnseignementsListPage() {
   const toast = useToast();
+  const { adminProfile } = useAuth();
+  const isGlobalAdmin = adminProfile?.role === "SUPER_ADMIN" || adminProfile?.role === "ADMIN";
 
   const [teachings, setTeachings] = useState<EnseignementRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filtre (sans barre de recherche)
+  // Filtres
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("ALL");
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -35,9 +40,15 @@ export default function EnseignementsListPage() {
     setIsLoading(true);
     setError(null);
     try {
+      const deptFilter =
+        adminProfile?.role === "DEPARTMENT_MANAGER" && adminProfile?.departmentId
+          ? { departmentId: adminProfile.departmentId }
+          : {};
+
       const res = await listEnseignements({
         page: 1,
         limit: 100,
+        ...deptFilter,
       });
       setTeachings(res.items || []);
     } catch (err: unknown) {
@@ -47,7 +58,7 @@ export default function EnseignementsListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [adminProfile, toast]);
 
   useEffect(() => {
     fetchTeachings();
@@ -72,10 +83,36 @@ export default function EnseignementsListPage() {
   // Filtrage local
   const filteredData = useMemo(() => {
     return teachings.filter((item) => {
+      // Si gestionnaire de département, filtrer strictement sur son département
+      if (!isGlobalAdmin && adminProfile?.departmentId) {
+        if (adminProfile.departmentId === ECODIM_DEPARTMENT_ID) {
+          if (item.departmentId !== ECODIM_DEPARTMENT_ID && item.scope !== "ECODIM") return false;
+        } else if (item.departmentId !== adminProfile.departmentId) {
+          return false;
+        }
+      }
+
+      // Filtre département pour admins globaux
+      if (isGlobalAdmin && selectedDepartment !== "ALL") {
+        if (selectedDepartment === "ECODIM") {
+          if (item.departmentId !== ECODIM_DEPARTMENT_ID && item.scope !== "ECODIM") return false;
+        } else if (selectedDepartment === "PRESSE") {
+          if (item.departmentId !== PRESSE_DEPARTMENT_ID) return false;
+        } else if (selectedDepartment === "CCJV") {
+          if (
+            item.departmentId === ECODIM_DEPARTMENT_ID ||
+            item.scope === "ECODIM" ||
+            item.departmentId === PRESSE_DEPARTMENT_ID
+          ) {
+            return false;
+          }
+        }
+      }
+
       if (selectedStatus === "ALL") return true;
       return item.status === selectedStatus;
     });
-  }, [teachings, selectedStatus]);
+  }, [teachings, isGlobalAdmin, adminProfile, selectedDepartment, selectedStatus]);
 
   // Données paginées
   const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
@@ -103,7 +140,7 @@ export default function EnseignementsListPage() {
       />
 
       {/* Barre de filtre épurée (sans barre de recherche) */}
-      <div className="p-4 bg-white border border-ccjv-line rounded-none flex items-center gap-3">
+      <div className="p-4 bg-white border border-ccjv-line rounded-none flex flex-wrap items-center gap-3">
         <div className="w-full sm:w-56">
           <Select
             value={selectedStatus}
@@ -119,6 +156,24 @@ export default function EnseignementsListPage() {
             ]}
           />
         </div>
+
+        {isGlobalAdmin && (
+          <div className="w-full sm:w-56">
+            <Select
+              value={selectedDepartment}
+              onChange={(e) => {
+                setSelectedDepartment(e.target.value);
+                setPage(1);
+              }}
+              options={[
+                { label: "Tous les départements", value: "ALL" },
+                { label: "Général CCJV", value: "CCJV" },
+                { label: "Ecodim", value: "ECODIM" },
+                { label: "Presse", value: "PRESSE" },
+              ]}
+            />
+          </div>
+        )}
       </div>
 
       {error && (
@@ -156,6 +211,7 @@ export default function EnseignementsListPage() {
               imageUrl={resolvedImage}
               subtitle={item.speakerName ? `Par ${item.speakerName}` : undefined}
               description={item.summary}
+              departmentBadge={getDepartmentBadge(item.departmentId, item.scope)}
               statusBadge={{
                 label:
                   item.status === "PUBLISHED"

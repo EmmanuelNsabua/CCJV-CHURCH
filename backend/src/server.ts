@@ -25,6 +25,12 @@ async function main(): Promise<void> {
       `CREATE INDEX IF NOT EXISTS "resources_is_archived_idx" ON "resources" ("is_archived")`,
       `ALTER TABLE "teachings" ADD COLUMN IF NOT EXISTS "department_id" uuid REFERENCES "departments"("id") ON DELETE SET NULL`,
       `CREATE INDEX IF NOT EXISTS "teachings_department_idx" ON "teachings" ("department_id")`,
+      `UPDATE "teachings" SET "department_id" = 'd0000000-0000-4000-8000-000000000004' WHERE "scope" = 'ECODIM' AND ("department_id" IS NULL OR "department_id" != 'd0000000-0000-4000-8000-000000000004')`,
+      `UPDATE "teachings" SET "scope" = 'ECODIM' WHERE "department_id" = 'd0000000-0000-4000-8000-000000000004' AND "scope" != 'ECODIM'`,
+      `UPDATE "teachings" SET "department_id" = 'd0000000-0000-4000-8000-000000000004', "scope" = 'ECODIM' WHERE ("title" ILIKE '%ecodim%' OR "title" ILIKE '%enfant%')`,
+      `UPDATE "publications" SET "scope" = 'ECODIM' WHERE "department_id" = 'd0000000-0000-4000-8000-000000000004' AND "scope" != 'ECODIM'`,
+      `UPDATE "publications" SET "department_id" = 'd0000000-0000-4000-8000-000000000004', "scope" = 'ECODIM' WHERE "title" ILIKE '%ecodim%'`,
+      `UPDATE "events" SET "department_id" = 'd0000000-0000-4000-8000-000000000004' WHERE ("title" ILIKE '%ecodim%' OR "title" ILIKE '%enfants%') AND ("department_id" IS NULL OR "department_id" != 'd0000000-0000-4000-8000-000000000004')`,
     ];
 
     for (const stmt of ddlStatements) {

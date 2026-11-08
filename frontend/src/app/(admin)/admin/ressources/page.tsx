@@ -11,12 +11,14 @@ import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/admin/forms/Select";
 import { CreateResourceModal } from "@/components/admin/forms/CreateResourceModal";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { getDepartmentBadge, ECODIM_DEPARTMENT_ID, PRESSE_DEPARTMENT_ID } from "@/lib/departments";
 import { getResources, deleteResource, archiveResource } from "@/lib/api/endpoints";
 import type { Resource } from "@/lib/api/types";
 
 export default function RessourcesAdminListPage() {
   const toast = useToast();
   const { adminProfile } = useAuth();
+  const isGlobalAdmin = adminProfile?.role === "SUPER_ADMIN" || adminProfile?.role === "ADMIN";
 
   const [resources, setResources] = useState<Resource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,6 +26,7 @@ export default function RessourcesAdminListPage() {
 
   // Filtre (ordre de tri, sans barre de recherche)
   const [sortOrder, setSortOrder] = useState<string>("RECENT");
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("ALL");
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -100,7 +103,25 @@ export default function RessourcesAdminListPage() {
 
   // Filtrage et tri
   const sortedData = useMemo(() => {
-    const list = [...resources];
+    let list = [...resources];
+
+    // Filtrage département
+    if (!isGlobalAdmin && adminProfile?.departmentId) {
+      list = list.filter((item) => item.departmentId === adminProfile.departmentId);
+    } else if (isGlobalAdmin && selectedDepartment !== "ALL") {
+      if (selectedDepartment === "ECODIM") {
+        list = list.filter((item) => item.departmentId === ECODIM_DEPARTMENT_ID);
+      } else if (selectedDepartment === "PRESSE") {
+        list = list.filter((item) => item.departmentId === PRESSE_DEPARTMENT_ID);
+      } else if (selectedDepartment === "CCJV") {
+        list = list.filter(
+          (item) =>
+            item.departmentId !== ECODIM_DEPARTMENT_ID &&
+            item.departmentId !== PRESSE_DEPARTMENT_ID,
+        );
+      }
+    }
+
     if (sortOrder === "ANCIEN") {
       list.sort((a, b) => {
         const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -118,7 +139,7 @@ export default function RessourcesAdminListPage() {
       });
     }
     return list;
-  }, [resources, sortOrder]);
+  }, [resources, isGlobalAdmin, adminProfile, selectedDepartment, sortOrder]);
 
   const totalPages = Math.ceil(sortedData.length / pageSize) || 1;
   const paginatedData = useMemo(() => {
@@ -146,7 +167,7 @@ export default function RessourcesAdminListPage() {
       />
 
       {/* Barre de filtres épurée (sans barre de recherche) */}
-      <div className="p-4 bg-white border border-ccjv-line rounded-none flex items-center gap-3">
+      <div className="p-4 bg-white border border-ccjv-line rounded-none flex flex-wrap items-center gap-3">
         <div className="w-full sm:w-64">
           <Select
             value={sortOrder}
@@ -161,6 +182,24 @@ export default function RessourcesAdminListPage() {
             ]}
           />
         </div>
+
+        {isGlobalAdmin && (
+          <div className="w-full sm:w-56">
+            <Select
+              value={selectedDepartment}
+              onChange={(e) => {
+                setSelectedDepartment(e.target.value);
+                setPage(1);
+              }}
+              options={[
+                { label: "Tous les départements", value: "ALL" },
+                { label: "Général CCJV", value: "CCJV" },
+                { label: "Ecodim", value: "ECODIM" },
+                { label: "Presse", value: "PRESSE" },
+              ]}
+            />
+          </div>
+        )}
       </div>
 
       {error && (
@@ -196,6 +235,7 @@ export default function RessourcesAdminListPage() {
             file={item.file}
             description={item.description}
             createdAt={item.createdAt}
+            departmentName={getDepartmentBadge(item.departmentId).label}
             isArchived={item.isArchived}
             onArchive={() => handleArchive(item)}
             onDelete={() => setItemToDelete(item)}

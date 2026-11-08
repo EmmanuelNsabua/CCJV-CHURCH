@@ -43,26 +43,25 @@ export class TeachingService {
     query: Partial<TeachingListQuery> = {},
     actor?: AdminProfile | null,
   ): Promise<{ items: Teaching[]; total: number }> {
-    const isAdmin =
-      actor && (actor.role === "SUPER_ADMIN" || actor.role === "ADMIN");
-
-    let status = query.status;
-    if (!isAdmin) {
-      status = "PUBLISHED";
-    }
+    const isBackoffice = Boolean(actor);
+    const status = isBackoffice ? query.status : "PUBLISHED";
 
     const limit = query.limit ?? 20;
     const page = query.page ?? 1;
     const offset = (page - 1) * limit;
 
     let departmentId = query.departmentId;
+    let scope = query.scope;
     if (actor?.role === "DEPARTMENT_MANAGER" && actor.departmentId) {
       departmentId = actor.departmentId;
+      if (actor.departmentId === "d0000000-0000-4000-8000-000000000004") {
+        scope = "ECODIM";
+      }
     }
 
     return this.repo.list({
       status,
-      scope: query.scope,
+      scope,
       departmentId,
       search: query.search,
       limit,
@@ -87,10 +86,16 @@ export class TeachingService {
       throw new TeachingNotFoundError(idOrSlug);
     }
 
-    const isAdmin =
-      actor && (actor.role === "SUPER_ADMIN" || actor.role === "ADMIN");
+    const canViewDraft =
+      actor &&
+      (actor.role === "SUPER_ADMIN" ||
+        actor.role === "ADMIN" ||
+        (actor.role === "DEPARTMENT_MANAGER" &&
+          (actor.departmentId === teaching.departmentId ||
+            (actor.departmentId === "d0000000-0000-4000-8000-000000000004" &&
+              teaching.scope === "ECODIM"))));
 
-    if (!isAdmin && teaching.status !== "PUBLISHED") {
+    if (!canViewDraft && teaching.status !== "PUBLISHED") {
       throw new TeachingNotFoundError(idOrSlug);
     }
 

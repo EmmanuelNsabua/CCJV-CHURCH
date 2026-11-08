@@ -24,7 +24,7 @@ export function createPublicationController(service: PublicationService) {
   return {
     /** `GET /` — collection paginée, filtrée et triée, lecture publique. */
     async list(req: Request, res: Response): Promise<void> {
-      const { page, limit, type, category, scope, departmentId, sort } =
+      const { page, limit, type, category, scope, departmentId, status, sort } =
         validatedQuery<PublicationListQuery>(req);
 
       const { items, total } = await service.list(
@@ -35,6 +35,7 @@ export function createPublicationController(service: PublicationService) {
           category,
           scope,
           departmentId,
+          status,
           sort,
         },
         req.admin,
@@ -43,11 +44,11 @@ export function createPublicationController(service: PublicationService) {
       sendCollection(res, items.map(toPublicationDto), page, limit, total);
     },
 
-    /** `GET /:idOrSlug` — ressource publiée individuelle. */
+    /** `GET /:idOrSlug` — ressource individuelle. */
     async get(req: Request, res: Response): Promise<void> {
       const { idOrSlug } = validatedParams<PublicationIdOrSlugParams>(req);
 
-      sendItem(res, toPublicationDto(await service.get(idOrSlug)));
+      sendItem(res, toPublicationDto(await service.get(idOrSlug, req.admin)));
     },
 
     /** `GET /featured` — les 3 publications publiées les plus récentes. */

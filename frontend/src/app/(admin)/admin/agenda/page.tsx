@@ -9,19 +9,24 @@ import { ConfirmModal } from "@/components/admin/feedback/ConfirmModal";
 import { useToast } from "@/components/admin/feedback/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/admin/forms/Select";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { getDepartmentBadge, ECODIM_DEPARTMENT_ID, PRESSE_DEPARTMENT_ID } from "@/lib/departments";
 import { listAdminEvents, deleteAdminEvent } from "@/lib/api/endpoints";
 import type { Event } from "@/lib/api/types";
 import { formatLongDate } from "@/lib/utils";
 
 export default function EventsListPage() {
   const toast = useToast();
+  const { adminProfile } = useAuth();
+  const isGlobalAdmin = adminProfile?.role === "SUPER_ADMIN" || adminProfile?.role === "ADMIN";
 
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filtre (sans barre de recherche)
+  // Filtres
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("ALL");
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -35,7 +40,12 @@ export default function EventsListPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await listAdminEvents({ page: 1, limit: 100 });
+      const deptFilter =
+        adminProfile?.role === "DEPARTMENT_MANAGER" && adminProfile?.departmentId
+          ? { departmentId: adminProfile.departmentId }
+          : {};
+
+      const res = await listAdminEvents({ page: 1, limit: 100, ...deptFilter });
       setEvents(res.data || []);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Impossible de charger les événements.";
@@ -44,7 +54,7 @@ export default function EventsListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [adminProfile, toast]);
 
   useEffect(() => {
     fetchEvents();
@@ -68,13 +78,34 @@ export default function EventsListPage() {
 
   const filteredData = useMemo(() => {
     return events.filter((item) => {
+      // Si gestionnaire de département, filtrer strictement sur son département
+      if (!isGlobalAdmin && adminProfile?.departmentId) {
+        if (item.departmentId !== adminProfile.departmentId) return false;
+      }
+
+      // Filtre département pour admins globaux
+      if (isGlobalAdmin && selectedDepartment !== "ALL") {
+        if (selectedDepartment === "ECODIM") {
+          if (item.departmentId !== ECODIM_DEPARTMENT_ID) return false;
+        } else if (selectedDepartment === "PRESSE") {
+          if (item.departmentId !== PRESSE_DEPARTMENT_ID) return false;
+        } else if (selectedDepartment === "CCJV") {
+          if (
+            item.departmentId === ECODIM_DEPARTMENT_ID ||
+            item.departmentId === PRESSE_DEPARTMENT_ID
+          ) {
+            return false;
+          }
+        }
+      }
+
       if (selectedStatus === "ALL") return true;
       if (selectedStatus === "PUBLISHED") return item.status === "PUBLISHED" || item.lifecycleStatus === "PUBLISHED";
       if (selectedStatus === "DRAFT") return item.status === "DRAFT" || item.lifecycleStatus === "DRAFT";
       if (selectedStatus === "CANCELLED") return item.status === "CANCELLED" || item.lifecycleStatus === "CANCELLED";
       return item.status === selectedStatus;
     });
-  }, [events, selectedStatus]);
+  }, [events, isGlobalAdmin, adminProfile, selectedDepartment, selectedStatus]);
 
   const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
   const paginatedData = useMemo(() => {
@@ -101,7 +132,7 @@ export default function EventsListPage() {
       />
 
       {/* Barre de filtre épurée (sans barre de recherche) */}
-      <div className="p-4 bg-white border border-ccjv-line rounded-none flex items-center gap-3">
+      <div className="p-4 bg-white border border-ccjv-line rounded-none flex flex-wrap items-center gap-3">
         <div className="w-full sm:w-56">
           <Select
             value={selectedStatus}
@@ -117,6 +148,24 @@ export default function EventsListPage() {
             ]}
           />
         </div>
+
+        {isGlobalAdmin && (
+          <div className="w-full sm:w-56">
+            <Select
+              value={selectedDepartment}
+              onChange={(e) => {
+                setSelectedDepartment(e.target.value);
+                setPage(1);
+              }}
+              options={[
+                { label: "Tous les départements", value: "ALL" },
+                { label: "Général CCJV", value: "CCJV" },
+                { label: "Ecodim", value: "ECODIM" },
+                { label: "Presse", value: "PRESSE" },
+              ]}
+            />
+          </div>
+        )}
       </div>
 
       {error && (
@@ -151,6 +200,7 @@ export default function EventsListPage() {
               imageUrl={resolvedImage}
               subtitle={item.location ? `Lieu : ${item.location}` : undefined}
               description={item.excerpt || item.description}
+              departmentBadge={getDepartmentBadge(item.departmentId)}
               statusBadge={{
                 label: isCancelled ? "Annulé" : isPublished ? "Publié" : "Brouillon",
                 variant: isCancelled ? "error" : isPublished ? "success" : "neutral",

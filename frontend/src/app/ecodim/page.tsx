@@ -18,10 +18,12 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
 import {
+  getEvents,
   getPublications,
   listAllEnseignements,
   readOrUnavailable,
 } from "@/lib/api/endpoints";
+import { ECODIM_DEPARTMENT_ID } from "@/lib/departments";
 import { images } from "@/data/images";
 import { site } from "@/data/site";
 import { pageMetadata } from "@/lib/seo";
@@ -74,13 +76,15 @@ const AGE_CLASSES = [
 ];
 
 export default async function EcodimPage() {
-  const [teachingsRead, publicationsRead] = await Promise.all([
+  const [teachingsRead, publicationsRead, eventsRead] = await Promise.all([
     readOrUnavailable((options) => listAllEnseignements({ scope: "ECODIM" }, options)),
     readOrUnavailable((options) => getPublications({ scope: "ECODIM", limit: 3 }, options)),
+    readOrUnavailable((options) => getEvents({ departmentId: ECODIM_DEPARTMENT_ID, limit: 3 }, options)),
   ]);
 
   const teachings = teachingsRead.status === "ok" ? teachingsRead.data.slice(0, 3) : [];
   const publications = publicationsRead.status === "ok" ? publicationsRead.data : [];
+  const events = eventsRead.status === "ok" ? eventsRead.data : [];
 
   return (
     <div className="bg-[#FAF7F2] text-ccjv-ink font-sans selection:bg-ccjv-green selection:text-white">
@@ -495,6 +499,113 @@ export default async function EcodimPage() {
               title="Aucun enseignement Ecodim publié pour le moment"
               description="Les récits et messages enregistrés apparaîtront ici dès leur publication depuis le back-office."
             />
+          )}
+
+          {/* Bloc Publications Ecodim */}
+          {publications.length > 0 && (
+            <div className="pt-8 border-t border-ccjv-line space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-[0.2em] text-ccjv-green block">
+                    Vie & Activités
+                  </span>
+                  <h3 className="font-serif text-2xl font-bold text-ccjv-ink mt-1">
+                    Publications & Actualités Ecodim
+                  </h3>
+                </div>
+                <Link
+                  href="/publications?scope=ECODIM"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-ccjv-green hover:underline"
+                >
+                  <span>Toutes les publications</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+                {publications.map((pub) => (
+                  <div
+                    key={pub.id}
+                    className="border border-ccjv-line p-6 bg-[#FAF7F2] flex flex-col justify-between hover:border-ccjv-green transition-colors"
+                  >
+                    <div className="space-y-3">
+                      <span className="text-[11px] text-ccjv-ink-secondary block font-mono">
+                        {formatLongDate(pub.publishedAt)}
+                      </span>
+                      <h4 className="font-serif text-base font-bold text-ccjv-ink line-clamp-2">
+                        {pub.title}
+                      </h4>
+                      {pub.description && (
+                        <p className="text-xs text-ccjv-ink-secondary line-clamp-3 leading-relaxed">
+                          {pub.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="pt-4 border-t border-ccjv-line/60 mt-6 flex items-center justify-between text-xs">
+                      <span className="text-ccjv-ink-secondary">{pub.author || "Ecodim"}</span>
+                      <Link
+                        href={`/publications/${pub.id}`}
+                        className="font-semibold text-ccjv-green hover:underline"
+                      >
+                        Lire →
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Bloc Événements / Rencontres Ecodim */}
+          {events.length > 0 && (
+            <div className="pt-8 border-t border-ccjv-line space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-[0.2em] text-ccjv-green block">
+                    Agenda du département
+                  </span>
+                  <h3 className="font-serif text-2xl font-bold text-ccjv-ink mt-1">
+                    Prochains Rendez-vous & Séminaires
+                  </h3>
+                </div>
+                <Link
+                  href="/vie-de-leglise/agenda"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-ccjv-green hover:underline"
+                >
+                  <span>Tout l&apos;agenda</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+                {events.map((evt) => (
+                  <div
+                    key={evt.id}
+                    className="border border-ccjv-line p-6 bg-[#FAF7F2] flex flex-col justify-between hover:border-ccjv-green transition-colors"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-1.5 text-[11px] text-ccjv-green font-bold uppercase tracking-wider">
+                        <Calendar className="h-3.5 w-3.5" />
+                        <span>{formatLongDate(evt.eventDate)}</span>
+                      </div>
+                      <h4 className="font-serif text-base font-bold text-ccjv-ink line-clamp-2">
+                        {evt.title}
+                      </h4>
+                      {(evt.excerpt || evt.description) && (
+                        <p className="text-xs text-ccjv-ink-secondary line-clamp-3 leading-relaxed">
+                          {evt.excerpt || evt.description}
+                        </p>
+                      )}
+                    </div>
+                    {evt.location && (
+                      <div className="pt-4 border-t border-ccjv-line/60 mt-6 text-xs text-ccjv-ink-secondary">
+                        Lieu : {evt.location}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </section>

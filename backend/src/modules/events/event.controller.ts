@@ -26,13 +26,16 @@ export function createEventController(service: EventService) {
       const { page, limit, status, departmentId, sort } =
         validatedQuery<EventListQuery>(req);
 
-      const { items, total } = await service.list({
-        page,
-        limit,
-        status,
-        departmentId,
-        sort,
-      });
+      const { items, total } = await service.list(
+        {
+          page,
+          limit,
+          status,
+          departmentId,
+          sort,
+        },
+        req.admin,
+      );
 
       sendCollection(res, items.map(toEventDto), page, limit, total);
     },

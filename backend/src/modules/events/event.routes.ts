@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { AuthDependencies } from "@/presentation/middlewares/auth";
-import { requireAuthenticatedAdmin } from "@/presentation/middlewares/auth";
+import { optionalAdmin, requireAuthenticatedAdmin } from "@/presentation/middlewares/auth";
 import { authorize, EventPolicy } from "@/presentation/policies";
 import { validate } from "@/presentation/middlewares/validate";
 import { createEventController } from "./event.controller";
@@ -33,9 +33,10 @@ export function createEventRouter(deps: EventRouterDeps): Router {
   const admin = requireAuthenticatedAdmin(deps.authDeps);
 
   // --- Lecture publique -----------------------------------------------------
-  router.get("/", validate({ query: listEventQuerySchema }), controller.list);
+  router.get("/", optionalAdmin(deps.authDeps), validate({ query: listEventQuerySchema }), controller.list);
   router.get(
     "/:idOrSlug",
+    optionalAdmin(deps.authDeps),
     validate({ params: eventIdOrSlugSchema }),
     controller.get,
   );

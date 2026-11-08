@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { Publication } from "@/domain/entities";
 import { planPublication } from "@/domain/rules/publication-quota";
@@ -418,11 +418,20 @@ export class DrizzlePublicationRepository implements PublicationRepository {
     if (filters.status !== undefined) {
       conditions.push(eq(publications.status, filters.status));
     }
-    if (filters.scope !== undefined) {
-      conditions.push(eq(publications.scope, filters.scope));
-    }
-    if (filters.departmentId !== undefined) {
-      conditions.push(eq(publications.departmentId, filters.departmentId));
+    if (filters.scope === "ECODIM" || filters.departmentId === "d0000000-0000-4000-8000-000000000004") {
+      conditions.push(
+        or(
+          eq(publications.scope, "ECODIM"),
+          eq(publications.departmentId, "d0000000-0000-4000-8000-000000000004"),
+        )!,
+      );
+    } else {
+      if (filters.scope !== undefined) {
+        conditions.push(eq(publications.scope, filters.scope));
+      }
+      if (filters.departmentId !== undefined) {
+        conditions.push(eq(publications.departmentId, filters.departmentId));
+      }
     }
 
     if (conditions.length === 0) return undefined;

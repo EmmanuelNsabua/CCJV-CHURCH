@@ -41,6 +41,7 @@ export function createPublicationRouter(deps: PublicationRouterDeps): Router {
   router.get("/", optionalAdmin(deps.authDeps), validate({ query: listPublicationQuerySchema }), controller.list);
   router.get(
     "/:idOrSlug",
+    optionalAdmin(deps.authDeps),
     validate({ params: publicationIdOrSlugSchema }),
     controller.get,
   );

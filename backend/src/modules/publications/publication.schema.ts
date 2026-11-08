@@ -47,6 +47,7 @@ export const listPublicationQuerySchema = paginationQuerySchema.extend({
   category: z.enum(["ACTUALITE", "ENSEIGNEMENT", "MEDIA", "RESSOURCE"]).optional(),
   scope: z.enum(["CCJV", "ECODIM"]).optional(),
   departmentId: z.string().uuid("L'identifiant de département doit être un UUID").optional(),
+  status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).optional(),
   // Défaut chronologique décroissant : c'est l'ordre des données de
   // démonstration du frontend et l'attendu d'une rubrique d'actualités.
   sort: z.preprocess(
