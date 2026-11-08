@@ -1,252 +1,50 @@
-import Link from "next/link";
-import Image from "next/image";
-import { HeroEditorial } from "@/components/composition/HeroEditorial";
-import { ListingPage } from "@/components/archetypes/ListingPage";
-import { CrossLinks } from "@/components/editorial/CrossLinks";
-import { FeatureImage } from "@/components/editorial/FeatureImage";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { ContentUnavailable } from "@/components/ui/ContentUnavailable";
-import { ScopeFilterTabs } from "@/components/editorial/ScopeFilterTabs";
-import { getPublications, readOrUnavailable } from "@/lib/api/endpoints";
-import { images } from "@/data/images";
-import { formatLongDate, formatRelativeTime } from "@/lib/utils";
+import { ActualitesView } from "@/features/actualites/ActualitesView";
+import { getPublications, getEvents, readOrUnavailable } from "@/lib/api/endpoints";
 import { pageMetadata } from "@/lib/seo";
+import type { PublicationRecord, Event } from "@/lib/api/types";
 
 export const metadata = pageMetadata({
   title: "Actualités",
   description:
-    "Les nouvelles et annonces du Centre Chrétien Jésus ma Vie : vie de l'église, rendez-vous et informations pratiques à Lubumbashi.",
+    "Suivez nos actualités quotidiennes au Centre Chrétien Jésus ma Vie : culte, vie communautaire, annonces et rendez-vous à Lubumbashi.",
   path: "/publications/actualites",
 });
 
-interface ActualitesPageProps {
-  searchParams?: Promise<{ scope?: string }>;
-}
-
-export default async function ActualitesPage(props: ActualitesPageProps) {
-  const searchParams = await props.searchParams;
-  const activeScope: "CCJV" | "ECODIM" =
-    searchParams?.scope === "ECODIM" ? "ECODIM" : "CCJV";
-
-  /*
-   * Deux lectures distinctes : la rubrique Actualités (la une et les autres
-   * actualités) et l'ensemble des publications, dont on tire ce qui a paru dans
-   * les autres rubriques.
-   */
-  const [itemsRead, allRead] = await Promise.all([
-    readOrUnavailable((options) =>
-      getPublications(
-        { category: "ACTUALITE", scope: activeScope, limit: 50 },
-        options,
-      ),
-    ),
-    readOrUnavailable((options) =>
-      getPublications({ scope: activeScope, limit: 50 }, options),
-    ),
+export default async function ActualitesPage() {
+  const [pubsRead, eventsRead] = await Promise.all([
+    readOrUnavailable((options) => getPublications({ limit: 100 }, options)),
+    readOrUnavailable((options) => getEvents({ limit: 20 }, options)),
   ]);
 
-  let items = itemsRead.status === "ok" ? itemsRead.data : [];
-  // Fallback élégant : si aucune actualité spécifique n'est catégorisée avec ACTUALITE mais qu'il existe des publications pour ce scope,
-  // on les affiche afin que la page ne reste jamais déserte.
-  if (items.length === 0 && allRead.status === "ok" && allRead.data.length > 0) {
-    items = allRead.data;
-  }
-  const [lead, ...others] = items;
+  const rawPubs = pubsRead.status === "ok" ? pubsRead.data : [];
 
-  /** Ce qui a été publié récemment dans les autres rubriques. */
-  const elsewhere =
-    allRead.status === "ok"
-      ? allRead.data
-          .filter((publication) => publication.category !== "ACTUALITE")
-          .slice(0, 4)
-      : [];
+  // Tri rigoureux chronologique décroissant (les parutions les plus récentes en tête)
+  const publications: PublicationRecord[] = [...rawPubs].sort((a, b) => {
+    const timeA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+    const timeB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+    return timeB - timeA;
+  });
+
+  // Événements à venir : filtre sur date >= aujourd'hui et tri par ordre chronologique croissant
+  const nowIso = new Date().toISOString().slice(0, 10);
+  const rawEvents = eventsRead.status === "ok" ? eventsRead.data : [];
+
+  const upcomingEvents: Event[] = rawEvents
+    .filter((e) => {
+      const eventDate = e.startDate?.slice(0, 10) || e.eventDate?.slice(0, 10);
+      return !eventDate || eventDate >= nowIso || e.status === "UPCOMING";
+    })
+    .sort((a, b) => {
+      const dateA = a.startDate?.slice(0, 10) || a.eventDate?.slice(0, 10) || "";
+      const dateB = b.startDate?.slice(0, 10) || b.eventDate?.slice(0, 10) || "";
+      return dateA.localeCompare(dateB);
+    })
+    .slice(0, 3);
 
   return (
-    <ListingPage
-      header={
-        <HeroEditorial
-          title="Actualités"
-          intro="Les nouvelles de la vie de l'église : annonces, rentrées, informations pratiques. Ce qui change dans les prochaines semaines se trouve ici."
-          image={images.assemblee}
-          imageAlt="Assemblée réunie pour un temps de vie d'église, au Centre Chrétien Jésus ma Vie"
-          action={{ label: "Lire les actualités ↓", href: "#actualites" }}
-        />
-      }
-      lead={
-        /* Cible de l'action du héros : elle existe même sans actualité publiée,
-           pour qu'aucun bouton ne mène nulle part. */
-        <div id="actualites" className="scroll-mt-28">
-          <ScopeFilterTabs
-            activeScope={activeScope}
-            baseHref="/publications/actualites"
-            ccjvLabel="CCJV"
-            ecodimLabel="ECODIM"
-          />
-
-          {itemsRead.status === "unreachable" ? (
-            <ContentUnavailable resource="Les actualités" />
-          ) : lead ? (
-            <>
-            <article>
-              <p className="font-sans text-xs font-semibold tracking-[0.2em] text-ccjv-green uppercase">
-                À la une
-              </p>
-
-              <Link href={`/publications/${lead.slug}`} className="group mt-6 block">
-                <h2 className="max-w-[20ch] font-serif text-[clamp(2rem,1.1rem+3vw,3.6rem)] leading-[1.06] transition-colors duration-[250ms] group-hover:text-ccjv-green">
-                  {lead.title}
-                </h2>
-              </Link>
-
-              <div className="mt-8 grid grid-cols-1 gap-8 border-t border-ccjv-line pt-8 lg:grid-cols-12">
-                <p className="font-sans text-[0.8rem] text-ccjv-ink-secondary lg:col-span-3">
-                  <time dateTime={lead.publishedAt} title={formatLongDate(lead.publishedAt)}>
-                    {formatRelativeTime(lead.publishedAt)}
-                  </time>
-                </p>
-                <div className="lg:col-span-8 lg:col-start-5">
-                  {lead.description && (
-                    <p className="max-w-[62ch] text-[1.0625rem] leading-[1.7] text-ccjv-ink-secondary">
-                      {lead.description}
-                    </p>
-                  )}
-                  <Link
-                    href={`/publications/${lead.slug}`}
-                    className="mt-6 inline-flex items-center gap-2 font-sans text-[0.9rem] font-medium text-ccjv-green"
-                  >
-                    Lire l&apos;actualité
-                    <span aria-hidden="true">→</span>
-                  </Link>
-                </div>
-              </div>
-            </article>
-
-            {/* Rupture visuelle entre la une et le reste de l'index */}
-            <FeatureImage
-              className="mt-16"
-              variant="wide"
-              src={images.fraternite}
-              caption="Centre Chrétien Jésus ma Vie — Lubumbashi"
-            />
-            </>
-          ) : (
-            <EmptyState
-              title="Aucune actualité pour le moment"
-              description="Les nouvelles publiées depuis le back-office apparaîtront ici."
-            />
-          )}
-        </div>
-      }
-      listTitle="Autres actualités"
-      list={
-        itemsRead.status === "unreachable" ? (
-          <ContentUnavailable resource="Les autres actualités" />
-        ) : others.length > 0 ? (
-          <ul className="border-t border-ccjv-line">
-            {others.map((publication) => (
-              <li key={publication.id} className="border-b border-ccjv-line">
-                <Link
-                  href={`/publications/${publication.slug}`}
-                  className="group grid grid-cols-1 gap-3 py-7 sm:grid-cols-12 sm:items-baseline sm:gap-8"
-                >
-                  <time
-                    dateTime={publication.publishedAt}
-                    title={formatLongDate(publication.publishedAt)}
-                    className="font-sans text-[0.78rem] text-ccjv-ink-secondary sm:col-span-3"
-                  >
-                    {formatRelativeTime(publication.publishedAt)}
-                  </time>
-                  <span className="font-serif text-[1.4rem] leading-snug transition-colors duration-[250ms] group-hover:text-ccjv-green sm:col-span-6">
-                    {publication.title}
-                  </span>
-                  <span
-                    className="font-sans text-[0.85rem] font-medium text-ccjv-green sm:col-span-3 sm:text-right"
-                    aria-hidden="true"
-                  >
-                    Lire →
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="border-t border-ccjv-line pt-7 text-ccjv-ink-secondary">
-            Aucune autre actualité pour l&apos;instant. Les prochaines
-            publications apparaîtront ici.
-          </p>
-        )
-      }
-      archivesTitle="Également publié sur le site"
-      archives={
-        allRead.status === "unreachable" ? (
-          <ContentUnavailable resource="Les autres rubriques" />
-        ) : elsewhere.length > 0 ? (
-          <ul className="grid grid-cols-1 gap-x-12 sm:grid-cols-2">
-            {elsewhere.map((publication) => {
-              /* L'API peut renvoyer la photo en `coverImage` plutôt qu'en `contentUrl`. */
-              const thumbnail = publication.contentUrl ?? publication.coverImage;
-
-              return (
-                <li
-                  key={publication.id}
-                  className="border-t border-ccjv-line py-6 first:border-t-0 sm:[&:nth-child(2)]:border-t-0"
-                >
-                  <Link
-                    href={`/publications/${publication.slug}`}
-                    className="group flex items-start gap-5"
-                  >
-                    {publication.type === "PHOTO" && thumbnail ? (
-                      <span className="relative h-20 w-28 shrink-0 overflow-hidden bg-ccjv-line">
-                        <Image
-                          src={thumbnail}
-                          alt=""
-                          fill
-                          sizes="112px"
-                          className="object-cover transition-transform duration-[550ms] ease-ccjv group-hover:scale-[1.04]"
-                        />
-                      </span>
-                    ) : null}
-
-                    <span className="flex flex-col">
-                      <span className="font-sans text-[0.7rem] font-semibold tracking-[0.16em] text-ccjv-green uppercase">
-                        {publication.category === "ENSEIGNEMENT"
-                          ? "Enseignement"
-                          : publication.category === "MEDIA"
-                            ? "Média"
-                            : "Ressource"}
-                      </span>
-                      <span className="mt-2 font-serif text-[1.2rem] leading-snug transition-colors duration-[250ms] group-hover:text-ccjv-green">
-                        {publication.title}
-                      </span>
-                      <time
-                        dateTime={publication.publishedAt}
-                        className="mt-2 font-sans text-[0.78rem] text-ccjv-ink-secondary"
-                      >
-                        {formatLongDate(publication.publishedAt)}
-                      </time>
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p className="border-t border-ccjv-line pt-7 text-ccjv-ink-secondary">
-            Aucune publication dans les autres rubriques pour l&apos;instant.
-          </p>
-        )
-      }
-      related={
-        <CrossLinks
-          variant="inline"
-          items={[
-            { href: "/publications/enseignements", label: "Les enseignements" },
-            { href: "/publications/mediatheque", label: "La médiathèque" },
-            { href: "/publications/ressources", label: "Les ressources" },
-            { href: "/vie-de-leglise/evenements", label: "L'agenda" },
-          ]}
-        />
-      }
+    <ActualitesView
+      publications={publications}
+      upcomingEvents={upcomingEvents}
     />
   );
 }
