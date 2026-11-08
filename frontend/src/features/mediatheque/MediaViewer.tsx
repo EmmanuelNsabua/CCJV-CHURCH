@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
+import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { cn, formatLongDate } from "@/lib/utils";
 import type { MediaItem } from "./mediaCatalogue";
@@ -13,17 +13,8 @@ import type { MediaItem } from "./mediaCatalogue";
  * est **déjà filtrée** par l'appelant, donc les commandes précédent/suivant ne
  * font jamais basculer d'une vidéo vers une photo.
  *
- * Accessibilité :
- * - `role="dialog"` + `aria-modal`, nommé par la provenance du média ;
- * - focus initial sur la commande de fermeture, piège de tabulation, retour du
- *   focus à la tuile d'origine (assuré par l'appelant) ;
- * - fermeture par la touche `Échap`, navigation par les flèches gauche/droite ;
- * - défilement de la page verrouillé pendant l'ouverture, sans changer la
- *   position de lecture du catalogue.
- *
- * Lecture : le lecteur réel du média est monté, jamais un faux lecteur. Une
- * vidéo n'est jamais lancée automatiquement — aucun son ne peut surprendre le
- * visiteur à l'ouverture.
+ * Utilise React Portal pour être montée au sommet de document.body (z-[200]),
+ * évitant tout piégeage sous le Header ou d'autres contextes d'empilement.
  */
 export interface MediaViewerProps {
   readonly items: readonly MediaItem[];
@@ -46,6 +37,7 @@ export function MediaViewer({
   onClose,
   onNavigate,
 }: MediaViewerProps) {
+  const [mounted, setMounted] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [failed, setFailed] = useState(false);
@@ -53,6 +45,10 @@ export function MediaViewer({
   const item = items[index];
   const hasPrevious = index > 0;
   const hasNext = index < items.length - 1;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const goPrevious = useCallback(() => {
     if (index > 0) onNavigate(index - 1);
@@ -70,7 +66,7 @@ export function MediaViewer({
   // Focus initial sur la fermeture : le clavier sait immédiatement comment sortir.
   useEffect(() => {
     closeRef.current?.focus();
-  }, []);
+  }, [mounted]);
 
   // Clavier : Échap ferme, les flèches parcourent le filtre courant.
   useEffect(() => {
@@ -127,30 +123,30 @@ export function MediaViewer({
     };
   }, []);
 
-  if (!item) return null;
+  if (!mounted || !item) return null;
 
   const metadata = [item.origin, item.date ? readableDate(item.date) : null]
     .filter(Boolean)
     .join(" · ");
 
-  return (
+  return createPortal(
     <div
       ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label={`Média ${index + 1} sur ${items.length} — ${item.origin}`}
-      className="fixed inset-0 z-[80] flex flex-col bg-ccjv-black/95 text-white"
+      className="fixed inset-0 z-[200] flex flex-col bg-black/95 text-white backdrop-blur-md select-none animate-in fade-in duration-150"
     >
       {/* Barre supérieure : compteur, fermeture explicite. */}
-      <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6">
-        <p className="font-sans text-[0.78rem] tracking-[0.08em] text-white/70 tabular-nums">
+      <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-8 border-b border-white/10 z-[210] bg-black/40">
+        <p className="font-sans text-xs tracking-wider text-white/70 uppercase tabular-nums">
           {index + 1} / {items.length}
         </p>
         <button
           ref={closeRef}
           type="button"
           onClick={onClose}
-          className="inline-flex h-11 w-11 items-center justify-center border border-white/30 text-white transition-colors hover:border-white hover:bg-white/10"
+          className="inline-flex h-10 w-10 items-center justify-center border border-white/30 text-white transition-colors hover:border-white hover:bg-white/15 cursor-pointer rounded-none focus-visible:outline-2 focus-visible:outline-white"
           aria-label="Fermer la visionneuse"
         >
           <X aria-hidden="true" className="h-5 w-5" />
@@ -158,9 +154,17 @@ export function MediaViewer({
       </div>
 
       {/* Zone média : proportions conservées, jamais de déformation. */}
-      <div className="relative flex min-h-0 flex-1 items-center justify-center px-3 sm:px-8">
+      <div
+        className="relative flex min-h-0 flex-1 items-center justify-center p-3 sm:p-8 overflow-hidden"
+        onClick={(e) => {
+          // Fermer au clic sur le fond sombre (en dehors de l'image ou de la vidéo)
+          if (e.target === e.currentTarget) {
+            onClose();
+          }
+        }}
+      >
         {failed ? (
-          <div className="max-w-md border border-white/25 px-6 py-8 text-center">
+          <div className="max-w-md border border-white/25 px-6 py-8 text-center bg-black/60">
             <p className="font-sans text-[0.95rem] text-white">
               Ce média n&apos;a pas pu être chargé.
             </p>
@@ -193,23 +197,20 @@ export function MediaViewer({
                 src={item.src}
                 aria-label={item.alt}
                 onError={() => setFailed(true)}
-                className="max-h-[70vh] w-full border border-white/15 bg-ccjv-black"
+                className="max-h-[70vh] w-full border border-white/15 bg-black"
               >
                 Votre navigateur ne prend pas en charge la lecture vidéo.
               </video>
             )}
           </div>
         ) : (
-          <div className="relative flex items-center justify-center w-full h-full max-h-[calc(100vh-140px)] max-w-6xl mx-auto overflow-hidden">
-            <Image
+          <div className="flex items-center justify-center w-full h-full max-h-[calc(100vh-160px)]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={item.src}
               alt={item.alt}
-              fill
-              unoptimized={item.src.startsWith("http")}
-              sizes="(max-width: 1200px) 100vw, 1200px"
-              priority
               onError={() => setFailed(true)}
-              className="object-contain max-h-full max-w-full select-none"
+              className="max-h-[calc(100vh-170px)] max-w-[90vw] w-auto h-auto object-contain select-none shadow-2xl"
             />
           </div>
         )}
@@ -221,13 +222,13 @@ export function MediaViewer({
           disabled={!hasPrevious}
           aria-label="Média précédent"
           className={cn(
-            "absolute left-1 top-1/2 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center border border-white/25 bg-ccjv-black/40 text-white transition-colors sm:left-4",
+            "absolute left-2 top-1/2 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center border border-white/25 bg-black/60 text-white transition-colors sm:left-6 cursor-pointer rounded-none",
             hasPrevious
-              ? "hover:border-white hover:bg-white/15"
-              : "pointer-events-none opacity-30",
+              ? "hover:border-white hover:bg-white/20"
+              : "pointer-events-none opacity-20",
           )}
         >
-          <ChevronLeft aria-hidden="true" className="h-5 w-5" />
+          <ChevronLeft aria-hidden="true" className="h-6 w-6" />
         </button>
 
         <button
@@ -236,25 +237,26 @@ export function MediaViewer({
           disabled={!hasNext}
           aria-label="Média suivant"
           className={cn(
-            "absolute right-1 top-1/2 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center border border-white/25 bg-ccjv-black/40 text-white transition-colors sm:right-4",
+            "absolute right-2 top-1/2 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center border border-white/25 bg-black/60 text-white transition-colors sm:right-6 cursor-pointer rounded-none",
             hasNext
-              ? "hover:border-white hover:bg-white/15"
-              : "pointer-events-none opacity-30",
+              ? "hover:border-white hover:bg-white/20"
+              : "pointer-events-none opacity-20",
           )}
         >
-          <ChevronRight aria-hidden="true" className="h-5 w-5" />
+          <ChevronRight aria-hidden="true" className="h-6 w-6" />
         </button>
       </div>
 
       {/* Métadonnées réellement disponibles : provenance, et date si elle existe. */}
-      <div className="px-4 py-4 text-center sm:px-6 sm:py-5">
-        <p className="font-sans text-[0.85rem] text-white/85">{metadata}</p>
+      <div className="px-4 py-3 text-center sm:px-6 border-t border-white/10 bg-black/40">
+        <p className="font-sans text-xs text-white/90 font-medium">{metadata}</p>
         {item.kind === "video" && (
-          <p className="mt-1 font-sans text-[0.72rem] tracking-[0.1em] text-white/50 uppercase">
+          <p className="mt-0.5 font-sans text-[0.7rem] tracking-wider text-white/60 uppercase">
             Vidéo
           </p>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

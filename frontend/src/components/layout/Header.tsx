@@ -15,14 +15,21 @@ const darkHeroRoutes = [
   "/qui-sommes-nous",
   "/communaute",
   "/vie-de-leglise/evenements",
-  "/publications/mediatheque",
   "/organisation",
+];
+
+/** Routes qui doivent TOUJOURS avoir la barre de navigation opaque dès la position 0 */
+const alwaysOpaqueRoutes = [
+  "/publications/mediatheque",
+  "/publications/actualites",
+  "/publications/ressources",
+  "/publications",
 ];
 
 /**
  * Header contextuel :
  * - Transparent au sommet de page (adapté au fond clair ou sombre du Hero)
- * - Devient solide (`bg-ccjv-offwhite` + bordure fine) dès que l'on scrolle (> 24px)
+ * - Toujours solide/opaque sur Médiathèque, Actualités, Ressources et au scroll (> 24px)
  * - Comportement fluide et unifié sur l'ensemble des pages du site.
  */
 export function Header({ socialLinks }: { socialLinks: SocialLink[] }) {
@@ -31,6 +38,11 @@ export function Header({ socialLinks }: { socialLinks: SocialLink[] }) {
   const [isDarkHero, setIsDarkHero] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Détection des pages devant être toujours opaques
+  const isAlwaysOpaque = alwaysOpaqueRoutes.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
 
   // Détection du scroll
   useEffect(() => {
@@ -74,7 +86,7 @@ export function Header({ socialLinks }: { socialLinks: SocialLink[] }) {
     menuButtonRef.current?.focus();
   };
 
-  const isSolid = scrolled;
+  const isSolid = scrolled || isAlwaysOpaque;
   const isWhiteText = !isSolid && isDarkHero;
 
   return (

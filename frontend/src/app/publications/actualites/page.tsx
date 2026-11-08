@@ -45,7 +45,12 @@ export default async function ActualitesPage(props: ActualitesPageProps) {
     ),
   ]);
 
-  const items = itemsRead.status === "ok" ? itemsRead.data : [];
+  let items = itemsRead.status === "ok" ? itemsRead.data : [];
+  // Fallback élégant : si aucune actualité spécifique n'est catégorisée avec ACTUALITE mais qu'il existe des publications pour ce scope,
+  // on les affiche afin que la page ne reste jamais déserte.
+  if (items.length === 0 && allRead.status === "ok" && allRead.data.length > 0) {
+    items = allRead.data;
+  }
   const [lead, ...others] = items;
 
   /** Ce qui a été publié récemment dans les autres rubriques. */
