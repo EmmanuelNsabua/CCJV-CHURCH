@@ -77,7 +77,7 @@ export function ActualitesView({
       {/* 1. HERO SECTION PLEIN ÉCRAN AVEC PHOTO & TEXTE EN BAS À DROITE        */}
       {/* ===================================================================== */}
       <section
-        className="relative w-full h-[65vh] sm:h-[75vh] min-h-[480px] max-h-[720px] overflow-hidden bg-ccjv-black text-white hero-dark"
+        className="relative w-full min-h-screen sm:h-[75vh] min-h-[480px] max-h-[720px] overflow-hidden bg-ccjv-black text-white hero-dark"
         data-hero-dark
       >
         <Image
@@ -94,10 +94,10 @@ export function ActualitesView({
 
         {/* Titre et texte situés dans le coin droit inférieur (sans bouton, sans badge) */}
         <div className="absolute bottom-10 right-4 sm:bottom-14 sm:right-10 md:bottom-16 md:right-16 text-right max-w-2xl px-4">
-          <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white drop-shadow-lg">
+          <h1 className="font-sans text-base sm:text-lg md:text-xl text-white/95 font-medium leading-relaxed drop-shadow-md">
             Actualités
           </h1>
-          <p className="mt-3 sm:mt-4 font-sans text-base sm:text-lg md:text-xl text-white/95 font-light leading-relaxed drop-shadow-md">
+          <p className="mt-3 sm:mt-4 font-serif text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white drop-shadow-lg">
             Suivez nos actualités quotidiennes au Centre Chrétien Jésus ma Vie.
           </p>
         </div>
@@ -158,9 +158,8 @@ export function ActualitesView({
                 return (
                   <article
                     key={item.id}
-                    className={`flex flex-col ${
-                      isPhotoLeft ? "lg:flex-row" : "lg:flex-row-reverse"
-                    } border border-ccjv-line bg-white shadow-sm overflow-hidden animate-in fade-in duration-300`}
+                    className={`flex flex-col ${isPhotoLeft ? "lg:flex-row" : "lg:flex-row-reverse"
+                      } border border-ccjv-line bg-white shadow-sm overflow-hidden animate-in fade-in duration-300`}
                   >
                     {/* Bloc Média / Photo (60%) */}
                     <div className="relative w-full lg:w-[60%] min-h-[300px] sm:min-h-[420px] lg:min-h-[460px] bg-neutral-100 overflow-hidden shrink-0">
@@ -176,38 +175,34 @@ export function ActualitesView({
 
                     {/* Bloc Texte (40%) avec coloration conditionnelle : vert pour Presse, blanc/texte vert pour Ecodim */}
                     <div
-                      className={`w-full lg:w-[40%] p-8 sm:p-10 lg:p-12 flex flex-col justify-between ${
-                        isEcodim
-                          ? "bg-white text-ccjv-green"
-                          : "bg-ccjv-green text-white"
-                      }`}
+                      className={`w-full lg:w-[40%] p-8 sm:p-10 lg:p-12 flex flex-col justify-between ${isEcodim
+                        ? "bg-white text-ccjv-green"
+                        : "bg-ccjv-green text-white"
+                        }`}
                     >
                       <div>
                         {/* Étiquette Département */}
                         <span
-                          className={`inline-block font-sans text-xs font-bold uppercase tracking-wider px-3 py-1 mb-6 rounded-none ${
-                            isEcodim
-                              ? "bg-emerald-50 text-ccjv-green border border-emerald-200"
-                              : "bg-white/20 text-white border border-white/30"
-                          }`}
+                          className={`inline-block font-sans text-xs font-bold uppercase tracking-wider px-3 py-1 mb-6 rounded-none ${isEcodim
+                            ? "bg-emerald-50 text-ccjv-green border border-emerald-200"
+                            : "bg-white/20 text-white border border-white/30"
+                            }`}
                         >
                           {isEcodim ? "Ecodim" : "Presse"}
                         </span>
 
                         <time
                           dateTime={item.publishedAt}
-                          className={`block font-sans text-xs mb-3 ${
-                            isEcodim ? "text-ccjv-ink-secondary" : "text-white/80"
-                          }`}
+                          className={`block font-sans text-xs mb-3 ${isEcodim ? "text-ccjv-ink-secondary" : "text-white/80"
+                            }`}
                         >
                           {formatLongDate(item.publishedAt)}
                         </time>
 
                         <Link href={`/publications/${item.slug}`} className="group block">
                           <h3
-                            className={`font-serif text-2xl sm:text-3xl lg:text-[1.85rem] font-bold leading-tight transition-opacity group-hover:opacity-90 ${
-                              isEcodim ? "text-ccjv-green" : "text-white"
-                            }`}
+                            className={`font-serif text-2xl sm:text-3xl lg:text-[1.85rem] font-bold leading-tight transition-opacity group-hover:opacity-90 ${isEcodim ? "text-ccjv-green" : "text-white"
+                              }`}
                           >
                             {item.title}
                           </h3>
@@ -215,9 +210,8 @@ export function ActualitesView({
 
                         {item.description && (
                           <p
-                            className={`mt-4 text-sm sm:text-base leading-relaxed line-clamp-4 ${
-                              isEcodim ? "text-ccjv-ink" : "text-white/95"
-                            }`}
+                            className={`mt-4 text-sm sm:text-base leading-relaxed line-clamp-4 ${isEcodim ? "text-ccjv-ink" : "text-white/95"
+                              }`}
                           >
                             {item.description}
                           </p>
@@ -227,11 +221,10 @@ export function ActualitesView({
                       <div className="pt-8">
                         <Link
                           href={`/publications/${item.slug}`}
-                          className={`inline-flex items-center gap-2 font-sans text-sm font-semibold tracking-wide transition-all group ${
-                            isEcodim
-                              ? "text-ccjv-green hover:translate-x-1"
-                              : "text-white hover:translate-x-1"
-                          }`}
+                          className={`inline-flex items-center gap-2 font-sans text-sm font-semibold tracking-wide transition-all group ${isEcodim
+                            ? "text-ccjv-green hover:translate-x-1"
+                            : "text-white hover:translate-x-1"
+                            }`}
                         >
                           <span>Lire l&apos;actualité</span>
                           <span aria-hidden="true">→</span>
@@ -267,33 +260,30 @@ export function ActualitesView({
               <button
                 type="button"
                 onClick={() => setSelectedTab("TOUS")}
-                className={`px-4 py-1.5 font-sans text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer ${
-                  selectedTab === "TOUS"
-                    ? "bg-ccjv-green text-white"
-                    : "text-ccjv-ink-secondary hover:text-ccjv-ink"
-                }`}
+                className={`px-4 py-1.5 font-sans text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer ${selectedTab === "TOUS"
+                  ? "bg-ccjv-green text-white"
+                  : "text-ccjv-ink-secondary hover:text-ccjv-ink"
+                  }`}
               >
                 Tous
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedTab("PRESSE")}
-                className={`px-4 py-1.5 font-sans text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer ${
-                  selectedTab === "PRESSE"
-                    ? "bg-ccjv-green text-white"
-                    : "text-ccjv-ink-secondary hover:text-ccjv-ink"
-                }`}
+                className={`px-4 py-1.5 font-sans text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer ${selectedTab === "PRESSE"
+                  ? "bg-ccjv-green text-white"
+                  : "text-ccjv-ink-secondary hover:text-ccjv-ink"
+                  }`}
               >
                 Presse
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedTab("ECODIM")}
-                className={`px-4 py-1.5 font-sans text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer ${
-                  selectedTab === "ECODIM"
-                    ? "bg-ccjv-green text-white"
-                    : "text-ccjv-ink-secondary hover:text-ccjv-ink"
-                }`}
+                className={`px-4 py-1.5 font-sans text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer ${selectedTab === "ECODIM"
+                  ? "bg-ccjv-green text-white"
+                  : "text-ccjv-ink-secondary hover:text-ccjv-ink"
+                  }`}
               >
                 Ecodim
               </button>
@@ -315,11 +305,10 @@ export function ActualitesView({
                     {/* Image avec étiquette dans le coin supérieur gauche */}
                     <div className="relative aspect-16/10 w-full overflow-hidden bg-neutral-100">
                       <span
-                        className={`absolute top-3 left-3 z-10 font-sans text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-none shadow-xs ${
-                          isEcodim
-                            ? "bg-amber-600 text-white"
-                            : "bg-ccjv-green text-white"
-                        }`}
+                        className={`absolute top-3 left-3 z-10 font-sans text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-none shadow-xs ${isEcodim
+                          ? "bg-amber-600 text-white"
+                          : "bg-ccjv-green text-white"
+                          }`}
                       >
                         {isEcodim ? "Ecodim" : "Presse"}
                       </span>
@@ -469,3 +458,4 @@ export function ActualitesView({
     </div>
   );
 }
+
