@@ -30,7 +30,8 @@ export interface AuthDependencies {
 export function authenticate(): RequestHandler {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
-      const token = extractBearerToken(req.headers.authorization);
+      const queryToken = typeof req.query?.token === "string" ? req.query.token : null;
+      const token = extractBearerToken(req.headers.authorization) ?? queryToken;
       if (!token) {
         throw new AuthRequiredError();
       }

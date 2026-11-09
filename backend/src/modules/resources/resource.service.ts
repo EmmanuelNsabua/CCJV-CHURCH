@@ -1,6 +1,7 @@
 import type { AdminProfile, Resource } from "@/domain/entities";
 import type { ListResult, ResourceRepository } from "@/domain/repositories";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error";
+import { notificationHub } from "@/infrastructure/notifications/notification-hub";
 import { toOffset } from "@/shared/http/pagination";
 import { slugify, uniqueSlug } from "@/shared/utils/slug";
 import type {
@@ -62,7 +63,7 @@ export class ResourceService {
 
     const slug = await this.resolveSlug(data.name, data.slug);
 
-    return this.resources.create(
+    const created = await this.resources.create(
       {
         name: data.name,
         description: data.description ?? null,
@@ -72,6 +73,17 @@ export class ResourceService {
       },
       slug,
     );
+
+    notificationHub.publish({
+      type: "resource",
+      title: `Nouvelle ressource : ${created.name}`,
+      message: `${actor?.displayName || actor?.username || "Un administrateur"} a ajouté une ressource`,
+      actorId: actor?.id ?? null,
+      actorName: actor?.displayName || actor?.username || null,
+      departmentId: created.departmentId ?? null,
+    });
+
+    return created;
   }
 
   async update(id: string, data: UpdateResourceInput, actor?: AdminProfile | null): Promise<Resource> {

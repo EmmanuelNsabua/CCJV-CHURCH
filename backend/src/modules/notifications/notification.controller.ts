@@ -3,6 +3,7 @@ import type { AdminProfile } from "@/domain/entities";
 import { AuthRequiredError } from "@/shared/errors/app-error";
 import { sendCollection, sendItem } from "@/shared/http/respond";
 import { validatedParams, validatedQuery } from "@/presentation/middlewares/validate";
+import { notificationHub } from "@/infrastructure/notifications/notification-hub";
 import type { ListNotificationsQuery, NotificationIdParams } from "./notification.schema";
 import { toNotificationDto, type NotificationDto } from "./notification.serializer";
 import type { NotificationService } from "./notification.service";
@@ -45,6 +46,24 @@ export function createNotificationController(service: NotificationService) {
       const notification = await service.markAsRead(requireAdmin(req), id);
 
       sendItem(res, toNotificationDto(notification));
+    },
+
+    /** `GET /notifications/stream` — Tunneling Server-Sent Events (SSE) en temps réel. */
+    async stream(req: Request, res: Response): Promise<void> {
+      const admin = requireAdmin(req);
+      const clientId = `client_${admin.id}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const cleanup = notificationHub.registerClient(clientId, res, admin);
+
+      req.on("close", () => {
+        cleanup();
+      });
+    },
+
+    /** `GET /notifications/realtime` — Historique des notifications temps réel en mémoire. */
+    async realtimeHistory(req: Request, res: Response): Promise<void> {
+      const admin = requireAdmin(req);
+      const history = notificationHub.getHistoryFor(admin);
+      sendItem(res, { items: history });
     },
   };
 }

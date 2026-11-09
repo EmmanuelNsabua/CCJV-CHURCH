@@ -170,6 +170,7 @@ export function createApp(deps: AppDependencies = createContainer()): Express {
   app.use(`${apiBasePath}/admin/logs`, routers.logs);
   app.use(`${apiBasePath}/logs`, routers.logs);
   app.use(`${apiBasePath}/admin`, routers.admin);
+  app.use(`${apiBasePath}/admin/notifications`, routers.notifications);
   app.use(`${apiBasePath}/notifications`, routers.notifications);
   app.use(`${apiBasePath}/enseignements`, routers.teachings);
   app.use(`${apiBasePath}/teachings`, routers.teachings);

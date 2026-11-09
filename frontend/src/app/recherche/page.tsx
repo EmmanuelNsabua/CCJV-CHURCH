@@ -47,10 +47,62 @@ function navigationEntries(): SearchEntry[] {
     }
   }
 
+  // Informations pratiques enrichies indispensables
+  entries.push(
+    {
+      href: "/vie-de-leglise/ou-nous-trouver",
+      title: "Horaires des cultes & célébrations",
+      description: "Culte dominical de 08h30 à 11h30, culte d'intercession et enseignements.",
+      kind: "Culte & Horaires",
+    },
+    {
+      href: "/vie-de-leglise/ou-nous-trouver",
+      title: "Adresse & Localisation de l'église",
+      description: "Centre Chrétien Jésus ma Vie à Lubumbashi, République Démocratique du Congo.",
+      kind: "Adresse & Contact",
+    },
+    {
+      href: "/actualites",
+      title: "Actualités & Nouvelles de l'église",
+      description: "Suivez les annonces et publications officielles du CCJV et des départements.",
+      kind: "Actualités",
+    },
+    {
+      href: "/communaute/priere",
+      title: "Demande de prière & Intercession",
+      description: "Déposez une intention de prière confidentielle auprès de l'équipe pastorale.",
+      kind: "Prière",
+    },
+    {
+      href: "/communaute/temoignages",
+      title: "Témoignages de la communauté",
+      description: "Partagez ce que le Seigneur a fait pour vous ou lisez les récits de la communauté.",
+      kind: "Témoignage",
+    },
+    {
+      href: "/don",
+      title: "Faire un don & Soutenir le ministère",
+      description: "Dîmes, offrandes et soutien aux actions missionnaires de l'église.",
+      kind: "Don",
+    },
+    {
+      href: "/organisation#ecodim",
+      title: "Ecodim — École du dimanche pour enfants",
+      description: "Département jeunesse et enfance de 08h30 à 11h30 chaque dimanche.",
+      kind: "Département",
+    },
+  );
+
   return entries;
 }
 
-export default async function RecherchePage() {
+export default async function RecherchePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ q?: string }>;
+}) {
+  const resolvedParams = searchParams ? await searchParams : {};
+  const initialQuery = resolvedParams?.q ?? "";
   /*
    * Index construit au rendu serveur à partir des données réelles de l'API
    * (publications, événements, départements). Chaque lecture est évaluée
@@ -183,7 +235,7 @@ export default async function RecherchePage() {
               description="Ces contenus ne sont pas indexés pour l'instant : la recherche porte sur le reste du site. Rechargez la page dans quelques instants pour reconstituer l'index complet."
             />
           )}
-          <SearchClient entries={entries} />
+          <SearchClient entries={entries} initialQuery={initialQuery} />
         </>
       }
       related={
@@ -196,7 +248,7 @@ export default async function RecherchePage() {
               description: "Adresse, horaires et contact.",
             },
             {
-              href: "/publications/actualites",
+              href: "/actualites",
               label: "Actualités",
               description: "Les nouvelles et annonces de l'église.",
             },

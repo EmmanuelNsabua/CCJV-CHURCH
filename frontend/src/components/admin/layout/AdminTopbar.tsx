@@ -18,8 +18,13 @@ import {
   FileText,
   GraduationCap,
   Image as ImageIcon,
+  Heart,
+  MessageSquare,
+  Settings,
+  Activity,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { getApiBaseUrl } from "@/lib/api/client";
 import { Badge } from "@/components/ui/Badge";
 import { cn, formatPersonName } from "@/lib/utils";
 
@@ -61,7 +66,7 @@ const initialNotifications: NotificationItem[] = [
 
 export function AdminTopbar({ className }: AdminTopbarProps) {
   const router = useRouter();
-  const { adminProfile, user, signOut } = useAuth();
+  const { adminProfile, user, signOut, token } = useAuth();
   const role = adminProfile?.role || "ADMIN";
 
   // États pour les menus interactifs
@@ -69,12 +74,90 @@ export function AdminTopbar({ className }: AdminTopbarProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // Connexion au tunneling Server-Sent Events (SSE) temps réel
+  useEffect(() => {
+    if (!token) return;
+
+    const baseUrl = getApiBaseUrl();
+
+    // 1. Récupération de l'historique temps réel initial
+    const fetchHistory = async () => {
+      try {
+        const res = await fetch(`${baseUrl}/api/v1/notifications/realtime?token=${encodeURIComponent(token)}`);
+        if (res.ok) {
+          const json = await res.json();
+          const items: Array<{
+            id: string;
+            type: string;
+            title: string;
+            message: string;
+            actorName?: string;
+            createdAt: string;
+          }> = json?.data?.items ?? [];
+
+          if (Array.isArray(items)) {
+            const mapped: NotificationItem[] = items.map((item) => ({
+              id: item.id,
+              title: item.title,
+              time: new Date(item.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+              read: false,
+              type: item.type === "system_error" ? "warning" : item.type === "publication" ? "success" : "info",
+            }));
+            setNotifications(mapped);
+          }
+        }
+      } catch (err) {
+        console.warn("[AdminTopbar] Erreur lors de la récupération de l'historique des notifications :", err);
+      }
+    };
+
+    fetchHistory();
+
+    // 2. Établissement du flux SSE
+    const streamUrl = `${baseUrl}/api/v1/notifications/stream?token=${encodeURIComponent(token)}`;
+    let eventSource: EventSource | null = null;
+
+    try {
+      eventSource = new EventSource(streamUrl);
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data && data.id && data.title) {
+            const newItem: NotificationItem = {
+              id: data.id,
+              title: data.message ? `${data.title} — ${data.message}` : data.title,
+              time: "À l'instant",
+              read: false,
+              type: data.type === "system_error" ? "warning" : data.type === "publication" ? "success" : "info",
+            };
+            setNotifications((prev) => [newItem, ...prev]);
+          }
+        } catch {
+          // Ignorer les pings ou messages non-JSON
+        }
+      };
+
+      eventSource.onerror = () => {
+        // EventSource tente de se reconnecter automatiquement
+      };
+    } catch (err) {
+      console.warn("[AdminTopbar] Impossible d'ouvrir le flux SSE :", err);
+    }
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+    };
+  }, [token]);
 
   // Fermeture au clic extérieur
   useEffect(() => {
@@ -106,18 +189,30 @@ export function AdminTopbar({ className }: AdminTopbarProps) {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
-  // Liste des raccourcis de recherche rapide
+  // Liste exhaustive des raccourcis de recherche rapide dans le back-office
   const isGlobal = adminProfile?.scope === "GLOBAL";
+  const isSuperAdmin = adminProfile?.role === "SUPER_ADMIN";
   const searchResults = [
     { title: "Publications", href: "/admin/publications", icon: BookOpen, cat: "Contenu" },
     { title: "Enseignements", href: "/admin/enseignements", icon: GraduationCap, cat: "Contenu" },
     { title: "Agenda & Cultes", href: "/admin/agenda", icon: Calendar, cat: "Contenu" },
     { title: "Médiathèque", href: "/admin/media", icon: ImageIcon, cat: "Contenu" },
-    { title: "Ressources", href: "/admin/ressources", icon: FileText, cat: "Contenu" },
+    { title: "Ressources & Guides", href: "/admin/ressources", icon: FileText, cat: "Contenu" },
     ...(isGlobal
       ? [
+          { title: "Intentions de prière", href: "/admin/prayers", icon: Heart, cat: "Communauté" },
+          { title: "Témoignages & Modération", href: "/admin/testimonies", icon: MessageSquare, cat: "Communauté" },
+          { title: "Départements & Pôles", href: "/admin/departments", icon: Users, cat: "Organisation" },
+          { title: "Responsables & Serviteurs", href: "/admin/departments/leaders", icon: Users, cat: "Organisation" },
+          { title: "Visages de la communauté", href: "/admin/departments/community-faces", icon: Users, cat: "Organisation" },
           { title: "Éditeur de pages", href: "/admin/pages", icon: Layers, cat: "Configuration" },
-          { title: "Départements", href: "/admin/departments", icon: Users, cat: "Communauté" },
+          { title: "Paramètres institutionnels", href: "/admin/settings", icon: Settings, cat: "Configuration" },
+        ]
+      : []),
+    ...(isSuperAdmin
+      ? [
+          { title: "Administrateurs & Rôles", href: "/admin/administrateurs", icon: Shield, cat: "Sécurité" },
+          { title: "Logs système & Audit", href: "/admin/logs", icon: Activity, cat: "Système" },
         ]
       : []),
   ].filter((item) => item.title.toLowerCase().includes(searchQuery.toLowerCase()));

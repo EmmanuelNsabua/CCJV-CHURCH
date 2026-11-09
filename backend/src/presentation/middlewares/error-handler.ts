@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
 import { logger } from "@/infrastructure/logger";
 import { logStore } from "@/infrastructure/logging/log-store";
+import { notificationHub } from "@/infrastructure/notifications/notification-hub";
 import { isProduction } from "@/config/env";
 import { AppError, InternalError } from "@/shared/errors/app-error";
 import { sendError } from "@/shared/http/respond";
@@ -29,6 +30,15 @@ export function errorHandler(
 
   // Erreur de validation Zod non interceptée par le middleware dédié.
   if (error instanceof ZodError) {
+    notificationHub.publish({
+      type: "system_error",
+      title: `Erreur 400 (Validation) : ${req.method} ${req.originalUrl}`,
+      message: error.issues.map((i) => `${i.path.join(".") || "racine"}: ${i.message}`).join(", "),
+      statusCode: 400,
+      path: req.originalUrl,
+      targetRoles: ["SUPER_ADMIN"],
+    });
+
     sendError(
       res,
       400,
@@ -85,6 +95,17 @@ export function errorHandler(
       metadata: error.details ? { details: error.details } : undefined,
     });
 
+    if (error.statusCode === 400 || error.statusCode >= 500) {
+      notificationHub.publish({
+        type: "system_error",
+        title: `Erreur ${error.statusCode} : ${req.method} ${req.originalUrl}`,
+        message: `[${error.code}] ${error.message}`,
+        statusCode: error.statusCode,
+        path: req.originalUrl,
+        targetRoles: ["SUPER_ADMIN"],
+      });
+    }
+
     sendError(
       res,
       error.statusCode,
@@ -129,6 +150,15 @@ export function errorHandler(
       message: internal.message,
       stack: internal.stack,
     },
+  });
+
+  notificationHub.publish({
+    type: "system_error",
+    title: `Erreur 500 : ${req.method} ${req.originalUrl}`,
+    message: internal.message,
+    statusCode: 500,
+    path: req.originalUrl,
+    targetRoles: ["SUPER_ADMIN"],
   });
 
   sendError(

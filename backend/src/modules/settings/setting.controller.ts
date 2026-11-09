@@ -20,7 +20,7 @@ export function createSettingController(service: SettingService) {
 
     async update(req: Request, res: Response): Promise<void> {
       const body = req.body as SettingsPatchInput;
-      const overview = await service.update(body.settings);
+      const overview = await service.update(body.settings, req.admin);
       sendItem(res, toSettingsDto(overview));
     },
   };

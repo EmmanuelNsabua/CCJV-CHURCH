@@ -4,6 +4,7 @@ import type {
   PublicationRepository,
 } from "@/domain/repositories";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error";
+import { notificationHub } from "@/infrastructure/notifications/notification-hub";
 import { toOffset } from "@/shared/http/pagination";
 import { slugify, uniqueSlug } from "@/shared/utils/slug";
 import type {
@@ -95,6 +96,15 @@ export class PublicationService {
 
     const slug = await this.resolveSlug(input.title, requestedSlug);
     const created = await this.publications.create(input, slug);
+
+    notificationHub.publish({
+      type: "publication",
+      title: `Nouvelle publication : ${created.title}`,
+      message: `${actor?.displayName || actor?.username || "Un administrateur"} a créé une publication`,
+      actorId: actor?.id ?? null,
+      actorName: actor?.displayName || actor?.username || null,
+      departmentId: created.departmentId ?? (created.scope === "ECODIM" ? "d0000000-0000-4000-8000-000000000004" : null),
+    });
 
     // Une publication créée directement en ligne reste activement publiée
     // sans forcer l'archivage prématuré des publications précédentes.

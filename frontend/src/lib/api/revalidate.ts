@@ -23,7 +23,7 @@ export async function revalidateCachePath(path: string): Promise<void> {
 export async function revalidateActualites(): Promise<void> {
   revalidateTag(CACHE_TAGS.publications);
   revalidateTag(CACHE_TAGS.actualites);
-  revalidatePath("/publications/actualites");
+  revalidatePath("/actualites");
 }
 
 /**

@@ -21,6 +21,7 @@ import type {
   UpdateTeachingBody,
 } from "./teaching.schema";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error";
+import { notificationHub } from "@/infrastructure/notifications/notification-hub";
 import { slugify, uniqueSlug } from "@/shared/utils/slug";
 
 export class TeachingNotFoundError extends NotFoundError {
@@ -145,7 +146,7 @@ export class TeachingService {
 
     const slug = await this.resolveSlug(body.title.trim(), body.slug);
 
-    return this.repo.create({
+    const created = await this.repo.create({
       title: body.title.trim(),
       slug,
       speakerName: body.speakerName.trim(),
@@ -156,6 +157,17 @@ export class TeachingService {
       departmentId: body.departmentId ?? null,
       status: body.status ?? "DRAFT",
     });
+
+    notificationHub.publish({
+      type: "teaching",
+      title: `Nouvel enseignement : ${created.title}`,
+      message: `${actor?.displayName || actor?.username || "Un administrateur"} a créé un enseignement`,
+      actorId: actor?.id ?? null,
+      actorName: actor?.displayName || actor?.username || null,
+      departmentId: created.departmentId ?? (created.scope === "ECODIM" ? "d0000000-0000-4000-8000-000000000004" : null),
+    });
+
+    return created;
   }
 
   /**

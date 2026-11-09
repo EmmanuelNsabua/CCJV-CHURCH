@@ -52,7 +52,7 @@ export function createEventController(service: EventService) {
       // `validate` a remplacé `req.body` par la valeur validée.
       const body = req.body as CreateEventBody;
 
-      sendItem(res, toEventDto(await service.create(body)), 201);
+      sendItem(res, toEventDto(await service.create(body, req.admin)), 201);
     },
 
     /** `PATCH /:idOrSlug` — administration : mise à jour partielle. */

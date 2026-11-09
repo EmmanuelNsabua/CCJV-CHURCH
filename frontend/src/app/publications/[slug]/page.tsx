@@ -416,7 +416,7 @@ export default async function PublicationDetailPage({
               <CrossLinks
                 variant="inline"
                 items={[
-                  { href: "/publications/actualites", label: "Actualités" },
+                  { href: "/actualites", label: "Actualités" },
                   { href: "/publications/enseignements", label: "Enseignements" },
                   { href: "/publications/mediatheque", label: "Médiathèque" },
                   { href: "/publications/ressources", label: "Ressources" },

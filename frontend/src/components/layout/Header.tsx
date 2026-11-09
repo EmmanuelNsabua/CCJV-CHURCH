@@ -17,14 +17,15 @@ const darkHeroRoutes = [
   "/communaute",
   "/vie-de-leglise/evenements",
   "/organisation",
-  "/publications/actualites",
+  "/actualites",
 ];
 
 /** Routes qui doivent TOUJOURS avoir la barre de navigation opaque dès la position 0 */
 const alwaysOpaqueRoutes = [
   "/publications/mediatheque",
   "/publications/ressources",
-  "/publications",
+  "/publications/enseignements",
+  "/recherche",
 ];
 
 /**
@@ -94,9 +95,9 @@ export function Header({ socialLinks }: { socialLinks: SocialLink[] }) {
     e.preventDefault();
     const q = searchQuery.trim();
     if (q) {
-      router.push(`/publications?q=${encodeURIComponent(q)}`);
+      router.push(`/recherche?q=${encodeURIComponent(q)}`);
     } else {
-      router.push("/publications");
+      router.push("/recherche");
     }
   };
 

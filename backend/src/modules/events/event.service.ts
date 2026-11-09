@@ -7,6 +7,7 @@ import type {
 } from "@/domain/repositories";
 import { EventPolicy } from "@/presentation/policies";
 import { logger } from "@/infrastructure/logger";
+import { notificationHub } from "@/infrastructure/notifications/notification-hub";
 import {
   ForbiddenError,
   NotFoundError,
@@ -132,7 +133,7 @@ export class EventService {
     return this.require(idOrSlug);
   }
 
-  async create(data: CreateEventBody): Promise<Event> {
+  async create(data: CreateEventBody, actor?: AdminProfile | null): Promise<Event> {
     const { slug: requestedSlug, ...input } = data;
 
     const startDate = input.startDate ?? input.eventDate;
@@ -162,7 +163,7 @@ export class EventService {
     }
 
     const slug = await this.resolveSlug(input.title, requestedSlug);
-    return this.events.create(
+    const created = await this.events.create(
       {
         ...input,
         startDate,
@@ -174,6 +175,17 @@ export class EventService {
       },
       slug,
     );
+
+    notificationHub.publish({
+      type: "event",
+      title: `Nouvel événement : ${created.title}`,
+      message: `${actor?.displayName || actor?.username || "Un administrateur"} a programmé un événement`,
+      actorId: actor?.id ?? null,
+      actorName: actor?.displayName || actor?.username || null,
+      departmentId: created.departmentId ?? null,
+    });
+
+    return created;
   }
 
   /**

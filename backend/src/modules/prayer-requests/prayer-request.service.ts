@@ -5,6 +5,7 @@ import type {
   PrayerRequestRepository,
 } from "@/domain/repositories";
 import { logger } from "@/infrastructure/logger";
+import { notificationHub } from "@/infrastructure/notifications/notification-hub";
 import { NotFoundError, ValidationError } from "@/shared/errors/app-error";
 import { toOffset } from "@/shared/http/pagination";
 
@@ -43,6 +44,13 @@ export class PrayerRequestService {
       { prayerRequestId: created.id },
       "Demande de prière enregistrée",
     );
+
+    notificationHub.publish({
+      type: "prayer_request",
+      title: "Nouvelle intention de prière",
+      message: "Une nouvelle demande d'intercession a été déposée",
+      targetRoles: ["SUPER_ADMIN", "ADMIN"],
+    });
 
     return created;
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 export interface SearchEntry {
@@ -11,15 +11,22 @@ export interface SearchEntry {
 }
 
 /**
- * Recherche interne — filtrage côté client sur un index statique.
- *
- * Aucun backend n'est requis : l'index est construit au rendu serveur à partir
- * des données réelles (navigation, événements, départements, publications).
- * Le filtrage passe par `useMemo` : pas de requête réseau, pas de debounce
- * nécessaire, coût négligeable même sur appareil modeste.
+ * Recherche interne — filtrage côté client sur un index enrichi.
  */
-export function SearchClient({ entries }: { entries: SearchEntry[] }) {
-  const [query, setQuery] = useState("");
+export function SearchClient({
+  entries,
+  initialQuery = "",
+}: {
+  entries: SearchEntry[];
+  initialQuery?: string;
+}) {
+  const [query, setQuery] = useState(initialQuery);
+
+  useEffect(() => {
+    if (initialQuery) {
+      setQuery(initialQuery);
+    }
+  }, [initialQuery]);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();

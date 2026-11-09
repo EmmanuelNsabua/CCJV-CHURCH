@@ -1,5 +1,6 @@
-import type { SiteSetting, SocialLink } from "@/domain/entities";
+import type { AdminProfile, SiteSetting, SocialLink } from "@/domain/entities";
 import type { SettingRepository, SocialLinkRepository } from "@/domain/repositories";
+import { notificationHub } from "@/infrastructure/notifications/notification-hub";
 import { ValidationError } from "@/shared/errors/app-error";
 import { ALLOWED_SETTING_KEYS, isAllowedSettingKey } from "./setting.schema";
 
@@ -42,7 +43,7 @@ export class SettingService {
    * l'opération plutôt que d'être ignorée silencieusement — écrire une clé que
    * personne ne lit serait un faux succès.
    */
-  async update(values: Record<string, string>): Promise<SettingsOverview> {
+  async update(values: Record<string, string>, actor?: AdminProfile | null): Promise<SettingsOverview> {
     const keys = Object.keys(values);
 
     if (keys.length === 0) {
@@ -60,6 +61,15 @@ export class SettingService {
     }
 
     await this.settings.upsertMany(values);
+
+    notificationHub.publish({
+      type: "settings",
+      title: "Paramètres modifiés",
+      message: `${actor?.displayName || actor?.username || "Un administrateur"} a modifié les paramètres généraux du site`,
+      actorId: actor?.id ?? null,
+      actorName: actor?.displayName || actor?.username || null,
+      targetRoles: ["SUPER_ADMIN", "ADMIN"],
+    });
 
     // On renvoie l'état complet relu : la réponse contient aussi les clés qui
     // n'étaient pas dans la requête.

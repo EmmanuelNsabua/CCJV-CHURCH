@@ -7,6 +7,7 @@ import type {
   TestimonyRepository,
 } from "@/domain/repositories";
 import { NotFoundError, ValidationError } from "@/shared/errors/app-error";
+import { notificationHub } from "@/infrastructure/notifications/notification-hub";
 import type { PublicSubmitTestimonyBody } from "./testimony.schema";
 
 const ALLOWED_TRANSITIONS: Record<TestimonyStatus, TestimonyStatus[]> = {
@@ -60,7 +61,7 @@ export class TestimonyService {
       );
     }
 
-    return this.testimonies.create({
+    const created = await this.testimonies.create({
       content: data.content,
       quote: data.content,
       authorName: data.authorName ?? null,
@@ -71,6 +72,15 @@ export class TestimonyService {
       photoMediaId: data.photoMediaId ?? null,
       consentedAt: new Date(),
     });
+
+    notificationHub.publish({
+      type: "testimony",
+      title: "Nouveau témoignage déposé",
+      message: "Un nouveau témoignage est en attente de modération",
+      targetRoles: ["SUPER_ADMIN", "ADMIN"],
+    });
+
+    return created;
   }
 
   create(input: TestimonyInput): Promise<Testimony> {

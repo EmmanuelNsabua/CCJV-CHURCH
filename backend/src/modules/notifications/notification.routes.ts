@@ -61,6 +61,20 @@ export function createNotificationRouter(deps: NotificationRouterDeps): Router {
     controller.unreadCount,
   );
 
+  router.get(
+    "/stream",
+    ...admin,
+    authorize(NotificationPolicy, "READ"),
+    controller.stream,
+  );
+
+  router.get(
+    "/realtime",
+    ...admin,
+    authorize(NotificationPolicy, "READ"),
+    controller.realtimeHistory,
+  );
+
   router.patch(
     "/:id/read",
     ...admin,
