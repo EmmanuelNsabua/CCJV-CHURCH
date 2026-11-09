@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { HeroEditorial } from "@/components/composition/HeroEditorial";
 import { ListingPage } from "@/components/archetypes/ListingPage";
 import { FeatureImage } from "@/components/editorial/FeatureImage";
@@ -96,7 +97,9 @@ export default async function RessourcesPage() {
             <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-16">
               <div className="lg:col-span-8">
                 <h2 className="font-serif text-[clamp(1.8rem,1rem+2.4vw,3rem)] leading-[1.08] text-ccjv-ink">
-                  {lead.name}
+                  <Link href={`/publications/ressources/${lead.id}`} className="hover:text-ccjv-green transition-colors">
+                    {lead.name}
+                  </Link>
                 </h2>
 
                 {lead.description && (
@@ -105,7 +108,7 @@ export default async function RessourcesPage() {
                   </p>
                 )}
 
-                <div className="mt-8 flex items-center gap-4">
+                <div className="mt-8 flex flex-wrap items-center gap-4">
                   <a
                     href={lead.file}
                     target="_blank"
@@ -115,6 +118,12 @@ export default async function RessourcesPage() {
                     <Download className="h-4 w-4" />
                     Télécharger le document PDF
                   </a>
+                  <Link
+                    href={`/publications/ressources/${lead.id}`}
+                    className="inline-flex items-center gap-2 border border-ccjv-line bg-white px-5 py-3 font-sans text-sm font-semibold text-ccjv-ink transition-colors hover:border-ccjv-green"
+                  >
+                    Consulter la fiche →
+                  </Link>
                 </div>
               </div>
 
@@ -167,7 +176,9 @@ export default async function RessourcesPage() {
                   </time>
                   <div className="sm:col-span-6">
                     <h3 className="font-serif text-[1.3rem] leading-snug text-ccjv-ink">
-                      {item.name}
+                      <Link href={`/publications/ressources/${item.id}`} className="hover:text-ccjv-green transition-colors">
+                        {item.name}
+                      </Link>
                     </h3>
                     {item.description && (
                       <p className="mt-2 max-w-[62ch] font-sans text-[0.92rem] leading-relaxed text-ccjv-ink-secondary">
@@ -175,7 +186,7 @@ export default async function RessourcesPage() {
                       </p>
                     )}
                   </div>
-                  <div className="sm:col-span-3 sm:text-right">
+                  <div className="sm:col-span-3 sm:text-right flex sm:flex-col sm:items-end gap-2">
                     <a
                       href={item.file}
                       target="_blank"
@@ -185,6 +196,12 @@ export default async function RessourcesPage() {
                       <Download className="h-4 w-4" />
                       Télécharger (PDF)
                     </a>
+                    <Link
+                      href={`/publications/ressources/${item.id}`}
+                      className="text-xs text-ccjv-ink-secondary hover:text-ccjv-ink transition-colors"
+                    >
+                      Détails de la ressource →
+                    </Link>
                   </div>
                 </div>
               </li>

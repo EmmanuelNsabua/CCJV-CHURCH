@@ -232,7 +232,7 @@ export function ActualitesView({
 
                   <div className="mt-8 pt-6 border-t border-current/20">
                     <Link
-                      href={`/actualites/${activeFeatured.slug}`}
+                      href={`/publications/actualites/${activeFeatured.id || activeFeatured.slug}`}
                       className={cn(
                         "inline-flex items-center gap-2 font-sans text-sm font-semibold tracking-wider uppercase transition-opacity hover:opacity-85",
                         activeDept.isEcodim ? "text-ccjv-green" : "text-white",
@@ -349,7 +349,7 @@ export function ActualitesView({
 
                     <div className="p-5 sm:p-6 pt-0 border-t border-neutral-100 mt-4">
                       <Link
-                        href={`/actualites/${pub.slug}`}
+                        href={`/publications/actualites/${pub.id || pub.slug}`}
                         className="inline-flex items-center gap-1.5 font-sans text-xs font-semibold tracking-wider uppercase text-ccjv-green hover:underline mt-4"
                       >
                         <span>Lire</span>

@@ -91,7 +91,7 @@ export const mainNav: NavItem[] = [
     ready: true,
     children: [
       {
-        href: "/actualites",
+        href: "/publications/actualites",
         label: "Actualités",
         description: "Nouvelles et annonces.",
         ready: true,

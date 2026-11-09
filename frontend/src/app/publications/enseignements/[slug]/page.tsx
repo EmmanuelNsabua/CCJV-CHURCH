@@ -6,6 +6,7 @@ import { BookOpen, Calendar, User } from "lucide-react";
 import {
   enseignementHref,
   getEnseignement,
+  listEnseignements,
   readOrUnavailable,
 } from "@/lib/api/endpoints";
 import type { EnseignementRecord, TeachingMediaRecord } from "@/lib/api/types";
@@ -55,6 +56,16 @@ async function readTeaching(slug: string): Promise<TeachingRead> {
   }
 
   return read.data ? { status: "ok", data: read.data } : { status: "missing" };
+}
+
+export async function generateStaticParams() {
+  const result = await readOrUnavailable((options) =>
+    listEnseignements({ limit: 100 }, options),
+  );
+
+  if (result.status === "unreachable") return [];
+
+  return result.data.items.map((item) => ({ slug: item.id || item.slug }));
 }
 
 export async function generateMetadata({

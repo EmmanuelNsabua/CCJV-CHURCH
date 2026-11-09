@@ -17,6 +17,7 @@ const darkHeroRoutes = [
   "/communaute",
   "/vie-de-leglise/evenements",
   "/organisation",
+  "/publications/actualites",
   "/actualites",
 ];
 
