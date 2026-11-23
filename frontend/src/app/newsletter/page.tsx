@@ -30,6 +30,9 @@ export default function NewsletterPage() {
           01. EN-TÊTE ÉDITORIAL & HERO
           ========================================================================= */}
       <section
+        data-section-id="hero_newsletter"
+        data-section-type="page_header"
+        data-variant="defaut"
         className="border-b border-ccjv-line bg-ccjv-offwhite px-6 pt-32 pb-16 sm:px-12 lg:px-20 lg:pt-36 lg:pb-20"
         aria-labelledby="newsletter-hero-titre"
       >
@@ -38,19 +41,32 @@ export default function NewsletterPage() {
 
           <div className="mt-4 flex items-center gap-3">
             <CrossMark size="md" className="text-ccjv-green" />
-            <span className="font-sans text-xs font-bold tracking-[0.18em] text-ccjv-ink-secondary uppercase">
+            <span
+              data-editable="true"
+              data-editable-type="text"
+              data-field="surtitre"
+              className="font-sans text-xs font-bold tracking-[0.18em] text-ccjv-ink-secondary uppercase"
+            >
               Communication & Foi
             </span>
           </div>
 
           <h1
             id="newsletter-hero-titre"
+            data-editable="true"
+            data-editable-type="text"
+            data-field="titre"
             className="mt-4 max-w-[22ch] font-serif text-[clamp(2.2rem,1.7rem+3vw,4.2rem)] leading-[1.08] text-ccjv-ink"
           >
             La lettre pastorale &amp; les nouvelles de l&apos;église.
           </h1>
 
-          <p className="mt-6 max-w-[52ch] font-sans text-[clamp(1.025rem,0.95rem+0.35vw,1.2rem)] leading-[1.75] text-ccjv-ink-secondary">
+          <p
+            data-editable="true"
+            data-editable-type="text"
+            data-field="lead"
+            className="mt-6 max-w-[52ch] font-sans text-[clamp(1.025rem,0.95rem+0.35vw,1.2rem)] leading-[1.75] text-ccjv-ink-secondary"
+          >
             Parce que la vie en Christ se nourrit chaque jour, recevez dans votre
             boîte de réception les résumés des prédications dominicales, les
             méditations bibliques, les annonces de cultes et l&apos;actualité fraternelle
@@ -78,21 +94,37 @@ export default function NewsletterPage() {
           02. CE QUE VOUS RECEVREZ (LES 3 PILIERS ÉDITORIAUX)
           ========================================================================= */}
       <section
+        data-section-id="piliers_newsletter"
+        data-section-type="features_list"
+        data-variant="cards_3"
         className="border-b border-ccjv-line bg-white px-6 py-20 sm:px-12 lg:px-20 lg:py-24"
         aria-labelledby="piliers-newsletter-titre"
       >
         <div className="mx-auto w-full max-w-7xl">
           <div className="max-w-2xl">
-            <p className="font-sans text-xs font-bold tracking-[0.18em] text-ccjv-green uppercase">
+            <p
+              data-editable="true"
+              data-editable-type="text"
+              data-field="surtitre"
+              className="font-sans text-xs font-bold tracking-[0.18em] text-ccjv-green uppercase"
+            >
               Contenu de nos lettres
             </p>
             <h2
               id="piliers-newsletter-titre"
+              data-editable="true"
+              data-editable-type="text"
+              data-field="titre"
               className="mt-2 font-serif text-[clamp(1.8rem,1.4rem+1.8vw,2.8rem)] leading-[1.15] text-ccjv-ink"
             >
               Ce que nous partageons avec vous.
             </h2>
-            <p className="mt-4 font-sans text-[1rem] leading-[1.7] text-ccjv-ink-secondary">
+            <p
+              data-editable="true"
+              data-editable-type="text"
+              data-field="lead"
+              className="mt-4 font-sans text-[1rem] leading-[1.7] text-ccjv-ink-secondary"
+            >
               Une édition soignée, conçue pour vous édifier et vous garder en lien
               avec la vie de notre assemblée locale.
             </p>
@@ -104,10 +136,20 @@ export default function NewsletterPage() {
               <div className="flex h-12 w-12 items-center justify-center border border-ccjv-line bg-white text-ccjv-green">
                 <BookOpen className="h-6 w-6" aria-hidden="true" />
               </div>
-              <h3 className="mt-6 font-serif text-xl font-medium text-ccjv-ink">
+              <h3
+                data-editable="true"
+                data-editable-type="text"
+                data-field="pilier_1_titre"
+                className="mt-6 font-serif text-xl font-medium text-ccjv-ink"
+              >
                 Enseignements &amp; Méditations
               </h3>
-              <p className="mt-3 font-sans text-sm leading-relaxed text-ccjv-ink-secondary">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="pilier_1_description"
+                className="mt-3 font-sans text-sm leading-relaxed text-ccjv-ink-secondary"
+              >
                 Les points clés des sermons dominicaux, les références bibliques
                 d&apos;étude et des pensées inspirées pour affermir votre marche chrétienne
                 tout au long de la semaine.
@@ -119,10 +161,20 @@ export default function NewsletterPage() {
               <div className="flex h-12 w-12 items-center justify-center border border-ccjv-line bg-white text-ccjv-green">
                 <Calendar className="h-6 w-6" aria-hidden="true" />
               </div>
-              <h3 className="mt-6 font-serif text-xl font-medium text-ccjv-ink">
+              <h3
+                data-editable="true"
+                data-editable-type="text"
+                data-field="pilier_2_titre"
+                className="mt-6 font-serif text-xl font-medium text-ccjv-ink"
+              >
                 Agenda cultuel &amp; Événements
               </h3>
-              <p className="mt-3 font-sans text-sm leading-relaxed text-ccjv-ink-secondary">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="pilier_2_description"
+                className="mt-3 font-sans text-sm leading-relaxed text-ccjv-ink-secondary"
+              >
                 L&apos;annonce des temps forts : cultes spéciaux, veillées
                 d&apos;intercession, séminaires de formation, baptêmes et programmes
                 des ministères (Jeunesse, Couples, Ecodim).
@@ -134,10 +186,20 @@ export default function NewsletterPage() {
               <div className="flex h-12 w-12 items-center justify-center border border-ccjv-line bg-white text-ccjv-green">
                 <HeartHandshake className="h-6 w-6" aria-hidden="true" />
               </div>
-              <h3 className="mt-6 font-serif text-xl font-medium text-ccjv-ink">
+              <h3
+                data-editable="true"
+                data-editable-type="text"
+                data-field="pilier_3_titre"
+                className="mt-6 font-serif text-xl font-medium text-ccjv-ink"
+              >
                 Témoignages &amp; Prières
               </h3>
-              <p className="mt-3 font-sans text-sm leading-relaxed text-ccjv-ink-secondary">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="pilier_3_description"
+                className="mt-3 font-sans text-sm leading-relaxed text-ccjv-ink-secondary"
+              >
                 Des récits de ce que le Seigneur accomplit parmi nous à
                 Lubumbashi, des sujets d&apos;action de grâce et des requêtes communes
                 pour porter ensemble l&apos;œuvre de Dieu.
@@ -150,25 +212,40 @@ export default function NewsletterPage() {
       {/* =========================================================================
           03. FORMULAIRE D'ABONNEMENT (SECTION INTERACTIVE)
           ========================================================================= */}
-      <div id="formulaire-newsletter">
+      <div
+        id="formulaire-newsletter"
+        data-section-id="formulaire_newsletter"
+        data-section-type="form_section"
+        data-editable="false"
+        data-dynamic-source="system:newsletter"
+      >
         <NewsletterForm />
       </div>
 
       {/* =========================================================================
           04. PAROLE D'ÉDIFICATION (VERSE SECTION)
           ========================================================================= */}
-      <VerseSection
-        variant="center"
-        tone="dark"
-        context="Parole d'espérance"
-        text="Comme de l'eau fraîche pour une personne fatiguée, ainsi est une bonne nouvelle venant d'une terre lointaine."
-        reference="Proverbes 25:25"
-      />
+      <div
+        data-section-id="verset_newsletter"
+        data-section-type="verse_callout"
+        data-variant="sombre"
+      >
+        <VerseSection
+          variant="center"
+          tone="dark"
+          context="Parole d'espérance"
+          text="Comme de l'eau fraîche pour une personne fatiguée, ainsi est une bonne nouvelle venant d'une terre lointaine."
+          reference="Proverbes 25:25"
+        />
+      </div>
 
       {/* =========================================================================
           05. NOS ENGAGEMENTS & TRANSPARENCE
           ========================================================================= */}
       <section
+        data-section-id="engagements_newsletter"
+        data-section-type="content_grid"
+        data-variant="defaut"
         className="border-b border-ccjv-line bg-white px-6 py-16 sm:px-12 lg:px-20 lg:py-20"
         aria-labelledby="engagements-titre"
       >
@@ -176,11 +253,19 @@ export default function NewsletterPage() {
           <div className="text-center">
             <h2
               id="engagements-titre"
+              data-editable="true"
+              data-editable-type="text"
+              data-field="titre"
               className="font-serif text-2xl text-ccjv-ink sm:text-3xl"
             >
               Nos engagements de transparence
             </h2>
-            <p className="mt-3 font-sans text-sm text-ccjv-ink-secondary sm:text-base">
+            <p
+              data-editable="true"
+              data-editable-type="text"
+              data-field="lead"
+              className="mt-3 font-sans text-sm text-ccjv-ink-secondary sm:text-base"
+            >
               Nous respectons votre tranquillité et vos données personnelles.
             </p>
           </div>
@@ -191,10 +276,20 @@ export default function NewsletterPage() {
                 <ShieldCheck className="h-5 w-5" aria-hidden="true" />
               </div>
               <div>
-                <h3 className="font-sans text-sm font-semibold text-ccjv-ink">
+                <h3
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="engagement_1_titre"
+                  className="font-sans text-sm font-semibold text-ccjv-ink"
+                >
                   Données confidentielles
                 </h3>
-                <p className="mt-1 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
+                <p
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="engagement_1_texte"
+                  className="mt-1 font-sans text-xs leading-relaxed text-ccjv-ink-secondary"
+                >
                   Votre adresse e-mail n&apos;est jamais transmise ni vendue à des tiers.
                 </p>
               </div>
@@ -205,10 +300,20 @@ export default function NewsletterPage() {
                 <MailCheck className="h-5 w-5" aria-hidden="true" />
               </div>
               <div>
-                <h3 className="font-sans text-sm font-semibold text-ccjv-ink">
+                <h3
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="engagement_2_titre"
+                  className="font-sans text-sm font-semibold text-ccjv-ink"
+                >
                   Fréquence raisonnée
                 </h3>
-                <p className="mt-1 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
+                <p
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="engagement_2_texte"
+                  className="mt-1 font-sans text-xs leading-relaxed text-ccjv-ink-secondary"
+                >
                   Une à deux parutions par mois au maximum, pour aller à l&apos;essentiel.
                 </p>
               </div>
@@ -219,10 +324,20 @@ export default function NewsletterPage() {
                 <BellOff className="h-5 w-5" aria-hidden="true" />
               </div>
               <div>
-                <h3 className="font-sans text-sm font-semibold text-ccjv-ink">
+                <h3
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="engagement_3_titre"
+                  className="font-sans text-sm font-semibold text-ccjv-ink"
+                >
                   Désinscription libre
                 </h3>
-                <p className="mt-1 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
+                <p
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="engagement_3_texte"
+                  className="mt-1 font-sans text-xs leading-relaxed text-ccjv-ink-secondary"
+                >
                   Un lien direct au bas de chaque message permet de vous retirer à tout instant.
                 </p>
               </div>

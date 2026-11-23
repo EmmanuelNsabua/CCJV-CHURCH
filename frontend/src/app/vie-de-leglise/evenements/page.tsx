@@ -110,13 +110,24 @@ export default async function EvenementsPage() {
       {/* =========================================================================
           01 — HERO : COMPOSITION TEXTE + COMPOSITION PHOTOGRAPHIQUE (2 PÔLES)
           ========================================================================= */}
-      <section className="relative overflow-hidden bg-ccjv-black pt-28 pb-20 text-white lg:pt-36 lg:pb-28">
+      <section
+        data-hero-dark
+        data-section-id="hero_evenements"
+        data-section-type="hero_banner"
+        data-variant="split_gallery"
+        className="relative overflow-hidden bg-ccjv-black pt-28 pb-20 text-white lg:pt-36 lg:pb-28"
+      >
         <div className="container relative z-10">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-14 xl:gap-16">
             {/* Colonne gauche : Uniquement le grand titre épuré */}
             <div className="flex flex-col justify-center lg:col-span-6 xl:col-span-5">
               <Reveal>
-                <h1 className="font-serif text-[clamp(2.5rem,1.8rem+3.8vw,4.8rem)] font-normal leading-[1.08] tracking-[-0.02em] text-white">
+                <h1
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="titre"
+                  className="font-serif text-[clamp(2.5rem,1.8rem+3.8vw,4.8rem)] font-normal leading-[1.08] tracking-[-0.02em] text-white"
+                >
                   Des temps pour se retrouver, <span className="italic text-ccjv-cream">célébrer,</span> apprendre et grandir ensemble.
                 </h1>
               </Reveal>
@@ -189,18 +200,28 @@ export default async function EvenementsPage() {
       {/* =========================================================================
           02 — PREMIÈRE RESPIRATION BIBLIQUE (Fond clair & contemplatif)
           ========================================================================= */}
-      <VerseSection
-        variant="center"
-        tone="offwhite"
-        text="« Car là où deux ou trois sont assemblés en mon nom, je suis au milieu d'eux. »"
-        reference="Matthieu 18:20"
-      />
+      <div
+        data-section-id="respiration_evenements_1"
+        data-section-type="verse_callout"
+        data-variant="centre"
+      >
+        <VerseSection
+          variant="center"
+          tone="offwhite"
+          text="« Car là où deux ou trois sont assemblés en mon nom, je suis au milieu d'eux. »"
+          reference="Matthieu 18:20"
+        />
+      </div>
 
       {/* =========================================================================
           03 — SECTION : LE PROCHAIN RENDEZ-VOUS (AFFICHE ÉDITORIALE MAJEURE)
           ========================================================================= */}
       <section
         id="a-venir"
+        data-section-id="prochain_rendez_vous"
+        data-section-type="dynamic_featured_event"
+        data-editable="false"
+        data-dynamic-source="events:lead"
         className="relative scroll-mt-24 border-y border-ccjv-line bg-white py-16 lg:py-24"
         aria-labelledby="featured-event-title"
       >
@@ -335,6 +356,10 @@ export default async function EvenementsPage() {
           ========================================================================= */}
       {otherEvents.length > 0 && (
         <section
+          data-section-id="calendrier_a_venir"
+          data-section-type="dynamic_events_list"
+          data-editable="false"
+          data-dynamic-source="events:upcoming"
           className="relative py-16 lg:py-24"
           aria-labelledby="upcoming-list-title"
         >
@@ -495,6 +520,9 @@ export default async function EvenementsPage() {
           05 — SECTION : DIFFÉRENTES MANIÈRES DE VIVRE CCJV (4 PÔLES D'EXPÉRIENCE)
           ========================================================================= */}
       <section
+        data-section-id="experience_poles"
+        data-section-type="features_list"
+        data-variant="cards_4"
         className="relative border-t border-ccjv-line bg-ccjv-cream py-16 lg:py-24"
         aria-labelledby="experience-pillars-title"
       >
@@ -502,11 +530,19 @@ export default async function EvenementsPage() {
           <Reveal>
             <h2
               id="experience-pillars-title"
+              data-editable="true"
+              data-editable-type="text"
+              data-field="titre"
               className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight"
             >
               Ce que vous pouvez vivre ici.
             </h2>
-            <p className="mt-4 max-w-[50ch] font-sans text-sm leading-relaxed text-ccjv-ink-secondary">
+            <p
+              data-editable="true"
+              data-editable-type="text"
+              data-field="lead"
+              className="mt-4 max-w-[50ch] font-sans text-sm leading-relaxed text-ccjv-ink-secondary"
+            >
               Chaque événement répond à une dimension de notre marche avec Dieu.
               Trouvez l&apos;espace qui correspond à votre étape spirituelle.
             </p>
@@ -517,7 +553,12 @@ export default async function EvenementsPage() {
               <Reveal key={pillar.tag} delay={index * 60}>
                 <div className="flex h-full flex-col justify-between border border-ccjv-ink/15 bg-white p-6 shadow-xs">
                   <div>
-                    <div className="relative mb-5 aspect-[4/3] w-full overflow-hidden bg-ccjv-line">
+                    <div
+                      data-editable="true"
+                      data-editable-type="image"
+                      data-field={`pole_${index + 1}_image`}
+                      className="relative mb-5 aspect-[4/3] w-full overflow-hidden bg-ccjv-line"
+                    >
                       <Image
                         src={pillar.image}
                         alt={pillar.title}
@@ -526,13 +567,28 @@ export default async function EvenementsPage() {
                         className="object-cover"
                       />
                     </div>
-                    <span className="font-sans text-[0.7rem] font-bold tracking-[0.18em] text-ccjv-green uppercase">
+                    <span
+                      data-editable="true"
+                      data-editable-type="text"
+                      data-field={`pole_${index + 1}_tag`}
+                      className="font-sans text-[0.7rem] font-bold tracking-[0.18em] text-ccjv-green uppercase"
+                    >
                       {pillar.tag}
                     </span>
-                    <h3 className="mt-2 font-serif text-xl font-semibold leading-snug">
+                    <h3
+                      data-editable="true"
+                      data-editable-type="text"
+                      data-field={`pole_${index + 1}_titre`}
+                      className="mt-2 font-serif text-xl font-semibold leading-snug"
+                    >
                       {pillar.title}
                     </h3>
-                    <p className="mt-3 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
+                    <p
+                      data-editable="true"
+                      data-editable-type="text"
+                      data-field={`pole_${index + 1}_description`}
+                      className="mt-3 font-sans text-xs leading-relaxed text-ccjv-ink-secondary"
+                    >
                       {pillar.description}
                     </p>
                   </div>
@@ -540,6 +596,9 @@ export default async function EvenementsPage() {
                   <div className="mt-6 pt-4 border-t border-ccjv-line">
                     <a
                       href={pillar.link}
+                      data-editable="true"
+                      data-editable-type="text"
+                      data-field={`pole_${index + 1}_cta`}
                       className="font-sans text-xs font-bold tracking-[0.14em] text-ccjv-ink uppercase underline underline-offset-4 transition-colors hover:text-ccjv-green"
                     >
                       {pillar.linkLabel} →
@@ -557,6 +616,10 @@ export default async function EvenementsPage() {
           ========================================================================= */}
       <section
         id="cette-semaine"
+        data-section-id="rythme_hebdomadaire_evenements"
+        data-section-type="dynamic_schedule"
+        data-editable="false"
+        data-dynamic-source="schedule:all"
         className="relative scroll-mt-24 border-t border-ccjv-line bg-white py-16 lg:py-24"
         aria-labelledby="weekly-rhythm-title"
       >
@@ -628,23 +691,41 @@ export default async function EvenementsPage() {
       {/* =========================================================================
           07 — SECTION PHOTOGRAPHIQUE (« NOUS NOUS RETROUVONS »)
           ========================================================================= */}
-      <section className="relative overflow-hidden bg-ccjv-black py-24 text-white lg:py-32">
+      <section
+        data-hero-dark
+        data-section-id="appel_communion_photo"
+        data-section-type="fullwidth_callout"
+        data-variant="sombre"
+        className="relative overflow-hidden bg-ccjv-black py-24 text-white lg:py-32"
+      >
         {/* Photo panoramique d'assemblée en filigrane sombre */}
-        <div className="absolute inset-0 z-0 opacity-20">
-          <Image
-            src={images.assemblee}
-            alt="Communauté CCJV rassemblée"
-            fill
-            sizes="100vw"
-            className="object-cover"
-          />
+        <div
+          data-editable="true"
+          data-editable-type="image"
+          data-field="image_fond"
+          className="contents"
+        >
+          <div className="absolute inset-0 z-0 opacity-20">
+            <Image
+              src={images.assemblee}
+              alt="Communauté CCJV rassemblée"
+              fill
+              sizes="100vw"
+              className="object-cover"
+            />
+          </div>
         </div>
 
         <div className="container relative z-10 mx-auto max-w-4xl text-center">
           <Reveal>
             <CrossMark size="md" className="mx-auto text-ccjv-cream mb-6" />
 
-            <h2 className="font-serif text-[clamp(2rem,1.5rem+3vw,3.8rem)] font-normal leading-[1.12] tracking-[-0.01em] text-white">
+            <h2
+              data-editable="true"
+              data-editable-type="text"
+              data-field="titre"
+              className="font-serif text-[clamp(2rem,1.5rem+3vw,3.8rem)] font-normal leading-[1.12] tracking-[-0.01em] text-white"
+            >
               « Nous ne nous réunissons pas seulement pour assister à quelque
               chose. <br />
               <span className="italic text-ccjv-cream">
@@ -652,7 +733,12 @@ export default async function EvenementsPage() {
               </span>
             </h2>
 
-            <p className="mt-8 font-sans text-sm md:text-base leading-relaxed text-white/75 max-w-[54ch] mx-auto">
+            <p
+              data-editable="true"
+              data-editable-type="text"
+              data-field="lead"
+              className="mt-8 font-sans text-sm md:text-base leading-relaxed text-white/75 max-w-[54ch] mx-auto"
+            >
               Chaque dimanche, chaque répétition, chaque temps de prière est une
               occasion de vivre l&apos;amour fraternel et de grandir dans la foi.
             </p>
@@ -660,6 +746,9 @@ export default async function EvenementsPage() {
             <div className="mt-10">
               <Link
                 href="/qui-sommes-nous"
+                data-editable="true"
+                data-editable-type="text"
+                data-field="cta_label"
                 className="inline-flex items-center justify-center border border-ccjv-cream bg-transparent px-8 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-cream uppercase transition-all duration-200 hover:bg-ccjv-cream hover:text-black"
               >
                 Découvrir notre histoire & notre foi →
@@ -673,6 +762,10 @@ export default async function EvenementsPage() {
           08 — SECTION : PAR DÉPARTEMENT (COMMENT LA VIE S'ORGANISE)
           ========================================================================= */}
       <section
+        data-section-id="ministeres_evenements"
+        data-section-type="dynamic_departments"
+        data-editable="false"
+        data-dynamic-source="departments:all"
         className="relative py-16 lg:py-24"
         aria-labelledby="departments-events-title"
       >
@@ -754,6 +847,10 @@ export default async function EvenementsPage() {
           ========================================================================= */}
       {archivedRead.status === "unreachable" ? (
         <section
+          data-section-id="archives_evenements"
+          data-section-type="dynamic_events_archive"
+          data-editable="false"
+          data-dynamic-source="events:archived"
           className="relative border-t border-ccjv-line bg-white py-16 lg:py-24"
           aria-labelledby="archived-events-title"
         >
@@ -774,6 +871,10 @@ export default async function EvenementsPage() {
         </section>
       ) : archivedEvents.length > 0 && (
         <section
+          data-section-id="archives_evenements"
+          data-section-type="dynamic_events_archive"
+          data-editable="false"
+          data-dynamic-source="events:archived"
           className="relative border-t border-ccjv-line bg-white py-16 lg:py-24"
           aria-labelledby="archived-events-title"
         >
@@ -832,26 +933,47 @@ export default async function EvenementsPage() {
       {/* =========================================================================
           10 — DEUXIÈME RESPIRATION BIBLIQUE (Fond sombre immersif)
           ========================================================================= */}
-      <VerseSection
-        variant="both"
-        tone="dark"
-        text="« Veillons les uns sur les autres pour nous exciter à l'amour et aux bonnes œuvres. N'abandonnons pas notre assemblée, comme c'est la coutume de quelques-uns, mais exhortons-nous réciproquement. »"
-        reference="Hébreux 10:24-25"
-        leftPhoto="/media/ccjv-08.jpeg"
-        rightPhoto="/media/ccjv-30.jpeg"
-      />
+      <div
+        data-section-id="respiration_evenements_2"
+        data-section-type="verse_callout"
+        data-variant="photos_laterales"
+      >
+        <VerseSection
+          variant="both"
+          tone="dark"
+          text="« Veillons les uns sur les autres pour nous exciter à l'amour et aux bonnes œuvres. N'abandonnons pas notre assemblée, comme c'est la coutume de quelques-uns, mais exhortons-nous réciproquement. »"
+          reference="Hébreux 10:24-25"
+          leftPhoto="/media/ccjv-08.jpeg"
+          rightPhoto="/media/ccjv-30.jpeg"
+        />
+      </div>
 
       {/* =========================================================================
           11 — SECTION FINALE : L'INVITATION (ENGAGEMENT & ACCUEIL)
           ========================================================================= */}
-      <section className="relative overflow-hidden border-t border-ccjv-line bg-ccjv-offwhite py-20 lg:py-28">
+      <section
+        data-section-id="appel_final_evenements"
+        data-section-type="cta_banner"
+        data-variant="defaut"
+        className="relative overflow-hidden border-t border-ccjv-line bg-ccjv-offwhite py-20 lg:py-28"
+      >
         <div className="container relative z-10 mx-auto max-w-3xl text-center">
           <Reveal>
-            <h2 className="font-serif text-[clamp(2.2rem,1.6rem+2.6vw,3.6rem)] font-normal leading-tight tracking-[-0.02em] text-ccjv-ink">
+            <h2
+              data-editable="true"
+              data-editable-type="text"
+              data-field="titre"
+              className="font-serif text-[clamp(2.2rem,1.6rem+2.6vw,3.6rem)] font-normal leading-tight tracking-[-0.02em] text-ccjv-ink"
+            >
               Quel sera votre prochain rendez-vous avec nous ?
             </h2>
 
-            <p className="mt-6 font-sans text-sm md:text-base leading-relaxed text-ccjv-ink-secondary">
+            <p
+              data-editable="true"
+              data-editable-type="text"
+              data-field="lead"
+              className="mt-6 font-sans text-sm md:text-base leading-relaxed text-ccjv-ink-secondary"
+            >
               Que ce soit pour un dimanche de célébration, une rencontre en
               semaine ou simplement pour faire vos premiers pas, nos portes vous
               sont grandes ouvertes. Venez comme vous êtes.
@@ -866,6 +988,9 @@ export default async function EvenementsPage() {
               </a>
               <Link
                 href="/vie-de-leglise/ou-nous-trouver"
+                data-editable="true"
+                data-editable-type="text"
+                data-field="cta_visite"
                 className="inline-flex items-center justify-center border border-ccjv-ink bg-transparent px-8 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-ink uppercase transition-all duration-200 hover:bg-ccjv-ink hover:text-white"
               >
                 Planifier ma visite

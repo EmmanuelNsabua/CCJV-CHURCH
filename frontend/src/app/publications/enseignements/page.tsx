@@ -140,22 +140,35 @@ export default async function EnseignementsPage(props: EnseignementsPageProps) {
     <MediaPage
       rhythm="standard"
       hero={
-        <HeroEditorial
-          title={activeScope === "ECODIM" ? "Enseignements Ecodim" : "Enseignements"}
-          intro={
-            activeScope === "ECODIM"
-              ? "Les messages, récits bibliques et enseignements de l'École du Dimanche (Ecodim) destinés à former et édifier les enfants dans la foi chrétienne."
-              : "Les messages et prédications donnés à l'assemblée du Centre Chrétien Jésus ma Vie. On vient ici pour écouter, méditer les Écritures et grandir dans la foi."
-          }
-          image={images.predication}
-          imageAlt="Assemblée attentive pendant la prédication, au Centre Chrétien Jésus ma Vie"
-          action={{ label: "Écouter les prédications ↓", href: "#messages" }}
-        />
+        <div
+          data-section-id="hero_enseignements"
+          data-section-type="hero_banner"
+          data-variant="editorial"
+        >
+          <HeroEditorial
+            title={activeScope === "ECODIM" ? "Enseignements Ecodim" : "Enseignements"}
+            intro={
+              activeScope === "ECODIM"
+                ? "Les messages, récits bibliques et enseignements de l'École du Dimanche (Ecodim) destinés à former et édifier les enfants dans la foi chrétienne."
+                : "Les messages et prédications donnés à l'assemblée du Centre Chrétien Jésus ma Vie. On vient ici pour écouter, méditer les Écritures et grandir dans la foi."
+            }
+            image={images.predication}
+            imageAlt="Assemblée attentive pendant la prédication, au Centre Chrétien Jésus ma Vie"
+            action={{ label: "Écouter les prédications ↓", href: "#messages" }}
+          />
+        </div>
       }
       featured={
         /* Cible de l'action du héros : elle existe même sans message publié,
            pour qu'aucun bouton ne mène nulle part. */
-        <div id="messages" className="scroll-mt-28">
+        <div
+          id="messages"
+          data-section-id="enseignement_a_la_une"
+          data-section-type="dynamic_featured_teaching"
+          data-editable="false"
+          data-dynamic-source="teachings:latest"
+          className="scroll-mt-28"
+        >
           <ScopeFilterTabs
             activeScope={activeScope}
             baseHref="/publications/enseignements"
@@ -196,139 +209,157 @@ export default async function EnseignementsPage(props: EnseignementsPageProps) {
       }
       listingTitle={listingTitle}
       listing={
-        teachingsUnavailable ? (
-          <ContentUnavailable resource="La liste des prédications" />
-        ) : others.length > 0 ? (
-          <>
-            <div className="mb-12 grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-16">
-              <div className="lg:col-span-4">
-                <Prose width="narrow">
-                  <p>
-                    Un message s&apos;écoute une première fois, puis se reprend.
-                    Retrouvez pour chaque prédication les passages bibliques
-                    étudiés ainsi que le support audio ou vidéo associé.
-                  </p>
-                </Prose>
+        <div
+          data-section-id="enseignements_liste"
+          data-section-type="dynamic_teachings_list"
+          data-editable="false"
+          data-dynamic-source="teachings:archive"
+        >
+          {teachingsUnavailable ? (
+            <ContentUnavailable resource="La liste des prédications" />
+          ) : others.length > 0 ? (
+            <>
+              <div className="mb-12 grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-16">
+                <div className="lg:col-span-4">
+                  <Prose width="narrow">
+                    <p>
+                      Un message s&apos;écoute une première fois, puis se reprend.
+                      Retrouvez pour chaque prédication les passages bibliques
+                      étudiés ainsi que le support audio ou vidéo associé.
+                    </p>
+                  </Prose>
+                </div>
+
+                {verse && (
+                  <div className="lg:col-span-5 lg:col-start-8">
+                    <ScriptureBlock
+                      variant="inline"
+                      context={verse.context ?? "Pourquoi nous revenons à la Parole"}
+                      text={verse.text}
+                      reference={verse.reference}
+                    />
+                  </div>
+                )}
               </div>
 
-              {verse && (
-                <div className="lg:col-span-5 lg:col-start-8">
-                  <ScriptureBlock
-                    variant="inline"
-                    context={verse.context ?? "Pourquoi nous revenons à la Parole"}
-                    text={verse.text}
-                    reference={verse.reference}
-                  />
-                </div>
-              )}
-            </div>
+              <ul className="border-t border-ccjv-line">
+                {others.map((teaching) => {
+                  const role = playableRole(teaching);
+                  const href = enseignementHref(teaching);
 
-            <ul className="border-t border-ccjv-line">
-              {others.map((teaching) => {
-                const role = playableRole(teaching);
-                const href = enseignementHref(teaching);
-
-                return (
-                  <li key={teaching.id} className="border-b border-ccjv-line">
-                    <div className="grid grid-cols-1 gap-3 py-7 sm:grid-cols-12 sm:items-baseline sm:gap-6">
-                      <time
-                        dateTime={teaching.preachedAt}
-                        className="font-sans text-[0.78rem] text-ccjv-ink-secondary sm:col-span-2"
-                      >
-                        {formatLongDate(teaching.preachedAt)}
-                      </time>
-
-                      <div className="sm:col-span-6">
-                        <Link
-                          href={href}
-                          className="font-serif text-[1.3rem] leading-snug transition-colors duration-[250ms] hover:text-ccjv-green"
+                  return (
+                    <li key={teaching.id} className="border-b border-ccjv-line">
+                      <div className="grid grid-cols-1 gap-3 py-7 sm:grid-cols-12 sm:items-baseline sm:gap-6">
+                        <time
+                          dateTime={teaching.preachedAt}
+                          className="font-sans text-[0.78rem] text-ccjv-ink-secondary sm:col-span-2"
                         >
-                          {teaching.title}
-                        </Link>
+                          {formatLongDate(teaching.preachedAt)}
+                        </time>
 
-                        {teaching.summary && (
-                          <p className="mt-2 max-w-[62ch] font-sans text-[0.92rem] leading-relaxed text-ccjv-ink-secondary">
-                            {teaching.summary}
-                          </p>
-                        )}
-
-                        {teaching.biblicalReferences.length > 0 && (
-                          <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                            <BookOpen
-                              aria-hidden="true"
-                              className="h-3.5 w-3.5 shrink-0 text-ccjv-green"
-                            />
-                            {teaching.biblicalReferences.map((reference) => (
-                              <span
-                                key={reference.id}
-                                className="inline-block border border-ccjv-line bg-ccjv-offwhite px-2 py-0.5 font-serif text-[11px] text-ccjv-ink"
-                              >
-                                {reference.formatted}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <p className="font-sans text-[0.85rem] text-ccjv-ink-secondary sm:col-span-2">
-                        {teaching.speakerName}
-                      </p>
-
-                      <div className="sm:col-span-2 sm:text-right">
-                        {role ? (
+                        <div className="sm:col-span-6">
                           <Link
                             href={href}
-                            className="inline-flex items-center gap-1.5 font-sans text-[0.85rem] font-medium text-ccjv-green hover:underline"
+                            className="font-serif text-[1.3rem] leading-snug transition-colors duration-[250ms] hover:text-ccjv-green"
                           >
-                            {role === "VIDEO" ? (
-                              <Video aria-hidden="true" className="h-3.5 w-3.5" />
-                            ) : (
-                              <Mic aria-hidden="true" className="h-3.5 w-3.5" />
-                            )}
-                            {role === "VIDEO" ? "Voir la vidéo" : "Écouter l'audio"}
+                            {teaching.title}
                           </Link>
-                        ) : (
-                          <Link
-                            href={href}
-                            className="font-sans text-[0.85rem] font-medium text-ccjv-green hover:underline"
-                          >
-                            Fiche du message
-                          </Link>
-                        )}
+
+                          {teaching.summary && (
+                            <p className="mt-2 max-w-[62ch] font-sans text-[0.92rem] leading-relaxed text-ccjv-ink-secondary">
+                              {teaching.summary}
+                            </p>
+                          )}
+
+                          {teaching.biblicalReferences.length > 0 && (
+                            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                              <BookOpen
+                                aria-hidden="true"
+                                className="h-3.5 w-3.5 shrink-0 text-ccjv-green"
+                              />
+                              {teaching.biblicalReferences.map((reference) => (
+                                <span
+                                  key={reference.id}
+                                  className="inline-block border border-ccjv-line bg-ccjv-offwhite px-2 py-0.5 font-serif text-[11px] text-ccjv-ink"
+                                >
+                                  {reference.formatted}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <p className="font-sans text-[0.85rem] text-ccjv-ink-secondary sm:col-span-2">
+                          {teaching.speakerName}
+                        </p>
+
+                        <div className="sm:col-span-2 sm:text-right">
+                          {role ? (
+                            <Link
+                              href={href}
+                              className="inline-flex items-center gap-1.5 font-sans text-[0.85rem] font-medium text-ccjv-green hover:underline"
+                            >
+                              {role === "VIDEO" ? (
+                                <Video aria-hidden="true" className="h-3.5 w-3.5" />
+                              ) : (
+                                <Mic aria-hidden="true" className="h-3.5 w-3.5" />
+                              )}
+                              {role === "VIDEO" ? "Voir la vidéo" : "Écouter l'audio"}
+                            </Link>
+                          ) : (
+                            <Link
+                              href={href}
+                              className="font-sans text-[0.85rem] font-medium text-ccjv-green hover:underline"
+                            >
+                              Fiche du message
+                            </Link>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </>
-        ) : featured ? (
-          <Prose width="narrow">
-            <p>
-              Un seul message est publié pour le moment. Les prochaines
-              prédications apparaîtront ici dès leur publication.
-            </p>
-          </Prose>
-        ) : (
-          <EmptyState
-            title="Aucune prédication publiée"
-            description="La liste des messages apparaîtra ici dès la première publication."
-          />
-        )
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          ) : featured ? (
+            <Prose width="narrow">
+              <p>
+                Un seul message est publié pour le moment. Les prochaines
+                prédications apparaîtront ici dès leur publication.
+              </p>
+            </Prose>
+          ) : (
+            <EmptyState
+              title="Aucune prédication publiée"
+              description="La liste des messages apparaîtra ici dès la première publication."
+            />
+          )}
+        </div>
       }
       galleryTitle="En images"
       /* Vignettes réellement rattachées aux messages publiés ; sinon, pas de bande. */
       gallery={
         thumbnails.length > 0 && !teachingsUnavailable ? (
-          <PhotoGallery
-            variant="strip"
-            images={thumbnails.slice(0, 6).map((thumbnail) => thumbnail.url)}
-            captions={thumbnails.slice(0, 6).map((thumbnail) => thumbnail.title)}
-          />
+          <div
+            data-section-id="enseignements_galerie"
+            data-section-type="dynamic_gallery_strip"
+            data-editable="false"
+            data-dynamic-source="teachings:thumbnails"
+          >
+            <PhotoGallery
+              variant="strip"
+              images={thumbnails.slice(0, 6).map((thumbnail) => thumbnail.url)}
+              captions={thumbnails.slice(0, 6).map((thumbnail) => thumbnail.title)}
+            />
+          </div>
         ) : undefined
       }
       related={
-        <>
+        <div
+          data-section-id="decouverte_enseignements"
+          data-section-type="cross_links"
+          data-variant="defaut"
+        >
           <p className="font-sans text-xs font-semibold tracking-[0.18em] text-ccjv-green uppercase">
             Continuer
           </p>
@@ -336,7 +367,7 @@ export default async function EnseignementsPage(props: EnseignementsPageProps) {
             Ce qui accompagne un message
           </h2>
           <CrossLinks items={related} variant="list" />
-        </>
+        </div>
       }
     />
   );

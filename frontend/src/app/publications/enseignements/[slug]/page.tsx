@@ -166,7 +166,13 @@ export default async function EnseignementDetailPage({
   );
 
   return (
-    <main className="bg-ccjv-offwhite">
+    <main
+      data-section-id="enseignement_detail"
+      data-section-type="dynamic_teaching_detail"
+      data-editable="false"
+      data-dynamic-source="teachings:slug"
+      className="bg-ccjv-offwhite"
+    >
       <section className="border-b border-ccjv-line px-6 pt-28 pb-12 sm:px-12 lg:px-20 lg:pt-32">
         <div className="mx-auto w-full max-w-7xl">
           <Link

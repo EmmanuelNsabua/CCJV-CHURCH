@@ -139,7 +139,13 @@ export default async function DepartmentDetailPage({ params }: PageProps) {
   const keyPoints = department.keyPoints ?? [];
 
   return (
-    <main className="bg-ccjv-offwhite text-ccjv-ink selection:bg-ccjv-green selection:text-white">
+    <main
+      data-section-id="departement_detail"
+      data-section-type="dynamic_department_detail"
+      data-editable="false"
+      data-dynamic-source="departments:slug"
+      className="bg-ccjv-offwhite text-ccjv-ink selection:bg-ccjv-green selection:text-white"
+    >
       {/* =========================================================================
           01. HERO COMPACT & ÉDITORIAL : NOM + IDENTITÉ + PHOTO
           ========================================================================= */}

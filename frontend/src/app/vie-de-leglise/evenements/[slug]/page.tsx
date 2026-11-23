@@ -149,8 +149,14 @@ export default async function EventDetailPage({
     .join(" · ");
 
   return (
-    <EventPage
-      hero={
+    <div
+      data-section-id="evenement_detail"
+      data-section-type="dynamic_event_detail"
+      data-editable="false"
+      data-dynamic-source="events:slug"
+    >
+      <EventPage
+        hero={
         heroImage ? (
           <HeroPhoto
             overline={departmentName ?? "Vie de l'Église"}
@@ -324,5 +330,6 @@ export default async function EventDetailPage({
         ) : undefined
       }
     />
+    </div>
   );
 }

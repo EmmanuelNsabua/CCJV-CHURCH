@@ -170,96 +170,103 @@ export default async function RecherchePage({
   const indexIsPartial = unavailableSources.length > 0;
 
   return (
-    <InformationPage
-      rhythm="dense"
-      header={
-        <HeroPractical
-          overline="Recherche"
-          title="Trouver un contenu"
-          intro="Une page, un événement, un département, un enseignement : retrouvez rapidement ce que vous cherchez sur le site."
-          facts={[
-            {
-              label: "Contenus indexés",
-              value: indexIsPartial
-                ? `${entries.length} entrées (index partiel)`
-                : `${entries.length} entrées`,
-            },
-            {
-              label: "Types de contenu",
-              value: "Pages, événements, départements, publications",
-            },
-            {
-              label: "Recherche",
-              value: "Immédiate, sans rechargement",
-            },
-          ]}
-        />
-      }
-      context={
-        <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-16">
-          <div className="lg:col-span-6">
-            <h2 className="text-[clamp(1.6rem,1rem+1.6vw,2.35rem)] leading-[1.16]">
-              Une seule adresse pour tout le site
-            </h2>
-            <Prose className="mt-6" width="narrow">
-              <p>
-                La recherche couvre l&apos;ensemble des contenus publiés : les
-                pages de présentation, les rendez-vous de l&apos;église, les
-                départements, ainsi que les actualités, enseignements, médias et
-                ressources.
+    <div
+      data-section-id="recherche_globale"
+      data-section-type="search_interface"
+      data-editable="false"
+      data-dynamic-source="search:all"
+    >
+      <InformationPage
+        rhythm="dense"
+        header={
+          <HeroPractical
+            overline="Recherche"
+            title="Trouver un contenu"
+            intro="Une page, un événement, un département, un enseignement : retrouvez rapidement ce que vous cherchez sur le site."
+            facts={[
+              {
+                label: "Contenus indexés",
+                value: indexIsPartial
+                  ? `${entries.length} entrées (index partiel)`
+                  : `${entries.length} entrées`,
+              },
+              {
+                label: "Types de contenu",
+                value: "Pages, événements, départements, publications",
+              },
+              {
+                label: "Recherche",
+                value: "Immédiate, sans rechargement",
+              },
+            ]}
+          />
+        }
+        context={
+          <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-16">
+            <div className="lg:col-span-6">
+              <h2 className="text-[clamp(1.6rem,1rem+1.6vw,2.35rem)] leading-[1.16]">
+                Une seule adresse pour tout le site
+              </h2>
+              <Prose className="mt-6" width="narrow">
+                <p>
+                  La recherche couvre l&apos;ensemble des contenus publiés : les
+                  pages de présentation, les rendez-vous de l&apos;église, les
+                  départements, ainsi que les actualités, enseignements, médias et
+                  ressources.
+                </p>
+              </Prose>
+            </div>
+            <div className="lg:col-span-5 lg:col-start-8">
+              <p className="font-sans text-xs font-semibold tracking-[0.18em] text-ccjv-green uppercase">
+                Si vous ne trouvez pas
               </p>
-            </Prose>
+              <Prose className="mt-5" width="narrow">
+                <p>
+                  Certains contenus ne sont pas encore publiés — la médiathèque et
+                  les ressources s&apos;enrichiront au fil des publications. Si
+                  vous cherchez une information précise, écrivez-nous directement
+                  : nous vous répondrons.
+                </p>
+              </Prose>
+            </div>
           </div>
-          <div className="lg:col-span-5 lg:col-start-8">
-            <p className="font-sans text-xs font-semibold tracking-[0.18em] text-ccjv-green uppercase">
-              Si vous ne trouvez pas
-            </p>
-            <Prose className="mt-5" width="narrow">
-              <p>
-                Certains contenus ne sont pas encore publiés — la médiathèque et
-                les ressources s&apos;enrichiront au fil des publications. Si
-                vous cherchez une information précise, écrivez-nous directement
-                : nous vous répondrons.
-              </p>
-            </Prose>
-          </div>
-        </div>
-      }
-      factsTitle="Rechercher sur le site"
-      facts={
-        <>
-          {indexIsPartial && (
-            <ContentUnavailable
-              className="mb-10"
-              resource={`Une partie de l'index (${unavailableSources.join(", ")})`}
-              description="Ces contenus ne sont pas indexés pour l'instant : la recherche porte sur le reste du site. Rechargez la page dans quelques instants pour reconstituer l'index complet."
-            />
-          )}
-          <SearchClient entries={entries} initialQuery={initialQuery} />
-        </>
-      }
-      related={
-        <CrossLinks
-          variant="list"
-          items={[
-            {
-              href: "/vie-de-leglise/ou-nous-trouver",
-              label: "Où nous trouver",
-              description: "Adresse, horaires et contact.",
-            },
-            {
-              href: "/actualites",
-              label: "Actualités",
-              description: "Les nouvelles et annonces de l'église.",
-            },
-            {
-              href: "/qui-sommes-nous",
-              label: "Qui sommes-nous",
-              description: "Notre histoire, notre foi et notre vision.",
-            },
-          ]}
-        />
-      }
-    />
+        }
+        factsTitle="Rechercher sur le site"
+        facts={
+          <>
+            {indexIsPartial && (
+              <ContentUnavailable
+                className="mb-10"
+                resource={`Une partie de l'index (${unavailableSources.join(", ")})`}
+                description="Ces contenus ne sont pas indexés pour l'instant : la recherche porte sur le reste du site. Rechargez la page dans quelques instants pour reconstituer l'index complet."
+              />
+            )}
+            <SearchClient entries={entries} initialQuery={initialQuery} />
+          </>
+        }
+        related={
+          <CrossLinks
+            variant="list"
+            items={[
+              {
+                href: "/vie-de-leglise/ou-nous-trouver",
+                label: "Où nous trouver",
+                description: "Adresse, horaires et contact.",
+              },
+              {
+                href: "/actualites",
+                label: "Actualités",
+                description: "Les nouvelles et annonces de l'église.",
+              },
+              {
+                href: "/qui-sommes-nous",
+                label: "Qui sommes-nous",
+                description: "Notre histoire, notre foi et notre vision.",
+              },
+            ]}
+          />
+        }
+      />
+    </div>
   );
 }

@@ -203,11 +203,11 @@ export function getApiBaseUrl(): string {
     window.location.hostname !== "localhost" &&
     window.location.hostname !== "127.0.0.1"
   ) {
-    return "https://ccjv-church.onrender.com";
+    return "https://ccjv-church-gjbw.onrender.com";
   }
 
   if (process.env.NODE_ENV === "production") {
-    return "https://ccjv-church.onrender.com";
+    return "https://ccjv-church-gjbw.onrender.com";
   }
 
   return "http://localhost:4000";

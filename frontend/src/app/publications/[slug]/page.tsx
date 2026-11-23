@@ -191,8 +191,14 @@ export default async function PublicationDetailPage({
   ].join(" · ");
 
   return (
-    <DetailPage
-      rhythm="standard"
+    <div
+      data-section-id="publication_detail"
+      data-section-type="dynamic_publication_detail"
+      data-editable="false"
+      data-dynamic-source="publications:slug"
+    >
+      <DetailPage
+        rhythm="standard"
       media={
         imageSource ? (
           <HeroPhoto
@@ -427,5 +433,6 @@ export default async function PublicationDetailPage({
         </>
       }
     />
+    </div>
   );
 }

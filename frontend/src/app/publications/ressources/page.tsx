@@ -71,18 +71,31 @@ export default async function RessourcesPage() {
     <ListingPage
       rhythm="dense"
       header={
-        <HeroEditorial
-          title="Guides d'étude"
-          intro="Des outils d'édification au format PDF : livrets de jeûne, plans de lecture et guides spirituels en téléchargement direct, sans inscription."
-          image={images.fraternite}
-          imageAlt="Groupe de frères et sœurs réunis pour étudier la Parole ensemble"
-          action={{ label: "Voir les guides ↓", href: "#guides" }}
-        />
+        <div
+          data-section-id="hero_ressources"
+          data-section-type="hero_banner"
+          data-variant="editorial"
+        >
+          <HeroEditorial
+            title="Guides d'étude"
+            intro="Des outils d'édification au format PDF : livrets de jeûne, plans de lecture et guides spirituels en téléchargement direct, sans inscription."
+            image={images.fraternite}
+            imageAlt="Groupe de frères et sœurs réunis pour étudier la Parole ensemble"
+            action={{ label: "Voir les guides ↓", href: "#guides" }}
+          />
+        </div>
       }
       lead={
         /* Cible de l'action du héros : elle existe même sans document publié,
            pour qu'aucun bouton ne mène nulle part. */
-        <div id="guides" className="scroll-mt-28">
+        <div
+          id="guides"
+          data-section-id="ressource_a_la_une"
+          data-section-type="dynamic_featured_resource"
+          data-editable="false"
+          data-dynamic-source="resources:featured"
+          className="scroll-mt-28"
+        >
           {read.status === "unreachable" ? (
             <ContentUnavailable resource="Les ressources documentaires" />
           ) : lead ? (
@@ -161,61 +174,73 @@ export default async function RessourcesPage() {
       }
       listTitle="Autres ressources documentaires"
       list={
-        read.status === "unreachable" ? (
-          <ContentUnavailable resource="La liste des ressources" />
-        ) : others.length > 0 ? (
-          <ul className="border-t border-ccjv-line">
-            {others.map((item) => (
-              <li key={item.id} className="border-b border-ccjv-line">
-                <div className="group grid grid-cols-1 gap-3 py-7 sm:grid-cols-12 sm:items-baseline sm:gap-6">
-                  <time
-                    dateTime={item.createdAt}
-                    className="font-sans text-[0.78rem] text-ccjv-ink-secondary sm:col-span-3"
-                  >
-                    {item.createdAt ? formatLongDate(item.createdAt.slice(0, 10)) : "—"}
-                  </time>
-                  <div className="sm:col-span-6">
-                    <h3 className="font-serif text-[1.3rem] leading-snug text-ccjv-ink">
-                      <Link href={`/publications/ressources/${item.id}`} className="hover:text-ccjv-green transition-colors">
-                        {item.name}
+        <div
+          data-section-id="ressources_grille"
+          data-section-type="dynamic_resources_grid"
+          data-editable="false"
+          data-dynamic-source="resources:archive"
+        >
+          {read.status === "unreachable" ? (
+            <ContentUnavailable resource="La liste des ressources" />
+          ) : others.length > 0 ? (
+            <ul className="border-t border-ccjv-line">
+              {others.map((item) => (
+                <li key={item.id} className="border-b border-ccjv-line">
+                  <div className="group grid grid-cols-1 gap-3 py-7 sm:grid-cols-12 sm:items-baseline sm:gap-6">
+                    <time
+                      dateTime={item.createdAt}
+                      className="font-sans text-[0.78rem] text-ccjv-ink-secondary sm:col-span-3"
+                    >
+                      {item.createdAt ? formatLongDate(item.createdAt.slice(0, 10)) : "—"}
+                    </time>
+                    <div className="sm:col-span-6">
+                      <h3 className="font-serif text-[1.3rem] leading-snug text-ccjv-ink">
+                        <Link href={`/publications/ressources/${item.id}`} className="hover:text-ccjv-green transition-colors">
+                          {item.name}
+                        </Link>
+                      </h3>
+                      {item.description && (
+                        <p className="mt-2 max-w-[62ch] font-sans text-[0.92rem] leading-relaxed text-ccjv-ink-secondary">
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="sm:col-span-3 sm:text-right flex sm:flex-col sm:items-end gap-2">
+                      <a
+                        href={item.file}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 font-sans text-[0.85rem] font-medium text-ccjv-green hover:underline"
+                      >
+                        <Download className="h-4 w-4" />
+                        Télécharger (PDF)
+                      </a>
+                      <Link
+                        href={`/publications/ressources/${item.id}`}
+                        className="text-xs text-ccjv-ink-secondary hover:text-ccjv-ink transition-colors"
+                      >
+                        Détails de la ressource →
                       </Link>
-                    </h3>
-                    {item.description && (
-                      <p className="mt-2 max-w-[62ch] font-sans text-[0.92rem] leading-relaxed text-ccjv-ink-secondary">
-                        {item.description}
-                      </p>
-                    )}
+                    </div>
                   </div>
-                  <div className="sm:col-span-3 sm:text-right flex sm:flex-col sm:items-end gap-2">
-                    <a
-                      href={item.file}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 font-sans text-[0.85rem] font-medium text-ccjv-green hover:underline"
-                    >
-                      <Download className="h-4 w-4" />
-                      Télécharger (PDF)
-                    </a>
-                    <Link
-                      href={`/publications/ressources/${item.id}`}
-                      className="text-xs text-ccjv-ink-secondary hover:text-ccjv-ink transition-colors"
-                    >
-                      Détails de la ressource →
-                    </Link>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="border-t border-ccjv-line pt-7 text-ccjv-ink-secondary">
-            Les prochaines ressources apparaîtront ici.
-          </p>
-        )
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="border-t border-ccjv-line pt-7 text-ccjv-ink-secondary">
+              Les prochaines ressources apparaîtront ici.
+            </p>
+          )}
+        </div>
       }
       archivesTitle="Comment utiliser ces ressources"
       archives={
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
+        <div
+          data-section-id="mode_emploi_ressources"
+          data-section-type="instructional_steps"
+          data-variant="defaut"
+          className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16"
+        >
           <div className="lg:col-span-5">
             <FeatureImage src={images.predication} variant="wide" />
             <p className="mt-6 max-w-[46ch] font-sans text-[0.9rem] leading-relaxed text-ccjv-ink-secondary">
@@ -231,7 +256,11 @@ export default async function RessourcesPage() {
         </div>
       }
       related={
-        <>
+        <div
+          data-section-id="decouverte_ressources"
+          data-section-type="cross_links"
+          data-variant="defaut"
+        >
           <p className="font-sans text-xs font-semibold tracking-[0.18em] text-ccjv-green uppercase">
             Continuer
           </p>
@@ -239,7 +268,7 @@ export default async function RessourcesPage() {
             Autour des ressources
           </h2>
           <CrossLinks items={related} variant="list" />
-        </>
+        </div>
       }
     />
   );

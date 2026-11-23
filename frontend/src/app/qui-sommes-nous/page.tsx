@@ -53,9 +53,19 @@ export default async function QuiSommesNousPage() {
       {/* =========================================================================
           HERO : « Une histoire qui commence »
           ========================================================================= */}
-      <section className="relative flex min-h-screen min-h-[100svh] flex-col justify-end overflow-hidden bg-ccjv-black text-white">
+      <section
+        data-section-id="hero_qui_sommes_nous"
+        data-section-type="hero_banner"
+        data-variant="defaut"
+        className="relative flex min-h-screen min-h-[100svh] flex-col justify-end overflow-hidden bg-ccjv-black text-white"
+      >
         {/* Image de fond en filigrane sombre */}
-        <div className="absolute inset-0 z-0 opacity-25">
+        <div
+          data-editable="true"
+          data-editable-type="image"
+          data-field="image_fond"
+          className="absolute inset-0 z-0 opacity-25"
+        >
           <Image
             src={images.hero}
             alt="Assemblée du Centre Chrétien Jésus ma Vie"
@@ -68,12 +78,22 @@ export default async function QuiSommesNousPage() {
 
         <div className="relative z-10 container pt-32 pb-20 lg:pb-28">
           <Reveal>
-            <h1 className="font-serif text-[clamp(2.5rem,1.5rem+4.5vw,5.5rem)] font-normal leading-[1.05] tracking-[-0.02em] text-white">
+            <h1
+              data-editable="true"
+              data-editable-type="text"
+              data-field="titre"
+              className="font-serif text-[clamp(2.5rem,1.5rem+4.5vw,5.5rem)] font-normal leading-[1.05] tracking-[-0.02em] text-white"
+            >
               Notre histoire <br />
               <span className="italic text-ccjv-cream">&</span> notre foi.
             </h1>
 
-            <p className="mt-8 max-w-[46ch] font-serif text-[clamp(1.15rem,0.95rem+0.8vw,1.6rem)] font-light leading-relaxed text-white/85">
+            <p
+              data-editable="true"
+              data-editable-type="text"
+              data-field="lead"
+              className="mt-8 max-w-[46ch] font-serif text-[clamp(1.15rem,0.95rem+0.8vw,1.6rem)] font-light leading-relaxed text-white/85"
+            >
               « Une histoire née d&apos;une vision, portée par la foi et vécue
               ensemble à Lubumbashi. »
             </p>
@@ -84,11 +104,21 @@ export default async function QuiSommesNousPage() {
       {/* =========================================================================
           LA VISION : « Avant la date, il y avait une vision »
           ========================================================================= */}
-      <section className="relative py-20 lg:py-32">
+      <section
+        data-section-id="vision_pasteur"
+        data-section-type="vision_feature"
+        data-variant="defaut"
+        className="relative py-20 lg:py-32"
+      >
         <div className="container">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
             <Reveal className="lg:col-span-5">
-              <div className="relative aspect-[3/4] w-full overflow-hidden bg-ccjv-line">
+              <div
+                data-editable="true"
+                data-editable-type="image"
+                data-field="image_pasteur"
+                className="relative aspect-[3/4] w-full overflow-hidden bg-ccjv-line"
+              >
                 <Image
                   src={images.pastor}
                   alt="Pasteur Manasse Mwamba, visionnaire CCJV"
@@ -103,18 +133,33 @@ export default async function QuiSommesNousPage() {
             </Reveal>
 
             <Reveal delay={120} className="lg:col-span-7">
-              <h2 className="text-[clamp(2rem,1.2rem+2.2vw,3.4rem)] leading-[1.12]">
+              <h2
+                data-editable="true"
+                data-editable-type="text"
+                data-field="titre"
+                className="text-[clamp(2rem,1.2rem+2.2vw,3.4rem)] leading-[1.12]"
+              >
                 Avant la date, <br />
                 <span className="text-ccjv-green">il y avait une vision.</span>
               </h2>
 
-              <blockquote className="mt-8 font-serif text-[clamp(1.2rem,0.9rem+0.8vw,1.6rem)] leading-snug italic text-ccjv-ink">
+              <blockquote
+                data-editable="true"
+                data-editable-type="text"
+                data-field="citation"
+                className="mt-8 font-serif text-[clamp(1.2rem,0.9rem+0.8vw,1.6rem)] leading-snug italic text-ccjv-ink"
+              >
                 « Fonder une église ne commence pas par un bâtiment. Cela commence
                 par une soif d&apos;obéir à Dieu, et de bâtir un foyer où chacun
                 peut Le rencontrer en vérité. »
               </blockquote>
 
-              <p className="mt-6 font-sans text-[1.02rem] leading-[1.75] text-ccjv-ink-secondary">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="texte"
+                className="mt-6 font-sans text-[1.02rem] leading-[1.75] text-ccjv-ink-secondary"
+              >
                 Le Centre Chrétien Jésus ma Vie est né dans le cœur de serviteurs
                 convaincus que l&apos;Évangile de Jésus-Christ transforme les vies,
                 les familles et notre ville de Lubumbashi. Avant le premier
@@ -129,22 +174,42 @@ export default async function QuiSommesNousPage() {
       {/* =========================================================================
           NAISSANCE : « Tout a commencé » — 17 MARS 2023
           ========================================================================= */}
-      <section className="relative overflow-hidden bg-ccjv-cream/40 py-20 lg:py-32">
+      <section
+        data-section-id="naissance_eglise"
+        data-section-type="history_milestone"
+        data-variant="defaut"
+        className="relative overflow-hidden bg-ccjv-cream/40 py-20 lg:py-32"
+      >
         <div className="container">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
             <Reveal className="lg:col-span-6">
               {/* Date monumentale */}
               <div className="border-b border-ccjv-ink/15 pb-6">
-                <p className="font-serif text-[clamp(2.75rem,1.5rem+3.5vw,5rem)] font-bold leading-none tracking-tight text-ccjv-ink">
+                <p
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="date_jalon"
+                  className="font-serif text-[clamp(2.75rem,1.5rem+3.5vw,5rem)] font-bold leading-none tracking-tight text-ccjv-ink"
+                >
                   17 Mars 2023
                 </p>
               </div>
 
-              <h3 className="mt-6 font-serif text-2xl leading-snug">
+              <h3
+                data-editable="true"
+                data-editable-type="text"
+                data-field="titre"
+                className="mt-6 font-serif text-2xl leading-snug"
+              >
                 Tout a commencé à Lubumbashi.
               </h3>
 
-              <p className="mt-4 font-sans text-[1rem] leading-[1.75] text-ccjv-ink-secondary">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="texte"
+                className="mt-4 font-sans text-[1rem] leading-[1.75] text-ccjv-ink-secondary"
+              >
                 C&apos;est à cette date que l&apos;église a tenu son tout premier
                 rassemblement. Commencer avec peu, sans savoir exactement de quoi
                 demain sera fait, en tenant la Parole de Dieu et la communion
@@ -153,7 +218,12 @@ export default async function QuiSommesNousPage() {
             </Reveal>
 
             <Reveal delay={120} className="lg:col-span-6">
-              <div className="relative aspect-[4/3] w-full overflow-hidden bg-ccjv-line shadow-sm">
+              <div
+                data-editable="true"
+                data-editable-type="image"
+                data-field="image"
+                className="relative aspect-[4/3] w-full overflow-hidden bg-ccjv-line shadow-sm"
+              >
                 <Image
                   src={images.assemblee}
                   alt="Premiers rassemblements CCJV à Lubumbashi"
@@ -174,30 +244,58 @@ export default async function QuiSommesNousPage() {
           RESPIRATION BIBLIQUE I : « La Parole comme boussole »
           ========================================================================= */}
       {scripturesRead.status === "unreachable" ? (
-        <div className="container py-16 lg:py-24">
+        <div
+          data-section-id="respiration_biblique_1"
+          data-section-type="verse_section"
+          data-editable="false"
+          data-dynamic-source="scriptures:parole"
+          className="container py-16 lg:py-24"
+        >
           <ContentUnavailable resource="Les versets de cette page" />
         </div>
       ) : (
         parole && (
-          <VerseSection
-            variant="center"
-            tone="cream"
-            text={parole.text}
-            reference={parole.reference}
-          />
+          <div
+            data-section-id="respiration_biblique_1"
+            data-section-type="verse_section"
+            data-editable="false"
+            data-dynamic-source="scriptures:parole"
+          >
+            <VerseSection
+              variant="center"
+              tone="cream"
+              text={parole.text}
+              reference={parole.reference}
+            />
+          </div>
         )
       )}
 
       {/* =========================================================================
           L'HISTOIRE CONTINUE : Jalons et Naissance de l'Ecodim
           ========================================================================= */}
-      <section className="relative py-20 lg:py-32">
+      <section
+        data-section-id="histoire_jalons"
+        data-section-type="history_timeline"
+        data-variant="defaut"
+        className="relative py-20 lg:py-32"
+      >
         <div className="container">
           <Reveal className="mx-auto max-w-3xl text-center">
-            <h2 className="text-[clamp(2rem,1.2rem+2vw,3.2rem)] leading-tight">
+            <h2
+              data-editable="true"
+              data-editable-type="text"
+              data-field="titre"
+              className="text-[clamp(2rem,1.2rem+2vw,3.2rem)] leading-tight"
+            >
               L&apos;histoire en marche.
             </h2>
-            <p className="mt-4 text-ccjv-ink-secondary">
+            <p
+              data-editable="true"
+              data-editable-type="text"
+              data-field="lead"
+              className="mt-4 text-ccjv-ink-secondary"
+            >
               Une église grandit au rythme des vies qui la composent et des
               ministères qui s&apos;y éveillent.
             </p>
@@ -207,15 +305,30 @@ export default async function QuiSommesNousPage() {
             {/* Jalon 1 : Ecodim */}
             <Reveal className="lg:col-span-6">
               <div className="border border-ccjv-line p-8 lg:p-10 bg-white">
-                <h3 className="mt-3 font-serif text-2xl font-semibold">
+                <h3
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="jalon1_titre"
+                  className="mt-3 font-serif text-2xl font-semibold"
+                >
                   Naissance de l&apos;Ecodim
                 </h3>
-                <p className="mt-4 font-sans text-[0.95rem] leading-[1.7] text-ccjv-ink-secondary">
+                <p
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="jalon1_texte"
+                  className="mt-4 font-sans text-[0.95rem] leading-[1.7] text-ccjv-ink-secondary"
+                >
                   Ministère dédié aux enfants : chants, récits bibliques et
                   découverte de Dieu à leur mesure. Parce que la transmission de la
                   foi commence dès le plus jeune âge.
                 </p>
-                <div className="mt-6 relative aspect-[16/10] w-full overflow-hidden bg-ccjv-line">
+                <div
+                  data-editable="true"
+                  data-editable-type="image"
+                  data-field="jalon1_image"
+                  className="mt-6 relative aspect-[16/10] w-full overflow-hidden bg-ccjv-line"
+                >
                   <Image
                     src={images.ecodimAncien}
                     alt="Ministère des enfants Ecodim CCJV"
@@ -231,15 +344,30 @@ export default async function QuiSommesNousPage() {
             <Reveal delay={120} className="lg:col-span-6">
               <div className="border border-ccjv-line p-8 lg:p-10 bg-white h-full flex flex-col justify-between">
                 <div>
-                  <h3 className="mt-3 font-serif text-2xl font-semibold">
+                  <h3
+                    data-editable="true"
+                    data-editable-type="text"
+                    data-field="jalon2_titre"
+                    className="mt-3 font-serif text-2xl font-semibold"
+                  >
                     Chorale, Groupes & Ministères
                   </h3>
-                  <p className="mt-4 font-sans text-[0.95rem] leading-[1.7] text-ccjv-ink-secondary">
+                  <p
+                    data-editable="true"
+                    data-editable-type="text"
+                    data-field="jalon2_texte"
+                    className="mt-4 font-sans text-[0.95rem] leading-[1.7] text-ccjv-ink-secondary"
+                  >
                     Structuration des temps de prière en semaine, veillées de
                     louange et réunions dans les quartiers. L&apos;église devient
                     une famille présente au quotidien.
                   </p>
-                  <div className="mt-6 relative aspect-[16/10] w-full overflow-hidden bg-ccjv-line">
+                  <div
+                    data-editable="true"
+                    data-editable-type="image"
+                    data-field="jalon2_image"
+                    className="mt-6 relative aspect-[16/10] w-full overflow-hidden bg-ccjv-line"
+                  >
                     <Image
                       src={images.groupe}
                       alt="Chorale et louange au Centre Chrétien Jésus ma Vie"
@@ -258,19 +386,36 @@ export default async function QuiSommesNousPage() {
       {/* =========================================================================
           TRANSITION CINÉMATOGRAPHIQUE : « Une communauté prend vie »
           ========================================================================= */}
-      <section className="relative h-[65svh] min-h-[24rem] w-full overflow-hidden bg-ccjv-black text-white">
-        <Image
-          src={images.communaute}
-          alt="La communauté du Centre Chrétien Jésus ma Vie"
-          fill
-          sizes="100vw"
-          className="object-cover opacity-60"
-        />
+      <section
+        data-section-id="transition_communaute"
+        data-section-type="cinematic_banner"
+        data-variant="defaut"
+        className="relative h-[65svh] min-h-[24rem] w-full overflow-hidden bg-ccjv-black text-white"
+      >
+        <div
+          data-editable="true"
+          data-editable-type="image"
+          data-field="image"
+          className="contents"
+        >
+          <Image
+            src={images.communaute}
+            alt="La communauté du Centre Chrétien Jésus ma Vie"
+            fill
+            sizes="100vw"
+            className="object-cover opacity-60"
+          />
+        </div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
 
         <div className="relative z-10 container flex h-full flex-col justify-end pb-16 lg:pb-20">
           <Reveal>
-            <h2 className="max-w-[28ch] font-serif text-[clamp(2rem,1.2rem+3vw,4rem)] font-normal leading-[1.12] text-white">
+            <h2
+              data-editable="true"
+              data-editable-type="text"
+              data-field="titre"
+              className="max-w-[28ch] font-serif text-[clamp(2rem,1.2rem+3vw,4rem)] font-normal leading-[1.12] text-white"
+            >
               Une communauté commence à prendre vie.
             </h2>
           </Reveal>
@@ -280,15 +425,30 @@ export default async function QuiSommesNousPage() {
       {/* =========================================================================
           CE QUI NOUS DÉFINIT : « Des convictions qui nous portent »
           ========================================================================= */}
-      <section className="relative py-20 lg:py-28">
+      <section
+        data-section-id="convictions_intro"
+        data-section-type="editorial_quote"
+        data-variant="defaut"
+        className="relative py-20 lg:py-28"
+      >
         <div className="container max-w-4xl text-center">
           <Reveal>
             <CrossMark size="md" className="mx-auto text-ccjv-green" />
-            <h2 className="mt-8 text-[clamp(2rem,1.2rem+2.2vw,3.4rem)] leading-snug font-serif">
+            <h2
+              data-editable="true"
+              data-editable-type="text"
+              data-field="titre"
+              className="mt-8 text-[clamp(2rem,1.2rem+2.2vw,3.4rem)] leading-snug font-serif"
+            >
               « Une histoire ne se résume pas à des dates. <br />
               Elle est portée par des convictions. »
             </h2>
-            <p className="mt-6 font-sans text-[1.05rem] leading-[1.8] text-ccjv-ink-secondary">
+            <p
+              data-editable="true"
+              data-editable-type="text"
+              data-field="texte"
+              className="mt-6 font-sans text-[1.05rem] leading-[1.8] text-ccjv-ink-secondary"
+            >
               Ce que nous croyons oriente tout ce que nous faisons : notre façon
               d&apos;enseigner, d&apos;accueillir, de prier et d&apos;aimer notre
               prochain. Notre foi est fermement ancrée dans la Parole de Dieu.
@@ -300,10 +460,20 @@ export default async function QuiSommesNousPage() {
       {/* =========================================================================
           LES PILIERS DE NOTRE FOI
           ========================================================================= */}
-      <section className="relative bg-ccjv-cream/30 py-20 lg:py-32 border-y border-ccjv-line">
+      <section
+        data-section-id="piliers_foi"
+        data-section-type="pillars_grid"
+        data-variant="defaut"
+        className="relative bg-ccjv-cream/30 py-20 lg:py-32 border-y border-ccjv-line"
+      >
         <div className="container">
           <div className="mb-14 text-center">
-            <h2 className="text-[clamp(1.8rem,1rem+2vw,2.8rem)]">
+            <h2
+              data-editable="true"
+              data-editable-type="text"
+              data-field="titre"
+              className="text-[clamp(1.8rem,1rem+2vw,2.8rem)]"
+            >
               Les piliers de notre marche
             </h2>
           </div>
@@ -317,15 +487,30 @@ export default async function QuiSommesNousPage() {
                 </span>
                 <CrossMark size="sm" className="text-ccjv-green" />
               </div>
-              <h3 className="mt-6 font-serif text-2xl font-semibold">
+              <h3
+                data-editable="true"
+                data-editable-type="text"
+                data-field="pilier1_titre"
+                className="mt-6 font-serif text-2xl font-semibold"
+              >
                 Notre Foi
               </h3>
-              <p className="mt-4 font-sans text-[0.95rem] leading-[1.7] text-ccjv-ink-secondary">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="pilier1_texte"
+                className="mt-4 font-sans text-[0.95rem] leading-[1.7] text-ccjv-ink-secondary"
+              >
                 Nous confessons l&apos;autorité souveraine des Saintes Écritures,
                 la foi en un seul Dieu manifesté en Père, Fils et Saint-Esprit, et
                 le salut accordé par grâce par la foi en Jésus-Christ.
               </p>
-              <div className="mt-6 font-sans text-xs font-semibold tracking-wider text-ccjv-green uppercase">
+              <div
+                data-editable="true"
+                data-editable-type="text"
+                data-field="pilier1_ref"
+                className="mt-6 font-sans text-xs font-semibold tracking-wider text-ccjv-green uppercase"
+              >
                 Éphésiens 2:8-9 · 2 Timothée 3:16
               </div>
             </Reveal>
@@ -340,15 +525,30 @@ export default async function QuiSommesNousPage() {
                   Regard vers l&apos;avenir
                 </span>
               </div>
-              <h3 className="mt-6 font-serif text-2xl font-semibold">
+              <h3
+                data-editable="true"
+                data-editable-type="text"
+                data-field="pilier2_titre"
+                className="mt-6 font-serif text-2xl font-semibold"
+              >
                 Notre Vision
               </h3>
-              <p className="mt-4 font-sans text-[0.95rem] leading-[1.7] text-ccjv-ink-secondary">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="pilier2_texte"
+                className="mt-4 font-sans text-[0.95rem] leading-[1.7] text-ccjv-ink-secondary"
+              >
                 Être une église vivante, chaleureuse et rayonnante à Lubumbashi,
                 qui équipe les croyants, guérit les cœurs brisés et prépare une
                 génération consacrée au service de Dieu.
               </p>
-              <div className="mt-6 font-sans text-xs font-semibold tracking-wider text-ccjv-green uppercase">
+              <div
+                data-editable="true"
+                data-editable-type="text"
+                data-field="pilier2_ref"
+                className="mt-6 font-sans text-xs font-semibold tracking-wider text-ccjv-green uppercase"
+              >
                 Ésaïe 61:1-3 · Actes 2:42
               </div>
             </Reveal>
@@ -363,16 +563,31 @@ export default async function QuiSommesNousPage() {
                   Ce qui nous guide
                 </span>
               </div>
-              <h3 className="mt-6 font-serif text-2xl font-semibold">
+              <h3
+                data-editable="true"
+                data-editable-type="text"
+                data-field="pilier3_titre"
+                className="mt-6 font-serif text-2xl font-semibold"
+              >
                 Nos Valeurs
               </h3>
-              <p className="mt-4 font-sans text-[0.95rem] leading-[1.7] text-ccjv-ink-secondary">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="pilier3_texte"
+                className="mt-4 font-sans text-[0.95rem] leading-[1.7] text-ccjv-ink-secondary"
+              >
                 L&apos;amour fraternel sincère, l&apos;intégrité de cœur,
                 l&apos;humilité dans le service, la prière continuelle et
                 l&apos;accueil inconditionnel de toute personne qui pousse nos
                 portes.
               </p>
-              <div className="mt-6 font-sans text-xs font-semibold tracking-wider text-ccjv-green uppercase">
+              <div
+                data-editable="true"
+                data-editable-type="text"
+                data-field="pilier3_ref"
+                className="mt-6 font-sans text-xs font-semibold tracking-wider text-ccjv-green uppercase"
+              >
                 Colossiens 3:12-14 · Jean 13:35
               </div>
             </Reveal>
@@ -387,15 +602,30 @@ export default async function QuiSommesNousPage() {
                   Le mandat
                 </span>
               </div>
-              <h3 className="mt-6 font-serif text-2xl font-semibold">
+              <h3
+                data-editable="true"
+                data-editable-type="text"
+                data-field="pilier4_titre"
+                className="mt-6 font-serif text-2xl font-semibold"
+              >
                 Notre Mission
               </h3>
-              <p className="mt-4 font-sans text-[0.95rem] leading-[1.7] text-ccjv-ink-secondary">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="pilier4_texte"
+                className="mt-4 font-sans text-[0.95rem] leading-[1.7] text-ccjv-ink-secondary"
+              >
                 Annoncer l&apos;Évangile de Jésus-Christ, faire des disciples de
                 toutes les nations, enseigner Sa Parole et manifester Sa bonté
                 par des œuvres de compassion concrètes.
               </p>
-              <div className="mt-6 font-sans text-xs font-semibold tracking-wider text-ccjv-green uppercase">
+              <div
+                data-editable="true"
+                data-editable-type="text"
+                data-field="pilier4_ref"
+                className="mt-6 font-sans text-xs font-semibold tracking-wider text-ccjv-green uppercase"
+              >
                 Matthieu 28:19-20 · Marc 16:15
               </div>
             </Reveal>
@@ -406,31 +636,54 @@ export default async function QuiSommesNousPage() {
       {/* =========================================================================
           LA FOI PREND FORME : Triptyque Narratif & Scrollytelling
           ========================================================================= */}
-      <WeeklyTriptychScrolly />
+      <div
+        data-section-id="triptyque_hebdomadaire"
+        data-section-type="scrollytelling_triptych"
+        data-variant="defaut"
+      >
+        <WeeklyTriptychScrolly />
+      </div>
 
       {/* =========================================================================
           DEUXIÈME RESPIRATION BIBLIQUE : Monumentale & Immersive
           (même lecture que la première : une panne a déjà été signalée plus haut)
           ========================================================================= */}
       {ouvrage && (
-        <VerseSection
-          variant="both"
-          tone="dark"
-          text={ouvrage.text}
-          reference={ouvrage.reference}
-          leftPhoto={images.identite}
-          rightPhoto={images.assemblee}
-        />
+        <div
+          data-section-id="respiration_biblique_2"
+          data-section-type="verse_section"
+          data-editable="false"
+          data-dynamic-source="scriptures:ouvrage"
+        >
+          <VerseSection
+            variant="both"
+            tone="dark"
+            text={ouvrage.text}
+            reference={ouvrage.reference}
+            leftPhoto={images.identite}
+            rightPhoto={images.assemblee}
+          />
+        </div>
       )}
 
       {/* =========================================================================
           CCJV AUJOURD'HUI : Retour au présent
           ========================================================================= */}
-      <section className="relative py-20 lg:py-32">
+      <section
+        data-section-id="ccjv_aujourdhui"
+        data-section-type="editorial_feature"
+        data-variant="defaut"
+        className="relative py-20 lg:py-32"
+      >
         <div className="container">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
             <Reveal className="lg:col-span-6">
-              <div className="relative aspect-[16/11] w-full overflow-hidden bg-ccjv-line shadow-sm">
+              <div
+                data-editable="true"
+                data-editable-type="image"
+                data-field="image"
+                className="relative aspect-[16/11] w-full overflow-hidden bg-ccjv-line shadow-sm"
+              >
                 <Image
                   src={images.churchVisual}
                   alt="L'assemblée CCJV réunie aujourd'hui"
@@ -442,10 +695,20 @@ export default async function QuiSommesNousPage() {
             </Reveal>
 
             <Reveal delay={120} className="lg:col-span-6">
-              <h2 className="text-[clamp(2rem,1.2rem+2vw,3.2rem)] leading-tight font-serif">
+              <h2
+                data-editable="true"
+                data-editable-type="text"
+                data-field="titre"
+                className="text-[clamp(2rem,1.2rem+2vw,3.2rem)] leading-tight font-serif"
+              >
                 CCJV aujourd&apos;hui.
               </h2>
-              <p className="mt-6 font-sans text-[1rem] leading-[1.75] text-ccjv-ink-secondary">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="texte"
+                className="mt-6 font-sans text-[1rem] leading-[1.75] text-ccjv-ink-secondary"
+              >
                 Aujourd&apos;hui, le Centre Chrétien Jésus ma Vie continue
                 d&apos;accueillir des hommes, des femmes, des jeunes et des
                 enfants venus de divers horizons de Lubumbashi. Une église
@@ -460,14 +723,29 @@ export default async function QuiSommesNousPage() {
       {/* =========================================================================
           GRANDE RESPIRATION FINALE : « L'histoire continue »
           ========================================================================= */}
-      <section className="relative py-24 lg:py-36 text-center bg-ccjv-cream">
+      <section
+        data-section-id="respiration_finale"
+        data-section-type="closing_quote"
+        data-variant="defaut"
+        className="relative py-24 lg:py-36 text-center bg-ccjv-cream"
+      >
         <div className="container max-w-2xl">
           <Reveal>
             <CrossMark size="xl" className="mx-auto text-ccjv-green" />
-            <h2 className="mt-8 font-serif text-[clamp(2.2rem,1.2rem+3vw,4rem)] font-normal leading-tight">
+            <h2
+              data-editable="true"
+              data-editable-type="text"
+              data-field="titre"
+              className="mt-8 font-serif text-[clamp(2.2rem,1.2rem+3vw,4rem)] font-normal leading-tight"
+            >
               L&apos;histoire continue.
             </h2>
-            <p className="mt-6 font-serif text-lg italic text-ccjv-ink-secondary">
+            <p
+              data-editable="true"
+              data-editable-type="text"
+              data-field="texte"
+              className="mt-6 font-serif text-lg italic text-ccjv-ink-secondary"
+            >
               Ce qui a été commencé par la grâce de Dieu se poursuit avec chacun de
               ceux qu&apos;Il appelle et conduit parmi nous.
             </p>
@@ -478,7 +756,12 @@ export default async function QuiSommesNousPage() {
       {/* =========================================================================
           L'APPEL CHALEUREUX : Invitation & Prochains Pas
           ========================================================================= */}
-      <section className="relative overflow-hidden bg-ccjv-black py-20 text-white lg:py-28">
+      <section
+        data-section-id="appel_chaleureux"
+        data-section-type="invitation_cta"
+        data-variant="defaut"
+        className="relative overflow-hidden bg-ccjv-black py-20 text-white lg:py-28"
+      >
         <CrossMark
           size="watermark"
           className="left-1/2 top-1/2 h-[380px] w-[240px] -translate-x-1/2 -translate-y-1/2 text-white opacity-[0.03]"
@@ -486,10 +769,20 @@ export default async function QuiSommesNousPage() {
 
         <div className="relative z-10 container text-center max-w-3xl">
           <Reveal>
-            <h2 className="font-serif text-[clamp(2rem,1.2rem+2.6vw,3.6rem)] font-normal leading-tight text-white">
+            <h2
+              data-editable="true"
+              data-editable-type="text"
+              data-field="titre"
+              className="font-serif text-[clamp(2rem,1.2rem+2.6vw,3.6rem)] font-normal leading-tight text-white"
+            >
               Et si vous veniez écrire la suite avec nous ?
             </h2>
-            <p className="mt-6 font-sans text-[1.05rem] leading-relaxed text-white/80">
+            <p
+              data-editable="true"
+              data-editable-type="text"
+              data-field="texte"
+              className="mt-6 font-sans text-[1.05rem] leading-relaxed text-white/80"
+            >
               Que vous soyez de passage à Lubumbashi ou en recherche d&apos;une
               maison spirituelle pour grandir dans la foi, vous êtes le bienvenu
               parmi nous.
@@ -498,12 +791,18 @@ export default async function QuiSommesNousPage() {
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <Link
                 href="/communaute#parcours-nouveau"
+                data-editable="true"
+                data-editable-type="text"
+                data-field="cta_planifier"
                 className="inline-flex items-center justify-center bg-white px-8 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-black uppercase transition-all duration-300 hover:bg-ccjv-cream"
               >
                 Planifier une visite
               </Link>
               <Link
                 href="/vie-de-leglise/ou-nous-trouver"
+                data-editable="true"
+                data-editable-type="text"
+                data-field="cta_trouver"
                 className="inline-flex items-center justify-center border border-white/40 bg-white/5 px-8 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-white uppercase transition-all duration-300 hover:bg-white/15"
               >
                 Nous-trouver

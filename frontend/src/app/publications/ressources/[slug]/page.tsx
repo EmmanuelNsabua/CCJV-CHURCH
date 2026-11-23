@@ -103,8 +103,14 @@ export default async function RessourceDetailPage({
     : "Récemment";
 
   return (
-    <DetailPage
-      rhythm="standard"
+    <div
+      data-section-id="ressource_detail"
+      data-section-type="dynamic_resource_detail"
+      data-editable="false"
+      data-dynamic-source="resources:slug"
+    >
+      <DetailPage
+        rhythm="standard"
       media={
         <HeroCompact
           overline="Guide d'étude & Document PDF"
@@ -253,6 +259,7 @@ export default async function RessourceDetailPage({
         />
       }
     />
+    </div>
   );
 }
 

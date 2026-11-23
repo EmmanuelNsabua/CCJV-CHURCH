@@ -82,27 +82,47 @@ export function ActualitesView({
       {/* 1. Hero Section plein écran avec photo en fond */}
       <section
         data-hero-dark
+        data-section-id="hero_actualites"
+        data-section-type="hero_banner"
+        data-variant="photo_overlay"
         className="relative min-h-[60vh] sm:min-h-[70vh] flex flex-col justify-end bg-neutral-900 text-white overflow-hidden"
       >
-        <Image
-          src="/hero-publications.jpg"
-          alt="Actualités CCJV"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover opacity-45"
-        />
+        <div
+          data-editable="true"
+          data-editable-type="image"
+          data-field="image_fond"
+          className="contents"
+        >
+          <Image
+            src="/hero-publications.jpg"
+            alt="Actualités CCJV"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover opacity-45"
+          />
+        </div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/20" />
 
         <div className="relative z-10 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-12 sm:pb-16 pt-32">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-white/20 pb-8">
             <div>
-              <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight text-white">
+              <h1
+                data-editable="true"
+                data-editable-type="text"
+                data-field="titre"
+                className="font-serif text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight text-white"
+              >
                 Actualités
               </h1>
             </div>
             <div className="max-w-md md:text-right">
-              <p className="font-sans text-base sm:text-lg text-neutral-200 leading-relaxed font-light">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="lead"
+                className="font-sans text-base sm:text-lg text-neutral-200 leading-relaxed font-light"
+              >
                 Suivez nos actualités quotidiennes au Centre Chrétien Jésus ma Vie.
               </p>
             </div>
@@ -112,7 +132,13 @@ export function ActualitesView({
 
       {/* 2. Section À la une : carte divisée 60% photo / 40% texte alterné et coulissant */}
       {featuredPublications.length > 0 && activeFeatured && activeDept && (
-        <section className="py-12 sm:py-16 bg-neutral-50/50 border-b border-ccjv-line">
+        <section
+          data-section-id="actualites_a_la_une"
+          data-section-type="dynamic_featured_news"
+          data-editable="false"
+          data-dynamic-source="publications:featured"
+          className="py-12 sm:py-16 bg-neutral-50/50 border-b border-ccjv-line"
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-6 sm:mb-8">
               <div>
@@ -250,7 +276,13 @@ export function ActualitesView({
       )}
 
       {/* 3. Grille des actualités avec filtres (Tous, Presse, Ecodim) */}
-      <section className="py-12 sm:py-16">
+      <section
+        data-section-id="actualites_grille"
+        data-section-type="dynamic_news_grid"
+        data-editable="false"
+        data-dynamic-source="publications:archive"
+        className="py-12 sm:py-16"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-ccjv-line pb-4 mb-8">
             <h2 className="font-serif text-2xl sm:text-3xl text-ccjv-ink">
@@ -370,7 +402,13 @@ export function ActualitesView({
 
       {/* 4. Les événements à venir (max 3 les plus proches non dépassés) */}
       {upcomingEvents.length > 0 && (
-        <section className="py-12 sm:py-16 bg-neutral-50 border-t border-ccjv-line">
+        <section
+          data-section-id="actualites_evenements"
+          data-section-type="dynamic_events"
+          data-editable="false"
+          data-dynamic-source="events:upcoming"
+          className="py-12 sm:py-16 bg-neutral-50 border-t border-ccjv-line"
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between border-b border-ccjv-line pb-4 mb-8">
               <div>

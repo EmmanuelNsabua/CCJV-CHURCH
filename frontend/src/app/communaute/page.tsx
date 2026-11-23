@@ -47,11 +47,19 @@ export default async function CommunautePage() {
           ========================================================================= */}
       <section
         data-hero-dark
+        data-section-id="hero_communaute"
+        data-section-type="hero_banner"
+        data-variant="defaut"
         className="relative flex min-h-screen w-full flex-col justify-end overflow-hidden bg-ccjv-black px-6 pt-32 pb-16 text-white sm:px-12 lg:px-20 lg:pt-36 lg:pb-24"
         aria-label="Notre communauté au Centre Chrétien Jésus ma Vie"
       >
         {/* Voile photographique texturé */}
-        <div className="absolute inset-0 z-0">
+        <div
+          data-editable="true"
+          data-editable-type="image"
+          data-field="image_fond"
+          className="absolute inset-0 z-0"
+        >
           <Image
             src={images.communaute || "/media/ccjv-35.jpeg"}
             alt="Communion fraternelle à CCJV Lubumbashi"
@@ -64,24 +72,42 @@ export default async function CommunautePage() {
         </div>
 
         <div className="relative z-10 mx-auto w-full max-w-7xl">
-
-          <h1 className="mt-3 max-w-[20ch] font-serif text-[clamp(2.4rem,1.8rem+3.4vw,4.6rem)] leading-[1.05] text-white">
+          <h1
+            data-editable="true"
+            data-editable-type="text"
+            data-field="titre"
+            className="mt-3 max-w-[20ch] font-serif text-[clamp(2.4rem,1.8rem+3.4vw,4.6rem)] leading-[1.05] text-white"
+          >
             Une foi que nous vivons ensemble.
           </h1>
 
-          <p className="mt-6 max-w-[48ch] font-sans text-[clamp(1.05rem,0.95rem+0.4vw,1.25rem)] leading-[1.7] text-white/80">
+          <p
+            data-editable="true"
+            data-editable-type="text"
+            data-field="lead"
+            className="mt-6 max-w-[48ch] font-sans text-[clamp(1.05rem,0.95rem+0.4vw,1.25rem)] leading-[1.7] text-white/80"
+          >
             Au-delà du rassemblement dominical, l&apos;église est une famille unie par la prière,
             l&apos;entraide et la fidélité de Dieu au cœur de notre ville de Lubumbashi.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
-            <Button variant="primary" href="#fraternite">
+            <Button
+              variant="primary"
+              href="#fraternite"
+              data-editable="true"
+              data-editable-type="text"
+              data-field="cta_decouvrir"
+            >
               Découvrir
             </Button>
             <Button
               variant="outline"
               href={site.whatsappHref}
               external
+              data-editable="true"
+              data-editable-type="text"
+              data-field="cta_ecrire"
               className="border-white/35 text-white hover:bg-white/10"
             >
               Nous écrire
@@ -95,6 +121,9 @@ export default async function CommunautePage() {
           ========================================================================= */}
       <section
         id="fraternite"
+        data-section-id="fraternite_accueil"
+        data-section-type="editorial_feature"
+        data-variant="defaut"
         className="border-b border-ccjv-line bg-ccjv-offwhite px-6 py-20 sm:px-12 lg:px-20 lg:py-28"
         aria-labelledby="fraternite-titre"
       >
@@ -102,7 +131,12 @@ export default async function CommunautePage() {
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
             {/* Photographie authentique d'accueil et d'échange */}
             <div className="lg:col-span-6">
-              <div className="relative aspect-[4/3] w-full overflow-hidden border border-ccjv-line bg-ccjv-line">
+              <div
+                data-editable="true"
+                data-editable-type="image"
+                data-field="image"
+                className="relative aspect-[4/3] w-full overflow-hidden border border-ccjv-line bg-ccjv-line"
+              >
                 <Image
                   src="/media/ccjv-35.jpeg"
                   alt="Moments fraternels et échanges chaleureux à CCJV"
@@ -115,25 +149,44 @@ export default async function CommunautePage() {
 
             {/* Message narratif fort & sobre */}
             <div className="lg:col-span-6">
-              <span className="font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-green uppercase">
+              <span
+                data-editable="true"
+                data-editable-type="text"
+                data-field="surtitre"
+                className="font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-green uppercase"
+              >
                 Appartenir
               </span>
 
               <h2
                 id="fraternite-titre"
+                data-editable="true"
+                data-editable-type="text"
+                data-field="titre"
                 className="mt-3 font-serif text-[clamp(1.9rem,1.3rem+2vw,3rem)] leading-[1.14] text-ccjv-ink"
               >
                 Une église où personne ne reste anonyme.
               </h2>
 
-              <p className="mt-6 font-sans text-[1.05rem] leading-[1.75] text-ccjv-ink-secondary max-w-[48ch]">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="texte"
+                className="mt-6 font-sans text-[1.05rem] leading-[1.75] text-ccjv-ink-secondary max-w-[48ch]"
+              >
                 Nous croyons que la foi grandit au contact des autres : être accueilli par son prénom,
                 partager un repas après le culte, écouter le cheminement d&apos;un frère ou d&apos;une sœur.
                 Ici, chacun trouve un espace pour être lui-même.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4">
-                <Button variant="outline" href="#priere">
+                <Button
+                  variant="outline"
+                  href="#priere"
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="cta_priere"
+                >
                   Déposer une prière
                 </Button>
               </div>
@@ -145,18 +198,28 @@ export default async function CommunautePage() {
       {/* =========================================================================
           03. PREMIÈRE RESPIRATION BIBLIQUE : LA COMMUNION FRATERNELLE
           ========================================================================= */}
-      <VerseSection
-        text="Voici, oh ! qu'il est agréable, qu'il est doux pour des frères de demeurer ensemble !"
-        reference="Psaume 133:1"
-        variant="centered"
-        tone="cream"
-      />
+      <div
+        data-section-id="respiration_communaute_1"
+        data-section-type="verse_section"
+        data-editable="false"
+        data-dynamic-source="scriptures:psaume133"
+      >
+        <VerseSection
+          text="Voici, oh ! qu'il est agréable, qu'il est doux pour des frères de demeurer ensemble !"
+          reference="Psaume 133:1"
+          variant="centered"
+          tone="cream"
+        />
+      </div>
 
       {/* =========================================================================
           04. LA PRIÈRE & L'INTERCESSION : PORTER LES FARDEAUX ENSEMBLE
           ========================================================================= */}
       <section
         id="priere"
+        data-section-id="intercession_communaute"
+        data-section-type="editorial_feature"
+        data-variant="inverse"
         className="border-b border-ccjv-line bg-ccjv-offwhite px-6 py-20 sm:px-12 lg:px-20 lg:py-28"
         aria-labelledby="priere-titre"
       >
@@ -164,25 +227,45 @@ export default async function CommunautePage() {
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
             {/* Texte à gauche */}
             <div className="lg:col-span-6 lg:order-1">
-              <span className="font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-green uppercase">
+              <span
+                data-editable="true"
+                data-editable-type="text"
+                data-field="surtitre"
+                className="font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-green uppercase"
+              >
                 Prière & Intercession
               </span>
 
               <h2
                 id="priere-titre"
+                data-editable="true"
+                data-editable-type="text"
+                data-field="titre"
                 className="mt-3 font-serif text-[clamp(1.9rem,1.3rem+2vw,3rem)] leading-[1.14] text-ccjv-ink"
               >
                 Prier les uns pour les autres, sans relâche.
               </h2>
 
-              <p className="mt-6 font-sans text-[1.05rem] leading-[1.75] text-ccjv-ink-secondary max-w-[48ch]">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="texte"
+                className="mt-6 font-sans text-[1.05rem] leading-[1.75] text-ccjv-ink-secondary max-w-[48ch]"
+              >
                 La prière est le souffle qui porte notre assemblée. Chaque intention déposée
                 est confiée aux sentinelles et à l&apos;église pour soutenir les familles,
                 les malades et tous ceux qui traversent une saison d&apos;épreuve.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4">
-                <Button variant="primary" href={site.whatsappHref} external>
+                <Button
+                  variant="primary"
+                  href={site.whatsappHref}
+                  external
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="cta_ecrire"
+                >
                   Nous écrire
                 </Button>
               </div>
@@ -190,7 +273,12 @@ export default async function CommunautePage() {
 
             {/* Photo à droite */}
             <div className="lg:col-span-6 lg:order-2">
-              <div className="relative aspect-[4/3] w-full overflow-hidden border border-ccjv-line bg-ccjv-line">
+              <div
+                data-editable="true"
+                data-editable-type="image"
+                data-field="image"
+                className="relative aspect-[4/3] w-full overflow-hidden border border-ccjv-line bg-ccjv-line"
+              >
                 <Image
                   src="/media/ccjv-09.jpeg"
                   alt="Moments de prière et d'intercession fraternelle"
@@ -206,25 +294,37 @@ export default async function CommunautePage() {
 
       {/* =========================================================================
           04 bis. DÉPÔT D'UNE INTENTION DE PRIÈRE — SECTION AUTONOME
-          Composant partagé `PublicSubmissionForm`, configuration « prière ».
-          La section porte elle-même sa hauteur d'écran et sa composition
-          (introduction à gauche, champs à droite) : elle n'est jamais
-          imbriquée dans une autre section.
           ========================================================================= */}
-      <PrayerRequestForm className="bg-ccjv-line" />
+      <div
+        data-section-id="formulaire_priere"
+        data-section-type="interactive_form"
+        data-variant="prayer"
+        data-editable="false"
+        data-dynamic-source="prayer_requests"
+      >
+        <PrayerRequestForm className="bg-ccjv-line" />
+      </div>
 
       {/* =========================================================================
           05. PARCOURS NOUVEAU : UNE NOUVELLE ÉTAPE OUVERTE ET HUMAINE
           ========================================================================= */}
       <section
         id="parcours-nouveau"
+        data-section-id="parcours_nouveau"
+        data-section-type="welcome_pathway"
+        data-variant="defaut"
         className="border-b border-ccjv-line bg-ccjv-cream px-6 py-20 sm:px-12 lg:px-20 lg:py-28"
         aria-labelledby="parcours-titre"
       >
         <div className="mx-auto max-w-7xl">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
             {/* Diptyque photographique accueillant */}
-            <div className="lg:col-span-6">
+            <div
+              data-editable="true"
+              data-editable-type="image"
+              data-field="photos_duo"
+              className="lg:col-span-6"
+            >
               <PhotoDuo
                 left={{ src: "/media/ccjv-38.jpeg", caption: "L'accueil chaleureux dès l'entrée" }}
                 right={{ src: "/media/ccjv-01.jpeg", caption: "Des visages pour vous guider" }}
@@ -234,28 +334,52 @@ export default async function CommunautePage() {
 
             {/* Narration humaine : invitation sans procédure */}
             <div className="lg:col-span-6">
-              <span className="font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-green uppercase">
+              <span
+                data-editable="true"
+                data-editable-type="text"
+                data-field="surtitre"
+                className="font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-green uppercase"
+              >
                 Vous découvrez CCJV ?
               </span>
 
               <h2
                 id="parcours-titre"
+                data-editable="true"
+                data-editable-type="text"
+                data-field="titre"
                 className="mt-3 font-serif text-[clamp(1.9rem,1.3rem+2vw,3rem)] leading-[1.14] text-ccjv-ink"
               >
                 Une nouvelle étape de votre vie parmi nous.
               </h2>
 
-              <p className="mt-6 font-sans text-[1.05rem] leading-[1.75] text-ccjv-ink-secondary max-w-[48ch]">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="texte"
+                className="mt-6 font-sans text-[1.05rem] leading-[1.75] text-ccjv-ink-secondary max-w-[48ch]"
+              >
                 Que vous franchissiez les portes pour un premier dimanche ou que vous cherchiez un foyer spirituel durable,
                 nous prenons le temps de vous connaître, de répondre à vos questions et de vous entourer avec bienveillance.
               </p>
 
-              <blockquote className="mt-8 font-serif text-[1.1rem] leading-[1.6] text-ccjv-ink">
+              <blockquote
+                data-editable="true"
+                data-editable-type="text"
+                data-field="citation"
+                className="mt-8 font-serif text-[1.1rem] leading-[1.6] text-ccjv-ink"
+              >
                 « Vous n&apos;êtes pas un visiteur de passage, mais un membre attendu de la famille de Dieu. »
               </blockquote>
 
               <div className="mt-8">
-                <Button variant="outline" href="/vie-de-leglise/ou-nous-trouver">
+                <Button
+                  variant="outline"
+                  href="/vie-de-leglise/ou-nous-trouver"
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="cta_visite"
+                >
                   Planifier une visite
                 </Button>
               </div>
@@ -269,6 +393,10 @@ export default async function CommunautePage() {
           ========================================================================= */}
       <section
         id="temoignages"
+        data-section-id="temoignages_communaute"
+        data-section-type="dynamic_testimonies"
+        data-editable="false"
+        data-dynamic-source="testimonies"
         className="border-b border-ccjv-line bg-ccjv-offwhite px-6 py-20 sm:px-12 lg:px-20 lg:py-28"
         aria-labelledby="temoignages-titre"
       >
@@ -341,26 +469,42 @@ export default async function CommunautePage() {
 
       {/* =========================================================================
           06 bis. DÉPÔT D'UN TÉMOIGNAGE — SECTION AUTONOME
-          Même composant partagé, variante « image » : photographie et titre
-          posé en bas à gauche, champs à droite. Aucun paragraphe.
           ========================================================================= */}
-      <PublicTestimonyForm />
+      <div
+        data-section-id="formulaire_temoignage"
+        data-section-type="interactive_form"
+        data-variant="testimony"
+        data-editable="false"
+        data-dynamic-source="testimonies"
+      >
+        <PublicTestimonyForm />
+      </div>
 
       {/* =========================================================================
           07. DEUXIÈME RESPIRATION BIBLIQUE : L'AMOUR FRATERNEL
           ========================================================================= */}
-      <VerseSection
-        text="À ceci tous connaîtront que vous êtes mes disciples, si vous avez de l'amour les uns pour les autres."
-        reference="Jean 13:35"
-        variant="centered"
-        tone="dark"
-      />
+      <div
+        data-section-id="respiration_communaute_2"
+        data-section-type="verse_section"
+        data-editable="false"
+        data-dynamic-source="scriptures:jean13"
+      >
+        <VerseSection
+          text="À ceci tous connaîtront que vous êtes mes disciples, si vous avez de l'amour les uns pour les autres."
+          reference="Jean 13:35"
+          variant="centered"
+          tone="dark"
+        />
+      </div>
 
       {/* =========================================================================
           08. CONCLUSION & INVITATION : TROUVER SA PLACE
           ========================================================================= */}
       <section
         id="rejoindre"
+        data-section-id="rejoindre_communaute"
+        data-section-type="invitation_cta"
+        data-variant="defaut"
         className="px-6 py-20 sm:px-12 lg:px-20 lg:py-28 text-center"
         aria-labelledby="rejoindre-titre"
       >
@@ -369,21 +513,44 @@ export default async function CommunautePage() {
 
           <h2
             id="rejoindre-titre"
+            data-editable="true"
+            data-editable-type="text"
+            data-field="titre"
             className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] leading-[1.14] text-ccjv-ink"
           >
             Et vous, où pourriez-vous trouver votre place ?
           </h2>
 
-          <p className="mt-5 font-sans text-[1.05rem] leading-[1.75] text-ccjv-ink-secondary">
+          <p
+            data-editable="true"
+            data-editable-type="text"
+            data-field="texte"
+            className="mt-5 font-sans text-[1.05rem] leading-[1.75] text-ccjv-ink-secondary"
+          >
             Que ce soit pour un dimanche, pour une prière ou pour vous engager dans la vie de l&apos;église,
             notre communauté vous ouvre grand ses portes.
           </p>
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Button variant="primary" size="lg" href={site.whatsappHref} external>
+            <Button
+              variant="primary"
+              size="lg"
+              href={site.whatsappHref}
+              external
+              data-editable="true"
+              data-editable-type="text"
+              data-field="cta_ecrire"
+            >
               Nous écrire
             </Button>
-            <Button variant="outline" size="lg" href="/organisation">
+            <Button
+              variant="outline"
+              size="lg"
+              href="/organisation"
+              data-editable="true"
+              data-editable-type="text"
+              data-field="cta_departements"
+            >
               Découvrir les départements de service
             </Button>
           </div>

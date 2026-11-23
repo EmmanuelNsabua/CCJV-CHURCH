@@ -45,11 +45,19 @@ export default async function OrganisationPage() {
           ========================================================================= */}
       <section
         data-hero-dark
+        data-section-id="hero_organisation"
+        data-section-type="hero_banner"
+        data-variant="split"
         className="relative flex min-h-[85vh] w-full flex-col justify-between overflow-hidden bg-ccjv-black px-6 pt-32 pb-16 text-white sm:px-12 lg:px-20 lg:pt-36 lg:pb-20"
         aria-label="Organisation du Centre Chrétien Jésus ma Vie"
       >
         {/* Voile texturé en arrière-plan */}
-        <div className="absolute inset-0 z-0">
+        <div
+          data-editable="true"
+          data-editable-type="image"
+          data-field="image_fond"
+          className="absolute inset-0 z-0"
+        >
           <Image
             src={images.assemblee}
             alt="Communauté CCJV à Lubumbashi"
@@ -65,27 +73,54 @@ export default async function OrganisationPage() {
         <div className="relative z-10 mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
           {/* Colonne gauche : Message fort et concis */}
           <div className="lg:col-span-6 xl:col-span-7">
-            <h1 className="font-serif text-[clamp(2.4rem,1.8rem+3.2vw,4.5rem)] leading-[1.08] text-white">
+            <h1
+              data-editable="true"
+              data-editable-type="text"
+              data-field="titre"
+              className="font-serif text-[clamp(2.4rem,1.8rem+3.2vw,4.5rem)] leading-[1.08] text-white"
+            >
               Une communauté portée par ceux qui servent.
             </h1>
 
-            <p className="mt-6 max-w-[46ch] font-sans text-[clamp(1.05rem,0.95rem+0.35vw,1.25rem)] leading-[1.7] text-white/80">
+            <p
+              data-editable="true"
+              data-editable-type="text"
+              data-field="lead"
+              className="mt-6 max-w-[46ch] font-sans text-[clamp(1.05rem,0.95rem+0.35vw,1.25rem)] leading-[1.7] text-white/80"
+            >
               À CCJV, l&apos;organisation est l&apos;expression vivante d&apos;hommes et de femmes
               qui donnent de leur temps, de leurs dons et de leur cœur pour la famille de Dieu.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-4">
-              <Button variant="primary" href="#departements">
+              <Button
+                variant="primary"
+                href="#departements"
+                data-editable="true"
+                data-editable-type="text"
+                data-field="cta_departements"
+              >
                 Nos départements
               </Button>
-              <Button variant="inverse" href="#responsables">
+              <Button
+                variant="inverse"
+                href="#responsables"
+                data-editable="true"
+                data-editable-type="text"
+                data-field="cta_responsables"
+              >
                 Les responsables
               </Button>
             </div>
           </div>
 
           {/* Colonne droite : Composition photographique de personnes EN ACTION */}
-          <div className="lg:col-span-6 xl:col-span-5">
+          <div
+            data-editable="true"
+            data-editable-type="image"
+            data-field="photos_action"
+            className="lg:col-span-6 xl:col-span-5"
+          >
             <div className="grid grid-cols-12 gap-3 sm:gap-4">
               {/* Photo principale : Service & entraide */}
               <div className="relative col-span-7 aspect-[4/5] overflow-hidden border border-white/15 bg-ccjv-line">
@@ -129,18 +164,29 @@ export default async function OrganisationPage() {
       {/* =========================================================================
           02. PREMIÈRE RESPIRATION BIBLIQUE : L'UNITÉ DU CORPS
           ========================================================================= */}
-      <VerseSection
-        text="Car, comme le corps est un et a plusieurs membres, et comme tous les membres du corps, malgré leur nombre, ne forment qu'un seul corps, ainsi en est-il de Christ."
-        reference="1 Corinthiens 12:12"
-        variant="centered"
-        tone="cream"
-      />
+      <div
+        data-section-id="respiration_corps"
+        data-section-type="verse_section"
+        data-editable="false"
+        data-dynamic-source="scriptures:1corinthiens12"
+      >
+        <VerseSection
+          text="Car, comme le corps est un et a plusieurs membres, et comme tous les membres du corps, malgré leur nombre, ne forment qu'un seul corps, ainsi en est-il de Christ."
+          reference="1 Corinthiens 12:12"
+          variant="centered"
+          tone="cream"
+        />
+      </div>
 
       {/* =========================================================================
           03. LES RESPONSABLES : UNE PRÉSENTATION HUMAINE & ÉDITORIALE
           ========================================================================= */}
       <section
         id="responsables"
+        data-section-id="responsables_equipe"
+        data-section-type="dynamic_leaders"
+        data-editable="false"
+        data-dynamic-source="leaders"
         className="border-b border-ccjv-line bg-ccjv-offwhite px-6 py-20 sm:px-12 lg:px-20 lg:py-28"
         aria-labelledby="responsables-titre"
       >
@@ -256,6 +302,9 @@ export default async function OrganisationPage() {
           04. TRANSITION NARRATIVE : UNE SEULE IDÉE FORTE
           ========================================================================= */}
       <section
+        data-section-id="transition_chaire_service"
+        data-section-type="editorial_quote"
+        data-variant="defaut"
         className="border-b border-ccjv-line bg-ccjv-cream px-6 py-16 sm:px-12 lg:px-20 lg:py-24"
         aria-label="De la chaire au service"
       >
@@ -264,17 +313,32 @@ export default async function OrganisationPage() {
             {/* Citation narrative */}
             <div className="lg:col-span-7">
               <CrossMark size="sm" className="mb-4 text-ccjv-green" />
-              <h2 className="font-serif text-[clamp(1.75rem,1.2rem+2vw,2.8rem)] leading-[1.18] text-ccjv-ink">
+              <h2
+                data-editable="true"
+                data-editable-type="text"
+                data-field="citation"
+                className="font-serif text-[clamp(1.75rem,1.2rem+2vw,2.8rem)] leading-[1.18] text-ccjv-ink"
+              >
                 « Une église ne se construit pas seulement depuis une chaire. »
               </h2>
-              <p className="mt-4 font-serif text-xl italic text-ccjv-green">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="sous_titre"
+                className="mt-4 font-serif text-xl italic text-ccjv-green"
+              >
                 Elle grandit lorsque chacun trouve une manière de servir.
               </p>
             </div>
 
             {/* Photographie authentique de la vie fraternelle */}
             <div className="lg:col-span-5">
-              <div className="relative aspect-[4/3] w-full overflow-hidden border border-ccjv-line bg-ccjv-line">
+              <div
+                data-editable="true"
+                data-editable-type="image"
+                data-field="image"
+                className="relative aspect-[4/3] w-full overflow-hidden border border-ccjv-line bg-ccjv-line"
+              >
                 <Image
                   src={images.fraternite || "/media/ccjv-35.jpeg"}
                   alt="Vie fraternelle et accueil à CCJV Lubumbashi"
@@ -293,6 +357,10 @@ export default async function OrganisationPage() {
           ========================================================================= */}
       <section
         id="departements"
+        data-section-id="departements_catalogue"
+        data-section-type="dynamic_departments"
+        data-editable="false"
+        data-dynamic-source="departments"
         className="border-b border-ccjv-line bg-ccjv-offwhite px-6 py-20 sm:px-12 lg:px-20 lg:py-28"
         aria-labelledby="departements-titre"
       >
@@ -321,18 +389,28 @@ export default async function OrganisationPage() {
       {/* =========================================================================
           06. DEUXIÈME RESPIRATION BIBLIQUE : LE DON ET LE SERVICE
           ========================================================================= */}
-      <VerseSection
-        text="Comme de bons dispensateurs des diverses grâces de Dieu, que chacun de vous mette au service des autres le don qu'il a reçu."
-        reference="1 Pierre 4:10"
-        variant="centered"
-        tone="dark"
-      />
+      <div
+        data-section-id="respiration_service"
+        data-section-type="verse_section"
+        data-editable="false"
+        data-dynamic-source="scriptures:1pierre4"
+      >
+        <VerseSection
+          text="Comme de bons dispensateurs des diverses grâces de Dieu, que chacun de vous mette au service des autres le don qu'il a reçu."
+          reference="1 Pierre 4:10"
+          variant="centered"
+          tone="dark"
+        />
+      </div>
 
       {/* =========================================================================
           07. CONCLUSION & APPEL : TROUVER SA PLACE
           ========================================================================= */}
       <section
         id="rejoindre"
+        data-section-id="trouver_sa_place_organisation"
+        data-section-type="invitation_cta"
+        data-variant="defaut"
         className="px-6 py-20 sm:px-12 lg:px-20 lg:py-28 text-center"
         aria-labelledby="rejoindre-titre"
       >
@@ -341,22 +419,45 @@ export default async function OrganisationPage() {
 
           <h2
             id="rejoindre-titre"
+            data-editable="true"
+            data-editable-type="text"
+            data-field="titre"
             className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] leading-[1.14] text-ccjv-ink"
           >
             Et vous, où pourriez-vous trouver votre place ?
           </h2>
 
-          <p className="mt-5 font-sans text-[1.05rem] leading-[1.75] text-ccjv-ink-secondary">
+          <p
+            data-editable="true"
+            data-editable-type="text"
+            data-field="texte"
+            className="mt-5 font-sans text-[1.05rem] leading-[1.75] text-ccjv-ink-secondary"
+          >
             Que ce soit dans l&apos;accueil, la louange, l&apos;encadrement des enfants ou l&apos;aide pratique,
             la porte est ouverte pour cheminer et servir Dieu ensemble.
           </p>
 
           {/* CTAs d'engagement clairs et aérés */}
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Button variant="primary" size="lg" href={site.whatsappHref} external>
+            <Button
+              variant="primary"
+              size="lg"
+              href={site.whatsappHref}
+              external
+              data-editable="true"
+              data-editable-type="text"
+              data-field="cta_ecrire"
+            >
               Nous écrire
             </Button>
-            <Button variant="outline" size="lg" href="/communaute">
+            <Button
+              variant="outline"
+              size="lg"
+              href="/communaute"
+              data-editable="true"
+              data-editable-type="text"
+              data-field="cta_communaute"
+            >
               Découvrir notre communauté
             </Button>
           </div>

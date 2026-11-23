@@ -41,15 +41,31 @@ export async function LegalPage({
 
   return (
     <>
-      <PageHeader
-        overline={overline}
-        title={title}
-        description={description}
-      />
+      <div
+        data-section-id="legal_header"
+        data-section-type="page_header"
+        data-variant="defaut"
+      >
+        <PageHeader
+          overline={overline}
+          title={title}
+          description={description}
+        />
+      </div>
 
       <Section>
-        <div className="mx-auto max-w-[62rem]">
-          <p className="font-sans text-xs font-semibold tracking-[0.14em] text-ccjv-ink-secondary uppercase">
+        <div
+          data-section-id="legal_content"
+          data-section-type="legal_document"
+          data-variant="defaut"
+          className="mx-auto max-w-[62rem]"
+        >
+          <p
+            data-editable="true"
+            data-editable-type="text"
+            data-field="derniere_mise_a_jour"
+            className="font-sans text-xs font-semibold tracking-[0.14em] text-ccjv-ink-secondary uppercase"
+          >
             Dernière mise à jour : {updatedAt}
           </p>
 
@@ -58,14 +74,20 @@ export async function LegalPage({
               <section key={section.title} aria-labelledby={`sec-${index}`}>
                 <h2
                   id={`sec-${index}`}
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field={`section_${index + 1}_titre`}
                   className="font-serif text-[1.35rem] leading-snug"
                 >
                   {section.title}
                 </h2>
                 <div className="mt-4 flex flex-col gap-3">
-                  {section.paragraphs.map((paragraph) => (
+                  {section.paragraphs.map((paragraph, pIdx) => (
                     <p
                       key={paragraph}
+                      data-editable="true"
+                      data-editable-type="text"
+                      data-field={`section_${index + 1}_paragraphe_${pIdx + 1}`}
                       className="max-w-[70ch] text-[1rem] leading-[1.75] text-ccjv-ink-secondary"
                     >
                       {paragraph}
@@ -79,12 +101,19 @@ export async function LegalPage({
       </Section>
 
       {verset && (
-        <VerseSection
-          context="Marcher dans la vérité"
-          text={verset.text}
-          reference={verset.reference}
-          tone="dark"
-        />
+        <div
+          data-section-id="legal_verset"
+          data-section-type="dynamic_scripture"
+          data-editable="false"
+          data-dynamic-source="scriptures:parole"
+        >
+          <VerseSection
+            context="Marcher dans la vérité"
+            text={verset.text}
+            reference={verset.reference}
+            tone="dark"
+          />
+        </div>
       )}
     </>
   );

@@ -1,0 +1,2211 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-11-14T09:55:54.072Z",
+  "meta": {
+    "projectName": "CCJV-CHURCH",
+    "framework": "Next.js 15 App Router / React 19",
+    "styling": "Tailwind CSS v4 (@theme)",
+    "totalPublicPages": 18,
+    "totalDetailTemplates": 6,
+    "rbacTarget": "SUPER_ADMIN"
+  },
+  "pages": [
+    {
+      "route": "/",
+      "file": "frontend/src/app/page.tsx",
+      "title": "Accueil — Centre Chrétien Jésus ma Vie",
+      "sections": [
+        {
+          "id": "hero_banner",
+          "type": "hero_banner",
+          "variant": "photo_slideshow",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Une église vivante au cœur de Lubumbashi."
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Le Centre Chrétien Jésus ma Vie est une communauté de croyants engagée dans la prière, l'enseignement biblique et la communion fraternelle."
+            },
+            {
+              "field": "cta_visite",
+              "type": "text",
+              "defaultValue": "Planifier ma visite"
+            },
+            {
+              "field": "cta_horaires",
+              "type": "text",
+              "defaultValue": "Voir les horaires"
+            },
+            {
+              "field": "image_slideshow",
+              "type": "image",
+              "defaultValue": "/hero-desktop.jpg"
+            }
+          ]
+        },
+        {
+          "id": "parole_du_jour",
+          "type": "verse_callout",
+          "variant": "sombre",
+          "editable": false,
+          "dynamicSource": "scriptures:parole"
+        },
+        {
+          "id": "mot_du_pasteur",
+          "type": "pastor_greeting",
+          "variant": "split_photo_text",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Mot de bienvenue"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Une porte ouverte à tous, une foi enracinée en Christ."
+            },
+            {
+              "field": "citation_citation",
+              "type": "text",
+              "defaultValue": "« Nous croyons que chaque personne a du prix aux yeux de Dieu... »"
+            },
+            {
+              "field": "signature_nom",
+              "type": "text",
+              "defaultValue": "Pasteur Titulaire"
+            },
+            {
+              "field": "signature_fonction",
+              "type": "text",
+              "defaultValue": "Centre Chrétien Jésus ma Vie"
+            },
+            {
+              "field": "photo_pasteur",
+              "type": "image",
+              "defaultValue": "/media/ccjv-06.jpeg"
+            }
+          ]
+        },
+        {
+          "id": "ecodim_passerelle",
+          "type": "department_spotlight",
+          "variant": "carte_contrastée",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "L'Église des enfants"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "L'Ecodim : grandir dans la foi dès le plus jeune âge."
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Un cadre sécurisé, joyeux et pédagogique où vos enfants découvrent l'amour de Dieu à travers des chants, des histoires bibliques et des ateliers adaptés."
+            },
+            {
+              "field": "cta_label",
+              "type": "text",
+              "defaultValue": "Découvrir l'Ecodim"
+            },
+            {
+              "field": "image_ecodim",
+              "type": "image",
+              "defaultValue": "/media/ccjv-13.jpeg"
+            }
+          ]
+        },
+        {
+          "id": "departements_service",
+          "type": "departments_grid",
+          "variant": "grille_interactive",
+          "editable": false,
+          "dynamicSource": "departments:all"
+        },
+        {
+          "id": "agenda_evenements",
+          "type": "events_preview",
+          "variant": "liste_chronologique",
+          "editable": false,
+          "dynamicSource": "events:upcoming"
+        },
+        {
+          "id": "rythme_semaine",
+          "type": "schedule_grid",
+          "variant": "cartes_horaires",
+          "editable": false,
+          "dynamicSource": "schedule:all"
+        },
+        {
+          "id": "dernier_enseignement",
+          "type": "latest_teaching",
+          "variant": "media_player_card",
+          "editable": false,
+          "dynamicSource": "teachings:latest"
+        },
+        {
+          "id": "priere_accueil",
+          "type": "prayer_invitation",
+          "variant": "fond_sobre_centre",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Intercession & Foi"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Avez-vous un sujet de prière ?"
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Notre équipe pastorale et nos intercesseurs portent vos requêtes dans la discrétion et la fidélité devant Dieu."
+            },
+            {
+              "field": "cta_label",
+              "type": "text",
+              "defaultValue": "Déposer une intention de prière"
+            }
+          ]
+        },
+        {
+          "id": "soutenir_oeuvre",
+          "type": "donation_banner",
+          "variant": "carte_appel",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Générosité & Mission"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Soutenir l'œuvre de Dieu à Lubumbashi."
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Vos dîmes et offrandes permettent d'annoncer l'Évangile, d'entretenir la maison de Dieu et d'exercer la compassion envers les plus démunis."
+            },
+            {
+              "field": "cta_label",
+              "type": "text",
+              "defaultValue": "Faire un don en ligne"
+            }
+          ]
+        },
+        {
+          "id": "envoi_final",
+          "type": "closing_verse",
+          "variant": "verset_sombre",
+          "editable": false,
+          "dynamicSource": "scriptures:envoi"
+        }
+      ]
+    },
+    {
+      "route": "/qui-sommes-nous",
+      "file": "frontend/src/app/qui-sommes-nous/page.tsx",
+      "title": "Qui sommes-nous — Centre Chrétien Jésus ma Vie",
+      "sections": [
+        {
+          "id": "hero_qui_sommes_nous",
+          "type": "hero_banner",
+          "variant": "photo_split",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Notre identité & notre histoire"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Une communauté fondée sur la grâce, tournée vers la ville."
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Depuis sa fondation, le Centre Chrétien Jésus ma Vie s'attache à proclamer l'Évangile sans compromis, à former des disciples authentiques et à manifester la compassion du Christ dans la ville de Lubumbashi."
+            },
+            {
+              "field": "hero_photo",
+              "type": "image",
+              "defaultValue": "/media/ccjv-06.jpeg"
+            }
+          ]
+        },
+        {
+          "id": "vision_pasteur",
+          "type": "editorial_vision",
+          "variant": "citation_pleine_largeur",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Le cœur du ministère"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "« Nous ne bâtissons pas un édifice de pierre, mais une famille d'âmes transformées. »"
+            },
+            {
+              "field": "description",
+              "type": "text",
+              "defaultValue": "Au Centre Chrétien Jésus ma Vie, l'accent est mis sur la transformation du cœur par l'Évangile, l'écoute docile de l'Écriture et l'amour fraternel vécu en actes."
+            }
+          ]
+        },
+        {
+          "id": "naissance_eglise",
+          "type": "story_section",
+          "variant": "texte_avec_galerie",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Les origines"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "De modestes débuts à une œuvre rayonnante."
+            },
+            {
+              "field": "paragraphe_1",
+              "type": "text",
+              "defaultValue": "C'est dans l'obéissance à un appel divin clair et pressant que les premiers rassemblements ont vu le jour..."
+            },
+            {
+              "field": "paragraphe_2",
+              "type": "text",
+              "defaultValue": "Par la fidélité de Dieu et la générosité des premiers fidèles, l'église a franchi chaque étape..."
+            }
+          ]
+        },
+        {
+          "id": "respiration_biblique_1",
+          "type": "verse_callout",
+          "variant": "centre",
+          "editable": true,
+          "fields": [
+            {
+              "field": "texte",
+              "type": "text",
+              "defaultValue": "« C'est pourquoi, quiconque entend ces paroles que je dis et les met en pratique, sera semblable à un homme prudent qui a bâti sa maison sur le roc. »"
+            },
+            {
+              "field": "reference",
+              "type": "text",
+              "defaultValue": "Matthieu 7:24"
+            }
+          ]
+        },
+        {
+          "id": "histoire_jalons",
+          "type": "timeline_milestones",
+          "variant": "frise_chronologique",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Les grandes étapes de notre marche commune"
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Une rétrospective reconnaissante des temps forts par lesquels le Seigneur a conduit son assemblée."
+            }
+          ]
+        },
+        {
+          "id": "transition_communaute",
+          "type": "bridge_statement",
+          "variant": "pleine_largeur",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Une foi vivante qui s'exprime dans la communion et le service."
+            }
+          ]
+        },
+        {
+          "id": "convictions_intro",
+          "type": "doctrine_header",
+          "variant": "titre_introductif",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Nos convictions"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Ce que nous croyons, proclamons et vivons."
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Nos convictions doctrinales sont fermement ancrées dans la Parole inerrante de Dieu."
+            }
+          ]
+        },
+        {
+          "id": "piliers_foi",
+          "type": "pillars_grid",
+          "variant": "grille_trois_colonnes",
+          "editable": true,
+          "fields": [
+            {
+              "field": "pilier_1_titre",
+              "type": "text",
+              "defaultValue": "L'autorité souveraine des Écritures"
+            },
+            {
+              "field": "pilier_1_description",
+              "type": "text",
+              "defaultValue": "La Bible est la Parole inspirée de Dieu, règle suprême et infaillible de notre foi."
+            },
+            {
+              "field": "pilier_2_titre",
+              "type": "text",
+              "defaultValue": "Le salut par grâce par le moyen de la foi"
+            },
+            {
+              "field": "pilier_2_description",
+              "type": "text",
+              "defaultValue": "L'homme pécheur est justifié gratuitement par le sang expiatoire de Jésus-Christ."
+            },
+            {
+              "field": "pilier_3_titre",
+              "type": "text",
+              "defaultValue": "La puissance agissante du Saint-Esprit"
+            },
+            {
+              "field": "pilier_3_description",
+              "type": "text",
+              "defaultValue": "L'Esprit de Dieu régénère, habite, sanctifie et équipe chaque chrétien pour le service."
+            }
+          ]
+        },
+        {
+          "id": "triptyque_hebdomadaire",
+          "type": "weekly_worship_summary",
+          "variant": "cartes_triptyque",
+          "editable": false,
+          "dynamicSource": "schedule:summary"
+        },
+        {
+          "id": "respiration_biblique_2",
+          "type": "verse_callout",
+          "variant": "photos_laterales",
+          "editable": true,
+          "fields": [
+            {
+              "field": "texte",
+              "type": "text",
+              "defaultValue": "« Mais vous recevrez une puissance, le Saint-Esprit survenant sur vous, et vous serez mes témoins... jusqu'aux extrémités de la terre. »"
+            },
+            {
+              "field": "reference",
+              "type": "text",
+              "defaultValue": "Actes 1:8"
+            }
+          ]
+        },
+        {
+          "id": "ccjv_aujourdhui",
+          "type": "current_reality",
+          "variant": "chiffres_et_temoignage",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Le CCJV aujourd'hui"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Une famille unie pour la gloire de Dieu à Lubumbashi."
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Plus qu'une assemblée dominicale, nous sommes un corps en mouvement."
+            }
+          ]
+        },
+        {
+          "id": "respiration_finale",
+          "type": "verse_callout",
+          "variant": "centre",
+          "editable": true,
+          "fields": [
+            {
+              "field": "texte",
+              "type": "text",
+              "defaultValue": "« À celui qui peut faire, par la puissance qui agit en nous, infiniment au-delà de tout ce que nous demandons ou pensons... à lui soit la gloire dans l'Église ! »"
+            },
+            {
+              "field": "reference",
+              "type": "text",
+              "defaultValue": "Éphésiens 3:20-21"
+            }
+          ]
+        },
+        {
+          "id": "appel_chaleureux",
+          "type": "cta_banner",
+          "variant": "accueil_visiteur",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Vous cherchez une communauté où grandir spirituellement ?"
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Nos portes, nos cœurs et nos bras vous sont ouverts. Venez vivre la communion fraternelle avec nous ce dimanche."
+            },
+            {
+              "field": "cta_visite",
+              "type": "text",
+              "defaultValue": "Planifier ma visite"
+            },
+            {
+              "field": "cta_communaute",
+              "type": "text",
+              "defaultValue": "Découvrir la vie communautaire"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "route": "/communaute",
+      "file": "frontend/src/app/communaute/page.tsx",
+      "title": "Communauté & Intercession — CCJV",
+      "sections": [
+        {
+          "id": "hero_communaute",
+          "type": "hero_banner",
+          "variant": "split_texte_photos",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Vie fraternelle & intercession"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Une communauté qui prie, partage et marche unie."
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Parce que la vie en Christ n'a jamais été conçue pour être vécue dans l'isolement, nous partageons nos joies, nos fardeaux et notre espérance d'un même cœur."
+            }
+          ]
+        },
+        {
+          "id": "fraternite_accueil",
+          "type": "editorial_statement",
+          "variant": "centre",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "L'amour fraternel comme premier témoignage de notre foi."
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Au Centre Chrétien Jésus ma Vie, chaque membre trouve une oreille attentive, des frères et sœurs pour prier avec lui, et un cadre bienveillant pour affermir sa marche."
+            }
+          ]
+        },
+        {
+          "id": "respiration_communaute_1",
+          "type": "verse_callout",
+          "variant": "centre",
+          "editable": true,
+          "fields": [
+            {
+              "field": "texte",
+              "type": "text",
+              "defaultValue": "« Voici, oh ! qu'il est agréable, qu'il est doux pour des frères de demeurer ensemble ! C'est là que l'Éternel envoie la bénédiction, la vie, pour l'éternité. »"
+            },
+            {
+              "field": "reference",
+              "type": "text",
+              "defaultValue": "Psaume 133:1,3"
+            }
+          ]
+        },
+        {
+          "id": "intercession_communaute",
+          "type": "prayer_section_header",
+          "variant": "defaut",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Porter les fardeaux les uns des autres"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Une chaîne de prière continue et discrète."
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Que vous traversiez une épreuve, une maladie, un combat spirituel ou que vous souhaitiez rendre grâce, déposez votre requête. L'équipe d'intercession priera fidèlement pour vous."
+            }
+          ]
+        },
+        {
+          "id": "formulaire_priere",
+          "type": "prayer_form",
+          "variant": "chiffrement_confidentialite",
+          "editable": false,
+          "dynamicSource": "system:prayer_requests"
+        },
+        {
+          "id": "parcours_nouveau",
+          "type": "newcomer_steps",
+          "variant": "etapes_successives",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Nouveau parmi nous ? Voici comment vous intégrer sereinement."
+            },
+            {
+              "field": "etape_1_titre",
+              "type": "text",
+              "defaultValue": "Participer au culte dominical"
+            },
+            {
+              "field": "etape_1_description",
+              "type": "text",
+              "defaultValue": "Venez vivre la célébration, recevez un accueil personnalisé à la fin du culte."
+            },
+            {
+              "field": "etape_2_titre",
+              "type": "text",
+              "defaultValue": "Rejoindre une cellule de maison"
+            },
+            {
+              "field": "etape_2_description",
+              "type": "text",
+              "defaultValue": "Participez aux réunions de prière et d'étude biblique de proximité."
+            },
+            {
+              "field": "etape_3_titre",
+              "type": "text",
+              "defaultValue": "Découvrir ses dons spirituels"
+            },
+            {
+              "field": "etape_3_description",
+              "type": "text",
+              "defaultValue": "Intégrez un département de service (accueil, chorale, ecodim, protocole)."
+            }
+          ]
+        },
+        {
+          "id": "temoignages_communaute",
+          "type": "testimonies_feed",
+          "variant": "grille_cartes",
+          "editable": false,
+          "dynamicSource": "testimonies:approved"
+        },
+        {
+          "id": "formulaire_temoignage",
+          "type": "testimony_form",
+          "variant": "depot_public",
+          "editable": false,
+          "dynamicSource": "system:testimonies"
+        },
+        {
+          "id": "respiration_communaute_2",
+          "type": "verse_callout",
+          "variant": "sombre",
+          "editable": true,
+          "fields": [
+            {
+              "field": "texte",
+              "type": "text",
+              "defaultValue": "« Portez les fardeaux les uns des autres, et vous accomplirez ainsi la loi de Christ. »"
+            },
+            {
+              "field": "reference",
+              "type": "text",
+              "defaultValue": "Galates 6:2"
+            }
+          ]
+        },
+        {
+          "id": "rejoindre_communaute",
+          "type": "community_callout",
+          "variant": "defaut",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Prenez part à la vie de notre assemblée"
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Il y a une place pour chacun au Centre Chrétien Jésus ma Vie. Rejoignez une famille chaleureuse et solidaire."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "route": "/ecodim",
+      "file": "frontend/src/app/ecodim/page.tsx",
+      "title": "Ecodim — École du Dimanche CCJV",
+      "sections": [
+        {
+          "id": "hero_ecodim",
+          "type": "hero_banner",
+          "variant": "photo_chaleureuse",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Ministère des enfants (Ecodim)"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Bâtir la foi des enfants, dès leurs premiers pas."
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "L'École du Dimanche du CCJV accueille chaque semaine les enfants de 2 à 14 ans dans un univers chaleureux, sécurisé et stimulant pour découvrir l'Évangile."
+            },
+            {
+              "field": "cta_horaires",
+              "type": "text",
+              "defaultValue": "Horaires : Dimanche 08h30 - 11h30"
+            },
+            {
+              "field": "image_hero",
+              "type": "image",
+              "defaultValue": "/media/ccjv-13.jpeg"
+            }
+          ]
+        },
+        {
+          "id": "pedagogie_ecodim",
+          "type": "pedagogy_principles",
+          "variant": "trois_piliers",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Notre approche pédagogique"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Apprendre, chanter et grandir dans l'amour du Seigneur."
+            },
+            {
+              "field": "pilier_1_titre",
+              "type": "text",
+              "defaultValue": "Enseignement biblique adapté"
+            },
+            {
+              "field": "pilier_1_description",
+              "type": "text",
+              "defaultValue": "Des récits bibliques illustrés, fidèles et captivants pour chaque tranche d'âge."
+            },
+            {
+              "field": "pilier_2_titre",
+              "type": "text",
+              "defaultValue": "Louange & Créativité"
+            },
+            {
+              "field": "pilier_2_description",
+              "type": "text",
+              "defaultValue": "Chants dynamiques, chorégraphies, mémorisation de versets et bricolages manuels."
+            },
+            {
+              "field": "pilier_3_titre",
+              "type": "text",
+              "defaultValue": "Cadre sécurisé et bienveillant"
+            },
+            {
+              "field": "pilier_3_description",
+              "type": "text",
+              "defaultValue": "Des monitrices et moniteurs dévoués, formés et attentifs à l'épanouissement de chaque enfant."
+            }
+          ]
+        },
+        {
+          "id": "vie_ecodim_triptyque",
+          "type": "ecodim_experience",
+          "variant": "galerie_moments",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Un dimanche matin avec nous"
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Pendant que les parents participent au culte principal, les enfants vivent leur propre culte adapté."
+            }
+          ]
+        },
+        {
+          "id": "classes_ecodim",
+          "type": "classes_breakdown",
+          "variant": "groupes_d_age",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Les classes réparties par tranche d'âge"
+            },
+            {
+              "field": "classe_1_titre",
+              "type": "text",
+              "defaultValue": "Petite Enfance (2 à 5 ans)"
+            },
+            {
+              "field": "classe_2_titre",
+              "type": "text",
+              "defaultValue": "Moyens (6 à 9 ans)"
+            },
+            {
+              "field": "classe_3_titre",
+              "type": "text",
+              "defaultValue": "Grands & Cadets (10 à 14 ans)"
+            }
+          ]
+        },
+        {
+          "id": "temoignages_ecodim",
+          "type": "parent_testimonies",
+          "variant": "citations_parents",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Ce que disent les parents et les moniteurs"
+            }
+          ]
+        },
+        {
+          "id": "enseignements_ecodim",
+          "type": "dynamic_teachings",
+          "variant": "filtre_ecodim",
+          "editable": false,
+          "dynamicSource": "teachings:ecodim"
+        },
+        {
+          "id": "publications_ecodim",
+          "type": "dynamic_publications",
+          "variant": "actualites_enfants",
+          "editable": false,
+          "dynamicSource": "publications:ecodim"
+        },
+        {
+          "id": "evenements_ecodim",
+          "type": "dynamic_events",
+          "variant": "agenda_enfants",
+          "editable": false,
+          "dynamicSource": "events:ecodim"
+        },
+        {
+          "id": "guide_familles_ecodim",
+          "type": "family_guide_cta",
+          "variant": "fiche_pratique",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Préparez la venue de vos enfants ce dimanche"
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "L'accueil débute dès 08h15 au temple principal. Nos équipes vous guident jusqu'aux salles de l'Ecodim."
+            },
+            {
+              "field": "cta_contact",
+              "type": "text",
+              "defaultValue": "Contacter le responsable Ecodim"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "route": "/organisation",
+      "file": "frontend/src/app/organisation/page.tsx",
+      "title": "Organisation & Départements — CCJV",
+      "sections": [
+        {
+          "id": "hero_organisation",
+          "type": "hero_banner",
+          "variant": "entete_institutionnel",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Organisation & Ministères"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Un seul corps, plusieurs membres, au service du même Seigneur."
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "L'organisation du Centre Chrétien Jésus ma Vie reflète le principe biblique de la complémentarité des ministères et du sacerdoce de chaque croyant."
+            }
+          ]
+        },
+        {
+          "id": "respiration_corps",
+          "type": "verse_callout",
+          "variant": "centre",
+          "editable": true,
+          "fields": [
+            {
+              "field": "texte",
+              "type": "text",
+              "defaultValue": "« Comme le corps est un et a plusieurs membres, et comme tous les membres du corps, malgré leur nombre, ne forment qu'un seul corps, ainsi en est-il de Christ. »"
+            },
+            {
+              "field": "reference",
+              "type": "text",
+              "defaultValue": "1 Corinthiens 12:12"
+            }
+          ]
+        },
+        {
+          "id": "responsables_equipe",
+          "type": "leaders_grid",
+          "variant": "fiches_pastorales",
+          "editable": false,
+          "dynamicSource": "leaders:all"
+        },
+        {
+          "id": "transition_chaire_service",
+          "type": "transition_quote",
+          "variant": "pleine_largeur",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "De la vision pastorale aux ministères de terrain."
+            }
+          ]
+        },
+        {
+          "id": "departements_catalogue",
+          "type": "departments_catalog",
+          "variant": "catalogue_complet",
+          "editable": false,
+          "dynamicSource": "departments:all"
+        },
+        {
+          "id": "respiration_service",
+          "type": "verse_callout",
+          "variant": "sombre",
+          "editable": true,
+          "fields": [
+            {
+              "field": "texte",
+              "type": "text",
+              "defaultValue": "« Que chacun de vous mette au service des autres le don qu'il a reçu, comme de bons dispensateurs des diverses grâces de Dieu. »"
+            },
+            {
+              "field": "reference",
+              "type": "text",
+              "defaultValue": "1 Pierre 4:10"
+            }
+          ]
+        },
+        {
+          "id": "trouver_sa_place_organisation",
+          "type": "volunteer_invitation",
+          "variant": "appel_service",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Vous souhaitez servir dans un ministère ?"
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Chaque talent a de la valeur pour l'édification de l'assemblée. Découvrez où Dieu vous appelle à servir."
+            },
+            {
+              "field": "cta_rejoindre",
+              "type": "text",
+              "defaultValue": "Faire une demande de service"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "route": "/vie-de-leglise/ou-nous-trouver",
+      "file": "frontend/src/app/vie-de-leglise/ou-nous-trouver/page.tsx",
+      "title": "Où nous trouver & Horaires — CCJV",
+      "sections": [
+        {
+          "id": "hero_ou_nous_trouver",
+          "type": "hero_banner",
+          "variant": "pratique_acces",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Informations pratiques & Accès"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Venir au Centre Chrétien Jésus ma Vie."
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Retrouvez toutes les coordonnées utiles pour nous rejoindre à Lubumbashi, nos horaires de cultes dominicaux et nos rendez-vous de semaine."
+            }
+          ]
+        },
+        {
+          "id": "quand_et_ou",
+          "type": "worship_schedule_and_location",
+          "variant": "colonnes_horaires_adresse",
+          "editable": true,
+          "fields": [
+            {
+              "field": "culte_titre",
+              "type": "text",
+              "defaultValue": "Culte dominical principal"
+            },
+            {
+              "field": "culte_horaires",
+              "type": "text",
+              "defaultValue": "Chaque dimanche de 08h30 à 11h30"
+            },
+            {
+              "field": "ecodim_horaires",
+              "type": "text",
+              "defaultValue": "Ecodim (enfants) en simultané : 08h30 à 11h30"
+            },
+            {
+              "field": "adresse_label",
+              "type": "text",
+              "defaultValue": "Adresse du temple"
+            },
+            {
+              "field": "adresse_texte",
+              "type": "text",
+              "defaultValue": "Lubumbashi, Haut-Katanga, République Démocratique du Congo."
+            }
+          ]
+        },
+        {
+          "id": "respiration_visite",
+          "type": "verse_callout",
+          "variant": "centre",
+          "editable": true,
+          "fields": [
+            {
+              "field": "texte",
+              "type": "text",
+              "defaultValue": "« Je suis dans la joie quand on me dit : Allons à la maison de l'Éternel ! »"
+            },
+            {
+              "field": "reference",
+              "type": "text",
+              "defaultValue": "Psaume 122:1"
+            }
+          ]
+        },
+        {
+          "id": "premiere_visite_reperes",
+          "type": "visitor_tips",
+          "variant": "conseils_pratiques",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Votre première visite parmi nous : que faut-il savoir ?"
+            },
+            {
+              "field": "conseil_1_titre",
+              "type": "text",
+              "defaultValue": "Arriver en toute sérénité"
+            },
+            {
+              "field": "conseil_1_texte",
+              "type": "text",
+              "defaultValue": "Prévoyez d'arriver 15 minutes avant le début du culte pour trouver facilement une place et vous installer confortablement."
+            },
+            {
+              "field": "conseil_2_titre",
+              "type": "text",
+              "defaultValue": "Accueil des enfants"
+            },
+            {
+              "field": "conseil_2_texte",
+              "type": "text",
+              "defaultValue": "Les moniteurs de l'Ecodim accueillent vos enfants à l'entrée et vous guident vers les salles adaptées."
+            }
+          ]
+        },
+        {
+          "id": "accueil_chaleureux_visite",
+          "type": "welcome_cta",
+          "variant": "defaut",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Une équipe d'accueil dédiée pour vous orienter"
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Dès votre arrivée sur le site, nos équipes du protocole sont à votre disposition pour répondre à vos questions."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "route": "/vie-de-leglise/faire-un-don",
+      "file": "frontend/src/app/vie-de-leglise/faire-un-don/page.tsx",
+      "title": "Faire un don & Soutenir l'œuvre — CCJV",
+      "sections": [
+        {
+          "id": "hero_faire_un_don",
+          "type": "hero_banner",
+          "variant": "don_generosite",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Générosité & Partenariat dans l'Évangile"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Participer à l'avancement du Royaume de Dieu."
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Chaque don, qu'il s'agisse d'une dîme, d'une offrande volontaire ou d'un soutien ciblé, contribue activement à la proclamation de l'Évangile et aux actions de compassion."
+            }
+          ]
+        },
+        {
+          "id": "pourquoi_donner",
+          "type": "biblical_giving_vision",
+          "variant": "piliers_spirituels",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Le sens biblique de la générosité chrétienne"
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Donner n'est pas une obligation pesante, mais une réponse reconnaissante à la grâce immense reçue en Jésus-Christ."
+            }
+          ]
+        },
+        {
+          "id": "chemin_du_geste",
+          "type": "giving_process",
+          "variant": "etapes_don",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Comment vos dons sont utilisés avec rigueur"
+            }
+          ]
+        },
+        {
+          "id": "domaines_impact",
+          "type": "impact_areas",
+          "variant": "cartes_impact",
+          "editable": true,
+          "fields": [
+            {
+              "field": "domaine_1_titre",
+              "type": "text",
+              "defaultValue": "Le culte et le ministère de la Parole"
+            },
+            {
+              "field": "domaine_2_titre",
+              "type": "text",
+              "defaultValue": "La formation de la jeunesse & Ecodim"
+            },
+            {
+              "field": "domaine_3_titre",
+              "type": "text",
+              "defaultValue": "L'entraide et les œuvres sociales"
+            }
+          ]
+        },
+        {
+          "id": "respiration_don",
+          "type": "verse_callout",
+          "variant": "centre",
+          "editable": true,
+          "fields": [
+            {
+              "field": "texte",
+              "type": "text",
+              "defaultValue": "« Que chacun donne comme il l'a résolu en son cœur, sans tristesse ni contrainte ; car Dieu aime celui qui donne avec joie. »"
+            },
+            {
+              "field": "reference",
+              "type": "text",
+              "defaultValue": "2 Corinthiens 9:7"
+            }
+          ]
+        },
+        {
+          "id": "donner_est_un_choix",
+          "type": "giving_transparency",
+          "variant": "engagements_gestion",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Une gestion transparente et consacrée"
+            }
+          ]
+        },
+        {
+          "id": "comment_contribuer",
+          "type": "payment_methods",
+          "variant": "canaux_paiement",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Les moyens pratiques pour contribuer"
+            },
+            {
+              "field": "canal_1_titre",
+              "type": "text",
+              "defaultValue": "Mobile Money (Airtel, M-Pesa, Orange)"
+            },
+            {
+              "field": "canal_2_titre",
+              "type": "text",
+              "defaultValue": "Virement bancaire"
+            },
+            {
+              "field": "canal_3_titre",
+              "type": "text",
+              "defaultValue": "Enveloppes lors des cultes"
+            }
+          ]
+        },
+        {
+          "id": "prendre_part_oeuvre",
+          "type": "commitment_call",
+          "variant": "defaut",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Devenir partenaire régulier de la mission"
+            }
+          ]
+        },
+        {
+          "id": "decouverte_liens",
+          "type": "cross_links",
+          "variant": "liens_rapides",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "En savoir plus sur nos engagements"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "route": "/vie-de-leglise/evenements",
+      "file": "frontend/src/app/vie-de-leglise/evenements/page.tsx",
+      "title": "Événements & Agenda — CCJV",
+      "sections": [
+        {
+          "id": "hero_evenements",
+          "type": "hero_banner",
+          "variant": "split_gallery",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Des temps pour se retrouver, célébrer, apprendre et grandir ensemble."
+            }
+          ]
+        },
+        {
+          "id": "respiration_evenements_1",
+          "type": "verse_callout",
+          "variant": "centre",
+          "editable": true,
+          "fields": [
+            {
+              "field": "texte",
+              "type": "text",
+              "defaultValue": "« Car là où deux ou trois sont assemblés en mon nom, je suis au milieu d'eux. »"
+            },
+            {
+              "field": "reference",
+              "type": "text",
+              "defaultValue": "Matthieu 18:20"
+            }
+          ]
+        },
+        {
+          "id": "prochain_rendez_vous",
+          "type": "dynamic_featured_event",
+          "variant": "affiche_numerique",
+          "editable": false,
+          "dynamicSource": "events:lead"
+        },
+        {
+          "id": "calendrier_a_venir",
+          "type": "dynamic_events_list",
+          "variant": "liste_chronologique",
+          "editable": false,
+          "dynamicSource": "events:upcoming"
+        },
+        {
+          "id": "experience_poles",
+          "type": "features_list",
+          "variant": "cards_4",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Ce que vous pouvez vivre ici."
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Chaque événement répond à une dimension de notre marche avec Dieu."
+            },
+            {
+              "field": "pole_1_image",
+              "type": "image",
+              "defaultValue": "/media/ccjv-08.jpeg"
+            },
+            {
+              "field": "pole_1_tag",
+              "type": "text",
+              "defaultValue": "CÉLÉBRER"
+            },
+            {
+              "field": "pole_1_titre",
+              "type": "text",
+              "defaultValue": "Louange & Adoration"
+            },
+            {
+              "field": "pole_1_description",
+              "type": "text",
+              "defaultValue": "Des temps où toute l'assemblée s'unit pour célébrer la fidélité de Dieu."
+            },
+            {
+              "field": "pole_1_cta",
+              "type": "text",
+              "defaultValue": "Participer au culte →"
+            }
+          ]
+        },
+        {
+          "id": "rythme_hebdomadaire_evenements",
+          "type": "dynamic_schedule",
+          "variant": "grille_semaine",
+          "editable": false,
+          "dynamicSource": "schedule:all"
+        },
+        {
+          "id": "appel_communion_photo",
+          "type": "fullwidth_callout",
+          "variant": "sombre",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "« Nous ne nous réunissons pas seulement pour assister à quelque chose. Nous nous réunissons pour être ensemble. »"
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Chaque dimanche, chaque répétition, chaque temps de prière est une occasion de vivre l'amour fraternel."
+            },
+            {
+              "field": "cta_label",
+              "type": "text",
+              "defaultValue": "Découvrir notre histoire & notre foi →"
+            },
+            {
+              "field": "image_fond",
+              "type": "image",
+              "defaultValue": "/media/ccjv-01.jpeg"
+            }
+          ]
+        },
+        {
+          "id": "ministeres_evenements",
+          "type": "dynamic_departments",
+          "variant": "catalogue_departements",
+          "editable": false,
+          "dynamicSource": "departments:all"
+        },
+        {
+          "id": "archives_evenements",
+          "type": "dynamic_events_archive",
+          "variant": "galerie_archives",
+          "editable": false,
+          "dynamicSource": "events:archived"
+        },
+        {
+          "id": "respiration_evenements_2",
+          "type": "verse_callout",
+          "variant": "photos_laterales",
+          "editable": true,
+          "fields": [
+            {
+              "field": "texte",
+              "type": "text",
+              "defaultValue": "« Veillons les uns sur les autres pour nous exciter à l'amour et aux bonnes œuvres... »"
+            },
+            {
+              "field": "reference",
+              "type": "text",
+              "defaultValue": "Hébreux 10:24-25"
+            }
+          ]
+        },
+        {
+          "id": "appel_final_evenements",
+          "type": "cta_banner",
+          "variant": "defaut",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Quel sera votre prochain rendez-vous avec nous ?"
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Que ce soit pour un dimanche de célébration, une rencontre en semaine ou simplement pour faire vos premiers pas, nos portes vous sont grandes ouvertes."
+            },
+            {
+              "field": "cta_visite",
+              "type": "text",
+              "defaultValue": "Planifier ma visite"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "route": "/publications/actualites",
+      "file": "frontend/src/features/actualites/ActualitesView.tsx",
+      "title": "Actualités — CCJV",
+      "sections": [
+        {
+          "id": "hero_actualites",
+          "type": "hero_banner",
+          "variant": "photo_overlay",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Actualités"
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Suivez nos actualités quotidiennes au Centre Chrétien Jésus ma Vie."
+            },
+            {
+              "field": "image_fond",
+              "type": "image",
+              "defaultValue": "/hero-publications.jpg"
+            }
+          ]
+        },
+        {
+          "id": "actualites_a_la_une",
+          "type": "dynamic_featured_news",
+          "variant": "slider_60_40_alterne",
+          "editable": false,
+          "dynamicSource": "publications:featured"
+        },
+        {
+          "id": "actualites_grille",
+          "type": "dynamic_news_grid",
+          "variant": "grille_3xX_filtree",
+          "editable": false,
+          "dynamicSource": "publications:archive"
+        },
+        {
+          "id": "actualites_evenements",
+          "type": "dynamic_events",
+          "variant": "prochains_evenements_3",
+          "editable": false,
+          "dynamicSource": "events:upcoming"
+        }
+      ]
+    },
+    {
+      "route": "/publications/mediatheque",
+      "file": "frontend/src/app/publications/mediatheque/page.tsx",
+      "title": "Médiathèque — CCJV",
+      "sections": [
+        {
+          "id": "mediatheque_header",
+          "type": "page_header",
+          "variant": "compact_sombre",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "PUBLICATIONS & MÉDIAS"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Médiathèque"
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Parcourez les photos et les vidéos de la vie de la communauté : cultes, célébrations, rencontres et temps de service."
+            }
+          ]
+        },
+        {
+          "id": "mediatheque_catalogue",
+          "type": "media_catalog",
+          "variant": "grille_avec_visionneuse_plein_ecran",
+          "editable": false,
+          "dynamicSource": "media:catalogue"
+        }
+      ]
+    },
+    {
+      "route": "/publications/enseignements",
+      "file": "frontend/src/app/publications/enseignements/page.tsx",
+      "title": "Enseignements & Prédications — CCJV",
+      "sections": [
+        {
+          "id": "hero_enseignements",
+          "type": "hero_banner",
+          "variant": "predication_fond",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Parole & Doctrine"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "La Parole de Dieu, prêchée et vécue."
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Écoutez, réécoutez et méditez les messages apportés lors de nos cultes dominicaux et séminaires."
+            }
+          ]
+        },
+        {
+          "id": "enseignement_a_la_une",
+          "type": "featured_teaching",
+          "variant": "carte_video_principale",
+          "editable": false,
+          "dynamicSource": "teachings:latest"
+        },
+        {
+          "id": "enseignements_liste",
+          "type": "teachings_list",
+          "variant": "grille_chronologique",
+          "editable": false,
+          "dynamicSource": "teachings:archive"
+        },
+        {
+          "id": "enseignements_galerie",
+          "type": "teaching_photos",
+          "variant": "instants_predication",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Moments d'écoute et d'édification"
+            }
+          ]
+        },
+        {
+          "id": "decouverte_enseignements",
+          "type": "cross_links",
+          "variant": "liens_associes",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Poursuivre votre étude"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "route": "/publications/ressources",
+      "file": "frontend/src/app/publications/ressources/page.tsx",
+      "title": "Guides d'étude & Documents — CCJV",
+      "sections": [
+        {
+          "id": "hero_ressources",
+          "type": "hero_banner",
+          "variant": "documents_etudes",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Guides d'étude & Documentation"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Nourrir sa foi au quotidien par l'étude de la Parole."
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Téléchargez librement les plans de prédication, guides de méditation personnelle et manuels pédagogiques de l'église."
+            }
+          ]
+        },
+        {
+          "id": "ressource_a_la_une",
+          "type": "featured_resource",
+          "variant": "carte_mise_en_avant",
+          "editable": false,
+          "dynamicSource": "resources:featured"
+        },
+        {
+          "id": "ressources_grille",
+          "type": "resources_grid",
+          "variant": "catalogue_pdf",
+          "editable": false,
+          "dynamicSource": "resources:archive"
+        },
+        {
+          "id": "mode_emploi_ressources",
+          "type": "usage_tips",
+          "variant": "conseils_d_etude",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Comment tirer le meilleur parti de ces guides ?"
+            }
+          ]
+        },
+        {
+          "id": "decouverte_ressources",
+          "type": "cross_links",
+          "variant": "liens_rubriques",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Autres ressources disponibles"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "route": "/newsletter",
+      "file": "frontend/src/app/newsletter/page.tsx",
+      "title": "Lettre pastorale & Nouvelles — CCJV",
+      "sections": [
+        {
+          "id": "hero_newsletter",
+          "type": "page_header",
+          "variant": "defaut",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Communication & Foi"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "La lettre pastorale & les nouvelles de l'église."
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Parce que la vie en Christ se nourrit chaque jour, recevez dans votre boîte de réception les résumés des prédications dominicales..."
+            }
+          ]
+        },
+        {
+          "id": "piliers_newsletter",
+          "type": "features_list",
+          "variant": "cards_3",
+          "editable": true,
+          "fields": [
+            {
+              "field": "surtitre",
+              "type": "text",
+              "defaultValue": "Contenu de nos lettres"
+            },
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Ce que nous partageons avec vous."
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Une édition soignée, conçue pour vous édifier..."
+            },
+            {
+              "field": "pilier_1_titre",
+              "type": "text",
+              "defaultValue": "Enseignements & Méditations"
+            },
+            {
+              "field": "pilier_1_description",
+              "type": "text",
+              "defaultValue": "Les points clés des sermons dominicaux..."
+            },
+            {
+              "field": "pilier_2_titre",
+              "type": "text",
+              "defaultValue": "Agenda cultuel & Événements"
+            },
+            {
+              "field": "pilier_2_description",
+              "type": "text",
+              "defaultValue": "L'annonce des temps forts..."
+            },
+            {
+              "field": "pilier_3_titre",
+              "type": "text",
+              "defaultValue": "Témoignages & Prières"
+            },
+            {
+              "field": "pilier_3_description",
+              "type": "text",
+              "defaultValue": "Des récits de ce que le Seigneur accomplit..."
+            }
+          ]
+        },
+        {
+          "id": "formulaire_newsletter",
+          "type": "form_section",
+          "variant": "inscription_email",
+          "editable": false,
+          "dynamicSource": "system:newsletter"
+        },
+        {
+          "id": "verset_newsletter",
+          "type": "verse_callout",
+          "variant": "sombre",
+          "editable": true,
+          "fields": [
+            {
+              "field": "contexte",
+              "type": "text",
+              "defaultValue": "Parole d'espérance"
+            },
+            {
+              "field": "texte",
+              "type": "text",
+              "defaultValue": "Comme de l'eau fraîche pour une personne fatiguée, ainsi est une bonne nouvelle venant d'une terre lointaine."
+            },
+            {
+              "field": "reference",
+              "type": "text",
+              "defaultValue": "Proverbes 25:25"
+            }
+          ]
+        },
+        {
+          "id": "engagements_newsletter",
+          "type": "content_grid",
+          "variant": "defaut",
+          "editable": true,
+          "fields": [
+            {
+              "field": "titre",
+              "type": "text",
+              "defaultValue": "Nos engagements de transparence"
+            },
+            {
+              "field": "lead",
+              "type": "text",
+              "defaultValue": "Nous respectons votre tranquillité et vos données personnelles."
+            },
+            {
+              "field": "engagement_1_titre",
+              "type": "text",
+              "defaultValue": "Données confidentielles"
+            },
+            {
+              "field": "engagement_1_texte",
+              "type": "text",
+              "defaultValue": "Votre adresse e-mail n'est jamais transmise ni vendue à des tiers."
+            },
+            {
+              "field": "engagement_2_titre",
+              "type": "text",
+              "defaultValue": "Fréquence raisonnée"
+            },
+            {
+              "field": "engagement_2_texte",
+              "type": "text",
+              "defaultValue": "Une à deux parutions par mois au maximum, pour aller à l'essentiel."
+            },
+            {
+              "field": "engagement_3_titre",
+              "type": "text",
+              "defaultValue": "Désinscription libre"
+            },
+            {
+              "field": "engagement_3_texte",
+              "type": "text",
+              "defaultValue": "Un lien direct au bas de chaque message permet de vous retirer à tout instant."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "route": "/recherche",
+      "file": "frontend/src/app/recherche/page.tsx",
+      "title": "Recherche sur le site — CCJV",
+      "sections": [
+        {
+          "id": "recherche_globale",
+          "type": "search_interface",
+          "variant": "index_integre",
+          "editable": false,
+          "dynamicSource": "search:all"
+        }
+      ]
+    },
+    {
+      "route": "/mentions-legales",
+      "file": "frontend/src/components/shared/LegalPage.tsx",
+      "title": "Mentions Légales — CCJV",
+      "sections": [
+        {
+          "id": "legal_header",
+          "type": "page_header",
+          "variant": "defaut",
+          "editable": true,
+          "fields": [
+            {
+              "field": "overline",
+              "type": "text",
+              "defaultValue": "Informations légales"
+            },
+            {
+              "field": "title",
+              "type": "text",
+              "defaultValue": "Mentions légales"
+            },
+            {
+              "field": "description",
+              "type": "text",
+              "defaultValue": "Informations relatives à l'éditeur du site et à son hébergement."
+            }
+          ]
+        },
+        {
+          "id": "legal_content",
+          "type": "legal_document",
+          "variant": "defaut",
+          "editable": true,
+          "fields": [
+            {
+              "field": "derniere_mise_a_jour",
+              "type": "text",
+              "defaultValue": "Septembre 2026"
+            },
+            {
+              "field": "section_1_titre",
+              "type": "text",
+              "defaultValue": "Éditeur du site"
+            },
+            {
+              "field": "section_2_titre",
+              "type": "text",
+              "defaultValue": "Hébergement"
+            },
+            {
+              "field": "section_3_titre",
+              "type": "text",
+              "defaultValue": "Propriété intellectuelle"
+            },
+            {
+              "field": "section_4_titre",
+              "type": "text",
+              "defaultValue": "Signalement"
+            }
+          ]
+        },
+        {
+          "id": "legal_verset",
+          "type": "dynamic_scripture",
+          "variant": "sombre",
+          "editable": false,
+          "dynamicSource": "scriptures:parole"
+        }
+      ]
+    },
+    {
+      "route": "/confidentialite",
+      "file": "frontend/src/components/shared/LegalPage.tsx",
+      "title": "Politique de Confidentialité — CCJV",
+      "sections": [
+        {
+          "id": "legal_header",
+          "type": "page_header",
+          "variant": "defaut",
+          "editable": true,
+          "fields": [
+            {
+              "field": "overline",
+              "type": "text",
+              "defaultValue": "Protection des données"
+            },
+            {
+              "field": "title",
+              "type": "text",
+              "defaultValue": "Politique de confidentialité"
+            },
+            {
+              "field": "description",
+              "type": "text",
+              "defaultValue": "Comment nous protégeons vos données personnelles et vos requêtes d'intercession."
+            }
+          ]
+        },
+        {
+          "id": "legal_content",
+          "type": "legal_document",
+          "variant": "defaut",
+          "editable": true,
+          "fields": [
+            {
+              "field": "derniere_mise_a_jour",
+              "type": "text",
+              "defaultValue": "Septembre 2026"
+            },
+            {
+              "field": "section_1_titre",
+              "type": "text",
+              "defaultValue": "Principes généraux"
+            },
+            {
+              "field": "section_2_titre",
+              "type": "text",
+              "defaultValue": "Intentions de prière et chiffrement"
+            },
+            {
+              "field": "section_3_titre",
+              "type": "text",
+              "defaultValue": "Cookies et traceurs"
+            },
+            {
+              "field": "section_4_titre",
+              "type": "text",
+              "defaultValue": "Vos droits"
+            }
+          ]
+        },
+        {
+          "id": "legal_verset",
+          "type": "dynamic_scripture",
+          "variant": "sombre",
+          "editable": false,
+          "dynamicSource": "scriptures:parole"
+        }
+      ]
+    },
+    {
+      "route": "/conditions",
+      "file": "frontend/src/components/shared/LegalPage.tsx",
+      "title": "Conditions Générales d'Utilisation — CCJV",
+      "sections": [
+        {
+          "id": "legal_header",
+          "type": "page_header",
+          "variant": "defaut",
+          "editable": true,
+          "fields": [
+            {
+              "field": "overline",
+              "type": "text",
+              "defaultValue": "Cadre d'utilisation"
+            },
+            {
+              "field": "title",
+              "type": "text",
+              "defaultValue": "Conditions d'utilisation"
+            },
+            {
+              "field": "description",
+              "type": "text",
+              "defaultValue": "Modalités d'accès et d'usage du site du Centre Chrétien Jésus ma Vie."
+            }
+          ]
+        },
+        {
+          "id": "legal_content",
+          "type": "legal_document",
+          "variant": "defaut",
+          "editable": true,
+          "fields": [
+            {
+              "field": "derniere_mise_a_jour",
+              "type": "text",
+              "defaultValue": "Septembre 2026"
+            },
+            {
+              "field": "section_1_titre",
+              "type": "text",
+              "defaultValue": "Objet du site"
+            },
+            {
+              "field": "section_2_titre",
+              "type": "text",
+              "defaultValue": "Usage des contenus et propriété"
+            },
+            {
+              "field": "section_3_titre",
+              "type": "text",
+              "defaultValue": "Dépôt de témoignages et respect"
+            },
+            {
+              "field": "section_4_titre",
+              "type": "text",
+              "defaultValue": "Disponibilité du service"
+            }
+          ]
+        },
+        {
+          "id": "legal_verset",
+          "type": "dynamic_scripture",
+          "variant": "sombre",
+          "editable": false,
+          "dynamicSource": "scriptures:parole"
+        }
+      ]
+    },
+    {
+      "route": "/accessibilite",
+      "file": "frontend/src/components/shared/LegalPage.tsx",
+      "title": "Accessibilité Numérique — CCJV",
+      "sections": [
+        {
+          "id": "legal_header",
+          "type": "page_header",
+          "variant": "defaut",
+          "editable": true,
+          "fields": [
+            {
+              "field": "overline",
+              "type": "text",
+              "defaultValue": "Conformité numérique"
+            },
+            {
+              "field": "title",
+              "type": "text",
+              "defaultValue": "Accessibilité"
+            },
+            {
+              "field": "description",
+              "type": "text",
+              "defaultValue": "Notre engagement pour un site accessible à tous, conformément aux normes WCAG 2.2 AA."
+            }
+          ]
+        },
+        {
+          "id": "legal_content",
+          "type": "legal_document",
+          "variant": "defaut",
+          "editable": true,
+          "fields": [
+            {
+              "field": "derniere_mise_a_jour",
+              "type": "text",
+              "defaultValue": "Septembre 2026"
+            },
+            {
+              "field": "section_1_titre",
+              "type": "text",
+              "defaultValue": "Engagement de conformité"
+            },
+            {
+              "field": "section_2_titre",
+              "type": "text",
+              "defaultValue": "Normes appliquées"
+            },
+            {
+              "field": "section_3_titre",
+              "type": "text",
+              "defaultValue": "Signalement d'un défaut d'accessibilité"
+            }
+          ]
+        },
+        {
+          "id": "legal_verset",
+          "type": "dynamic_scripture",
+          "variant": "sombre",
+          "editable": false,
+          "dynamicSource": "scriptures:parole"
+        }
+      ]
+    }
+  ],
+  "detailTemplates": [
+    {
+      "template": "/[slug]",
+      "file": "frontend/src/app/[slug]/page.tsx",
+      "type": "dynamic_department_detail",
+      "dynamicSource": "departments:slug"
+    },
+    {
+      "template": "/publications/[slug]",
+      "file": "frontend/src/app/publications/[slug]/page.tsx",
+      "type": "dynamic_publication_detail",
+      "dynamicSource": "publications:slug"
+    },
+    {
+      "template": "/publications/actualites/[slug]",
+      "file": "frontend/src/app/publications/actualites/[slug]/page.tsx",
+      "type": "dynamic_news_detail",
+      "dynamicSource": "publications:actualite_slug"
+    },
+    {
+      "template": "/publications/enseignements/[slug]",
+      "file": "frontend/src/app/publications/enseignements/[slug]/page.tsx",
+      "type": "dynamic_teaching_detail",
+      "dynamicSource": "teachings:slug"
+    },
+    {
+      "template": "/publications/ressources/[slug]",
+      "file": "frontend/src/app/publications/ressources/[slug]/page.tsx",
+      "type": "dynamic_resource_detail",
+      "dynamicSource": "resources:slug"
+    },
+    {
+      "template": "/vie-de-leglise/evenements/[slug]",
+      "file": "frontend/src/app/vie-de-leglise/evenements/[slug]/page.tsx",
+      "type": "dynamic_event_detail",
+      "dynamicSource": "events:slug"
+    }
+  ]
+}

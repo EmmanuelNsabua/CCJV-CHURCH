@@ -130,11 +130,21 @@ export default function FaireUnDonPage() {
       {/* =========================================================================
           01 — HERO : L'INVITATION À PARTICIPER (IMAGE À GAUCHE / TEXTE À DROITE)
           ========================================================================= */}
-      <section className="relative overflow-hidden border-b border-ccjv-line bg-white pt-28 pb-16 lg:pt-36 lg:pb-24">
+      <section
+        data-section-id="hero_faire_un_don"
+        data-section-type="hero_banner"
+        data-variant="split"
+        className="relative overflow-hidden border-b border-ccjv-line bg-white pt-28 pb-16 lg:pt-36 lg:pb-24"
+      >
         <div className="container">
           <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-14 xl:gap-16">
             {/* Colonne gauche : Grande photographie authentique CCJV avec effet Parallax */}
-            <div className="lg:col-span-6">
+            <div
+              data-editable="true"
+              data-editable-type="image"
+              data-field="image"
+              className="lg:col-span-6"
+            >
               <Reveal>
                 <ParallaxImage
                   src={images.communaute || "/media/ccjv-30.jpeg"}
@@ -149,11 +159,21 @@ export default function FaireUnDonPage() {
             {/* Colonne droite : Titre de sens et CTA épuré */}
             <div className="flex flex-col justify-center lg:col-span-6">
               <Reveal delay={100}>
-                <h1 className="font-serif text-[clamp(2.4rem,1.7rem+3.2vw,4.2rem)] font-normal leading-[1.08] tracking-[-0.02em] text-ccjv-ink">
+                <h1
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="titre"
+                  className="font-serif text-[clamp(2.4rem,1.7rem+3.2vw,4.2rem)] font-normal leading-[1.08] tracking-[-0.02em] text-ccjv-ink"
+                >
                   Vous pouvez faire une différence
                 </h1>
 
-                <p className="mt-6 max-w-[48ch] font-sans text-base leading-relaxed text-ccjv-ink-secondary sm:text-lg">
+                <p
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="lead"
+                  className="mt-6 max-w-[48ch] font-sans text-base leading-relaxed text-ccjv-ink-secondary sm:text-lg"
+                >
                   Votre soutien volontaire contribue à faire vivre les actions, l&apos;accueil,
                   la formation des enfants et la mission de l&apos;église auprès de chacun.
                 </p>
@@ -161,12 +181,18 @@ export default function FaireUnDonPage() {
                 <div className="mt-8 flex flex-wrap items-center gap-4 sm:mt-10">
                   <a
                     href="#comment-donner"
+                    data-editable="true"
+                    data-editable-type="text"
+                    data-field="cta_don"
                     className="inline-flex items-center justify-center bg-ccjv-ink px-8 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-white uppercase transition-all duration-200 hover:bg-ccjv-green"
                   >
                     Faire un don ↓
                   </a>
                   <a
                     href="#pourquoi-donner"
+                    data-editable="true"
+                    data-editable-type="text"
+                    data-field="cta_impact"
                     className="inline-flex items-center justify-center border border-ccjv-line bg-white px-7 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-ink uppercase transition-all duration-200 hover:border-ccjv-ink"
                   >
                     Comprendre l&apos;impact
@@ -183,6 +209,9 @@ export default function FaireUnDonPage() {
           ========================================================================= */}
       <section
         id="pourquoi-donner"
+        data-section-id="pourquoi_donner"
+        data-section-type="editorial_features"
+        data-variant="defaut"
         className="relative scroll-mt-24 border-b border-ccjv-line bg-ccjv-offwhite py-16 lg:py-24"
         aria-labelledby="why-give-title"
       >
@@ -198,16 +227,29 @@ export default function FaireUnDonPage() {
                 </div>
                 <h2
                   id="why-give-title"
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="titre"
                   className="mt-4 font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight text-ccjv-ink"
                 >
                   Une contribution qui devient action.
                 </h2>
-                <p className="mt-6 font-sans text-base leading-relaxed text-ccjv-ink-secondary">
+                <p
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="texte1"
+                  className="mt-6 font-sans text-base leading-relaxed text-ccjv-ink-secondary"
+                >
                   Au Centre Chrétien Jésus ma Vie, rien de ce qui est spirituel ne s&apos;achète :
                   l&apos;entrée au culte, l&apos;écoute de la Parole, la prière fraternelle et
                   l&apos;encadrement des enfants sont ouverts à tous sans aucune condition.
                 </p>
-                <p className="mt-4 font-sans text-base leading-relaxed text-ccjv-ink-secondary">
+                <p
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="texte2"
+                  className="mt-4 font-sans text-base leading-relaxed text-ccjv-ink-secondary"
+                >
                   Le don est la réponse libre de personnes qui souhaitent que cette œuvre
                   continue de rayonner, de bénir et d&apos;accueillir dignement d&apos;autres personnes
                   à Lubumbashi.
@@ -267,14 +309,29 @@ export default function FaireUnDonPage() {
       {/* =========================================================================
           03 — SECTION : VOTRE DON DEVIENT ACTION (COMPOSITION ÉDITORIALE ONG)
           ========================================================================= */}
-      <section className="relative overflow-hidden bg-white py-16 lg:py-24 border-b border-ccjv-line">
+      <section
+        data-section-id="chemin_du_geste"
+        data-section-type="process_flow"
+        data-variant="defaut"
+        className="relative overflow-hidden bg-white py-16 lg:py-24 border-b border-ccjv-line"
+      >
         <div className="container">
           <Reveal>
             <div className="max-w-2xl">
-              <h2 className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight text-ccjv-ink">
+              <h2
+                data-editable="true"
+                data-editable-type="text"
+                data-field="titre"
+                className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight text-ccjv-ink"
+              >
                 Le chemin de votre geste
               </h2>
-              <p className="mt-4 font-sans text-base leading-relaxed text-ccjv-ink-secondary">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="lead"
+                className="mt-4 font-sans text-base leading-relaxed text-ccjv-ink-secondary"
+              >
                 Comment un don financier volontaire se transforme très concrètement en impact humain et spirituel.
               </p>
             </div>
@@ -310,14 +367,29 @@ export default function FaireUnDonPage() {
       {/* =========================================================================
           04 — SECTION : DOMAINES D'IMPACT (ACTIVITÉS RÉELLES DE CCJV)
           ========================================================================= */}
-      <section className="relative bg-ccjv-offwhite py-16 lg:py-24 border-b border-ccjv-line">
+      <section
+        data-section-id="domaines_impact"
+        data-section-type="impact_grid"
+        data-variant="defaut"
+        className="relative bg-ccjv-offwhite py-16 lg:py-24 border-b border-ccjv-line"
+      >
         <div className="container">
           <Reveal>
             <div className="max-w-2xl">
-              <h2 className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight text-ccjv-ink">
+              <h2
+                data-editable="true"
+                data-editable-type="text"
+                data-field="titre"
+                className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight text-ccjv-ink"
+              >
                 Ce que votre soutien rend possible
               </h2>
-              <p className="mt-3 font-sans text-base leading-relaxed text-ccjv-ink-secondary">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="lead"
+                className="mt-3 font-sans text-base leading-relaxed text-ccjv-ink-secondary"
+              >
                 Voici les piliers essentiels de l&apos;église alimentés par les contributions de chacun.
               </p>
             </div>
@@ -356,7 +428,13 @@ export default function FaireUnDonPage() {
       {/* =========================================================================
           05 — RESPIRATION BIBLIQUE (GÉNÉROSITÉ VOLONTAIRE ET DIGNE)
           ========================================================================= */}
-      <section className="relative overflow-hidden bg-ccjv-cream py-16 lg:py-24 border-b border-ccjv-line">
+      <section
+        data-section-id="respiration_don"
+        data-section-type="verse_section"
+        data-editable="false"
+        data-dynamic-source="scriptures:2corinthiens9"
+        className="relative overflow-hidden bg-ccjv-cream py-16 lg:py-24 border-b border-ccjv-line"
+      >
         <div className="container relative z-10">
           <div className="mx-auto max-w-3xl text-center">
             <Reveal>
@@ -378,15 +456,30 @@ export default function FaireUnDonPage() {
       {/* =========================================================================
           06 — SECTION : DONNER EST UN CHOIX (TRANSPARENCE & RESPECT)
           ========================================================================= */}
-      <section className="relative bg-white py-16 lg:py-24 border-b border-ccjv-line">
+      <section
+        data-section-id="donner_est_un_choix"
+        data-section-type="editorial_feature"
+        data-variant="defaut"
+        className="relative bg-white py-16 lg:py-24 border-b border-ccjv-line"
+      >
         <div className="container">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
             <div className="lg:col-span-6">
               <Reveal>
-                <h2 className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight text-ccjv-ink">
+                <h2
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="titre"
+                  className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight text-ccjv-ink"
+                >
                   Vous êtes libre de donner
                 </h2>
-                <div className="mt-6 space-y-4 font-sans text-base leading-relaxed text-ccjv-ink-secondary">
+                <div
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="texte"
+                  className="mt-6 space-y-4 font-sans text-base leading-relaxed text-ccjv-ink-secondary"
+                >
                   <p>
                     Donner est un choix éminemment personnel et volontaire. Nous refusons
                     toute culpabilisation, pression émotionnelle ou obligation artificielle.
@@ -405,7 +498,7 @@ export default function FaireUnDonPage() {
 
             <div className="lg:col-span-6">
               <Reveal delay={100}>
-                {/* Mosaïque photo 4 images avec effet Parallax (comme dans le composant des versets) */}
+                {/* Mosaïque photo 4 images avec effet Parallax */}
                 <div className="grid grid-cols-2 gap-3 md:gap-4">
                   <div className="flex flex-col gap-3 md:gap-4">
                     <ParallaxImage
@@ -448,6 +541,9 @@ export default function FaireUnDonPage() {
           ========================================================================= */}
       <section
         id="comment-donner"
+        data-section-id="comment_contribuer"
+        data-section-type="methods_grid"
+        data-variant="defaut"
         className="relative scroll-mt-24 bg-ccjv-offwhite py-16 lg:py-24 border-b border-ccjv-line"
         aria-labelledby="how-to-give-title"
       >
@@ -456,11 +552,19 @@ export default function FaireUnDonPage() {
             <div className="max-w-2xl">
               <h2
                 id="how-to-give-title"
+                data-editable="true"
+                data-editable-type="text"
+                data-field="titre"
                 className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight text-ccjv-ink"
               >
                 Comment contribuer ?
               </h2>
-              <p className="mt-3 font-sans text-base leading-relaxed text-ccjv-ink-secondary">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="lead"
+                className="mt-3 font-sans text-base leading-relaxed text-ccjv-ink-secondary"
+              >
                 Des démarches simples, directes et sécurisées adaptées à votre situation.
               </p>
             </div>
@@ -508,6 +612,9 @@ export default function FaireUnDonPage() {
                   href={whatsappDonHref}
                   target="_blank"
                   rel="noopener noreferrer"
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="cta_secretariat"
                   className="inline-flex shrink-0 items-center justify-center bg-ccjv-ink px-8 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-white uppercase transition-all duration-200 hover:bg-ccjv-green"
                 >
                   Contacter via WhatsApp →
@@ -521,7 +628,12 @@ export default function FaireUnDonPage() {
       {/* =========================================================================
           08 — SECTION : L'IMPACT HUMAIN & INVITATION FINALE
           ========================================================================= */}
-      <section className="relative overflow-hidden bg-white py-16 lg:py-24 border-b border-ccjv-line">
+      <section
+        data-section-id="prendre_part_oeuvre"
+        data-section-type="invitation_banner"
+        data-variant="defaut"
+        className="relative overflow-hidden bg-white py-16 lg:py-24 border-b border-ccjv-line"
+      >
         <div className="container">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
             <div className="grid grid-cols-2 gap-4 lg:col-span-6">
@@ -541,10 +653,20 @@ export default function FaireUnDonPage() {
 
             <div className="flex flex-col justify-center lg:col-span-6">
               <Reveal>
-                <h2 className="font-serif text-[clamp(2.2rem,1.6rem+2.6vw,3.6rem)] font-normal tracking-[-0.02em] leading-tight text-ccjv-ink">
+                <h2
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="titre"
+                  className="font-serif text-[clamp(2.2rem,1.6rem+2.6vw,3.6rem)] font-normal tracking-[-0.02em] leading-tight text-ccjv-ink"
+                >
                   Vous pouvez prendre part à cette œuvre.
                 </h2>
-                <p className="mt-6 font-sans text-base leading-relaxed text-ccjv-ink-secondary">
+                <p
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="texte"
+                  className="mt-6 font-sans text-base leading-relaxed text-ccjv-ink-secondary"
+                >
                   Derrière chaque contribution, il y a la possibilité de maintenir des portes ouvertes,
                   d&apos;enseigner un enfant, d&apos;élever des louanges et de soutenir quelqu&apos;un
                   dans le besoin.
@@ -559,12 +681,18 @@ export default function FaireUnDonPage() {
                     href={whatsappDonHref}
                     target="_blank"
                     rel="noopener noreferrer"
+                    data-editable="true"
+                    data-editable-type="text"
+                    data-field="cta_don"
                     className="inline-flex items-center justify-center bg-ccjv-ink px-8 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-white uppercase transition-all duration-200 hover:bg-ccjv-green"
                   >
                     Faire un don
                   </a>
                   <Link
                     href="/organisation#departements"
+                    data-editable="true"
+                    data-editable-type="text"
+                    data-field="cta_departements"
                     className="inline-flex items-center justify-center border border-ccjv-line bg-white px-7 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-ink uppercase transition-all duration-200 hover:border-ccjv-ink"
                   >
                     Découvrir nos départements
@@ -579,7 +707,12 @@ export default function FaireUnDonPage() {
       {/* =========================================================================
           09 — CROSS-LINKS : POURSUIVRE LA DÉCOUVERTE
           ========================================================================= */}
-      <section className="relative bg-ccjv-offwhite py-16 lg:py-20">
+      <section
+        data-section-id="decouverte_liens"
+        data-section-type="cross_links"
+        data-variant="defaut"
+        className="relative bg-ccjv-offwhite py-16 lg:py-20"
+      >
         <div className="container">
           <Reveal>
             <h2 className="font-serif text-[clamp(1.6rem,1.2rem+1.4vw,2.4rem)] font-normal text-ccjv-ink">

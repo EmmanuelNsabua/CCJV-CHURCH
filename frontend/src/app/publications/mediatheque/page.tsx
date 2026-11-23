@@ -96,14 +96,29 @@ export default async function MediathequePage() {
   return (
     <main className="bg-ccjv-offwhite text-ccjv-ink selection:bg-ccjv-green selection:text-white">
       {/* Zone A — en-tête compact : il ne retarde pas l'accès au catalogue. */}
-      <section className="border-b border-ccjv-line px-6 pt-28 pb-8 sm:px-12 lg:px-20 lg:pt-32 lg:pb-10">
+      <section
+        data-section-id="mediatheque_header"
+        data-section-type="page_header"
+        data-variant="defaut"
+        className="border-b border-ccjv-line px-6 pt-28 pb-8 sm:px-12 lg:px-20 lg:pt-32 lg:pb-10"
+      >
         <div className="mx-auto w-full max-w-7xl">
-          <p className="font-sans text-[0.7rem] font-semibold tracking-[0.18em] text-ccjv-green uppercase">
+          <p
+            data-editable="true"
+            data-editable-type="text"
+            data-field="surtitre"
+            className="font-sans text-[0.7rem] font-semibold tracking-[0.18em] text-ccjv-green uppercase"
+          >
             Publications &amp; Médias
           </p>
 
           <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2">
-            <h1 className="font-serif text-[clamp(2.1rem,1.4rem+2.4vw,3.3rem)] font-normal leading-[1.08] tracking-[-0.02em]">
+            <h1
+              data-editable="true"
+              data-editable-type="text"
+              data-field="titre"
+              className="font-serif text-[clamp(2.1rem,1.4rem+2.4vw,3.3rem)] font-normal leading-[1.08] tracking-[-0.02em]"
+            >
               Médiathèque
             </h1>
 
@@ -114,7 +129,12 @@ export default async function MediathequePage() {
             )}
           </div>
 
-          <p className="mt-3 max-w-[62ch] font-sans text-[0.95rem] leading-relaxed text-ccjv-ink-secondary">
+          <p
+            data-editable="true"
+            data-editable-type="text"
+            data-field="description"
+            className="mt-3 max-w-[62ch] font-sans text-[0.95rem] leading-relaxed text-ccjv-ink-secondary"
+          >
             Parcourez les photos et les vidéos de la vie de la communauté :
             cultes, célébrations, rencontres et temps de service.
           </p>
@@ -123,6 +143,10 @@ export default async function MediathequePage() {
 
       {/* Zones B et C — commandes puis catalogue. */}
       <section
+        data-section-id="mediatheque_catalogue"
+        data-section-type="dynamic_media_catalog"
+        data-editable="false"
+        data-dynamic-source="media:aggregate"
         aria-label="Catalogue des médias"
         className="px-6 py-8 sm:px-12 lg:px-20 lg:py-10"
       >

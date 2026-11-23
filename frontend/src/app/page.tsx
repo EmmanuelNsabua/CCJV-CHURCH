@@ -147,25 +147,46 @@ export default async function HomePage() {
 
       {/* 02 — LA PAROLE DU JOUR */}
       {scriptureRead.status === "unreachable" ? (
-        <Section aria-label="Parole du jour momentanément indisponible">
+        <Section
+          data-section-id="parole_du_jour"
+          data-section-type="verse_section"
+          data-editable="false"
+          data-dynamic-source="scriptures:rassemblement"
+          aria-label="Parole du jour momentanément indisponible"
+        >
           <ContentUnavailable resource="La parole du jour" />
         </Section>
       ) : scriptureRead.status === "ok" ? (
-        <VerseSection
-          text={scriptureRead.scripture.text}
-          reference={scriptureRead.scripture.reference}
-          tone="dark"
-        />
+        <div
+          data-section-id="parole_du_jour"
+          data-section-type="verse_section"
+          data-editable="false"
+          data-dynamic-source="scriptures:rassemblement"
+        >
+          <VerseSection
+            text={scriptureRead.scripture.text}
+            reference={scriptureRead.scripture.reference}
+            tone="dark"
+          />
+        </div>
       ) : null}
 
       {/* 03 — UN MOT DU PASTEUR */}
       <Section
         id="mot-du-pasteur"
+        data-section-id="mot_du_pasteur"
+        data-section-type="pastor_word"
+        data-variant="defaut"
         aria-labelledby="mot-pasteur-titre"
       >
         <div className="grid grid-cols-1 items-center gap-10 md:grid-cols-12 md:gap-14">
           <Reveal className="md:col-span-5">
-            <div className="relative aspect-[3/4] overflow-hidden rounded-t-full bg-ccjv-line">
+            <div
+              className="relative aspect-[3/4] overflow-hidden rounded-t-full bg-ccjv-line"
+              data-editable="true"
+              data-editable-type="image"
+              data-field="image_pasteur"
+            >
               <Image
                 src={images.pastor}
                 alt=""
@@ -177,18 +198,40 @@ export default async function HomePage() {
           </Reveal>
           <Reveal delay={100} className="md:col-span-7">
             <CrossMark size="sm" className="mb-4 text-ccjv-green" />
-            <h2 id="mot-pasteur-titre">
+            <h2
+              id="mot-pasteur-titre"
+              data-editable="true"
+              data-editable-type="text"
+              data-field="titre"
+            >
               Vous êtes les bienvenus parmi nous.
             </h2>
-            <p className="mt-5 text-ccjv-ink-secondary">
+            <p
+              className="mt-5 text-ccjv-ink-secondary"
+              data-editable="true"
+              data-editable-type="text"
+              data-field="texte"
+            >
               Que vous cherchiez Dieu depuis longtemps ou que vous poussiez la
               porte pour la première fois, il y a une place pour vous ici.
               Notre désir est simple : que chacun rencontre Jésus-Christ,
               grandisse dans Sa Parole et trouve une famille pour avancer. Venez
               tel que vous êtes — nous vous attendons avec joie.
             </p>
-            <p className="mt-8 font-serif text-lg">{site.visionary}</p>
-            <p className="font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-ink-secondary uppercase">
+            <p
+              className="mt-8 font-serif text-lg"
+              data-editable="true"
+              data-editable-type="text"
+              data-field="nom_pasteur"
+            >
+              {site.visionary}
+            </p>
+            <p
+              className="font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-ink-secondary uppercase"
+              data-editable="true"
+              data-editable-type="text"
+              data-field="role_pasteur"
+            >
               {site.visionaryRole}
             </p>
           </Reveal>
@@ -198,12 +241,20 @@ export default async function HomePage() {
       {/* 04b — L'ÉCOLE DU DIMANCHE (ECODIM) */}
       <Section
         id="ecodim-passerelle"
+        data-section-id="ecodim_passerelle"
+        data-section-type="department_bridge"
+        data-variant="defaut"
         tone="tinted"
         aria-labelledby="ecodim-passerelle-titre"
       >
         <div className="grid grid-cols-1 items-center gap-10 md:grid-cols-12 md:gap-14">
           <Reveal className="md:col-span-6 md:order-2">
-            <div className="relative aspect-[4/3] overflow-hidden border border-ccjv-line bg-ccjv-surface">
+            <div
+              className="relative aspect-[4/3] overflow-hidden border border-ccjv-line bg-ccjv-surface"
+              data-editable="true"
+              data-editable-type="image"
+              data-field="image_ecodim"
+            >
               <Image
                 src={images.ecodim}
                 alt="Enfants réunis à l'École du Dimanche du CCJV"
@@ -214,10 +265,21 @@ export default async function HomePage() {
             </div>
           </Reveal>
           <Reveal delay={100} className="md:col-span-6 md:order-1">
-            <h2 id="ecodim-passerelle-titre" className="mt-4">
+            <h2
+              id="ecodim-passerelle-titre"
+              className="mt-4"
+              data-editable="true"
+              data-editable-type="text"
+              data-field="titre"
+            >
               L&apos;École du Dimanche : former les enfants à la vie chrétienne
             </h2>
-            <p className="mt-5 text-ccjv-ink-secondary">
+            <p
+              className="mt-5 text-ccjv-ink-secondary"
+              data-editable="true"
+              data-editable-type="text"
+              data-field="texte"
+            >
               L&apos;Ecodim accueille vos enfants chaque dimanche dans un cadre
               pédagogique structuré et bienveillant, pensé pour transmettre la
               Parole de Dieu selon leur âge. De l&apos;éveil à l&apos;adolescence, nos moniteurs consacrés
@@ -226,10 +288,22 @@ export default async function HomePage() {
               familles.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
-              <Button variant="primary" href="/ecodim">
+              <Button
+                variant="primary"
+                href="/ecodim"
+                data-editable="true"
+                data-editable-type="text"
+                data-field="cta_decouvrir"
+              >
                 Découvrir
               </Button>
-              <Button variant="outline" href="/publications/enseignements?scope=ECODIM">
+              <Button
+                variant="outline"
+                href="/publications/enseignements?scope=ECODIM"
+                data-editable="true"
+                data-editable-type="text"
+                data-field="cta_apprendre"
+              >
                 Apprendre
               </Button>
             </div>
@@ -238,7 +312,14 @@ export default async function HomePage() {
       </Section>
 
       {/* 04c — NOS DÉPARTEMENTS AU SERVICE */}
-      <Section id="departements" aria-labelledby="departements-titre">
+      <Section
+        id="departements"
+        data-section-id="departements_service"
+        data-section-type="dynamic_departments"
+        data-editable="false"
+        data-dynamic-source="departments"
+        aria-labelledby="departements-titre"
+      >
         <SectionHeading
           id="departements-titre"
           title="Une église vivante portée par le service"

@@ -92,11 +92,21 @@ export default async function OuNousTrouverPage() {
       {/* =========================================================================
           01 — HERO : L'ACCUEIL (IMAGE À GAUCHE / TEXTE À DROITE)
           ========================================================================= */}
-      <section className="relative overflow-hidden pt-28 pb-16 lg:pt-36 lg:pb-24 border-b border-ccjv-line bg-white">
+      <section
+        data-section-id="hero_ou_nous_trouver"
+        data-section-type="hero_banner"
+        data-variant="split"
+        className="relative overflow-hidden pt-28 pb-16 lg:pt-36 lg:pb-24 border-b border-ccjv-line bg-white"
+      >
         <div className="container">
           <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-14 xl:gap-16">
             {/* Colonne gauche : Grande photographie authentique avec Parallax */}
-            <div className="lg:col-span-6">
+            <div
+              data-editable="true"
+              data-editable-type="image"
+              data-field="image"
+              className="lg:col-span-6"
+            >
               <Reveal>
                 <ParallaxImage
                   src={images.exterieur || "/media/ccjv-21.jpeg"}
@@ -111,13 +121,21 @@ export default async function OuNousTrouverPage() {
             {/* Colonne droite : Titre unique et CTA épuré */}
             <div className="flex flex-col justify-center lg:col-span-6">
               <Reveal delay={100}>
-                <h1 className="font-serif text-[clamp(2.5rem,1.8rem+3.5vw,4.5rem)] font-normal leading-[1.08] tracking-[-0.02em] text-ccjv-ink">
+                <h1
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="titre"
+                  className="font-serif text-[clamp(2.5rem,1.8rem+3.5vw,4.5rem)] font-normal leading-[1.08] tracking-[-0.02em] text-ccjv-ink"
+                >
                   Une communauté prête à vous accueillir.
                 </h1>
 
                 <div className="mt-8 sm:mt-10">
                   <a
                     href="#quand-et-ou"
+                    data-editable="true"
+                    data-editable-type="text"
+                    data-field="cta_planifier"
                     className="inline-flex items-center justify-center bg-ccjv-ink px-8 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-white uppercase transition-all duration-200 hover:bg-ccjv-green"
                   >
                     Planifier ma visite ↓
@@ -134,6 +152,9 @@ export default async function OuNousTrouverPage() {
           ========================================================================= */}
       <section
         id="quand-et-ou"
+        data-section-id="quand_et_ou"
+        data-section-type="practical_access"
+        data-variant="defaut"
         className="relative scroll-mt-24 py-16 lg:py-24"
         aria-labelledby="when-where-title"
       >
@@ -141,18 +162,30 @@ export default async function OuNousTrouverPage() {
           <Reveal>
             <h2
               id="when-where-title"
+              data-editable="true"
+              data-editable-type="text"
+              data-field="titre"
               className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight"
             >
               Venez nous rencontrer.
             </h2>
-            <p className="mt-3 max-w-[50ch] font-sans text-sm leading-relaxed text-ccjv-ink-secondary">
+            <p
+              data-editable="true"
+              data-editable-type="text"
+              data-field="lead"
+              className="mt-3 max-w-[50ch] font-sans text-sm leading-relaxed text-ccjv-ink-secondary"
+            >
               Toutes les informations nécessaires pour nous rejoindre simplement, sans complication.
             </p>
           </Reveal>
 
           <div className="mt-12 grid grid-cols-1 items-stretch gap-8 lg:grid-cols-12 lg:gap-10">
             {/* Colonne 1 : Les Horaires réguliers (lg:col-span-6) */}
-            <div className="flex flex-col justify-between border border-ccjv-line bg-white p-7 sm:p-9 shadow-xs lg:col-span-6">
+            <div
+              data-editable="false"
+              data-dynamic-source="schedule"
+              className="flex flex-col justify-between border border-ccjv-line bg-white p-7 sm:p-9 shadow-xs lg:col-span-6"
+            >
               <div>
                 <h3 className="font-serif text-2xl font-semibold leading-snug">
                   Les rendez-vous réguliers
@@ -202,7 +235,11 @@ export default async function OuNousTrouverPage() {
             </div>
 
             {/* Colonne 2 : Adresse, Carte & Itinéraire (lg:col-span-6) */}
-            <div className="flex flex-col justify-between border border-ccjv-line bg-white p-7 sm:p-9 shadow-xs lg:col-span-6">
+            <div
+              data-editable="false"
+              data-dynamic-source="settings"
+              className="flex flex-col justify-between border border-ccjv-line bg-white p-7 sm:p-9 shadow-xs lg:col-span-6"
+            >
               <div>
                 <h3 className="font-serif text-2xl font-semibold leading-snug">
                   Notre adresse
@@ -303,24 +340,46 @@ export default async function OuNousTrouverPage() {
       {/* =========================================================================
           03 — RESPIRATION BIBLIQUE (PAUSE SPIRITUELLE CALME)
           ========================================================================= */}
-      <VerseSection
-        variant="center"
-        tone="cream"
-        text="« Venez, et voyez. »"
-        reference="Jean 1:46"
-      />
+      <div
+        data-section-id="respiration_visite"
+        data-section-type="verse_section"
+        data-editable="false"
+        data-dynamic-source="scriptures:jean1"
+      >
+        <VerseSection
+          variant="center"
+          tone="cream"
+          text="« Venez, et voyez. »"
+          reference="Jean 1:46"
+        />
+      </div>
 
       {/* =========================================================================
           04 — SECTION : PREMIÈRE VISITE (RASSURER LE NOUVEAU VISITEUR)
           ========================================================================= */}
-      <section className="relative py-16 lg:py-24 border-t border-ccjv-line bg-white">
+      <section
+        data-section-id="premiere_visite_reperes"
+        data-section-type="reassurance_cards"
+        data-variant="defaut"
+        className="relative py-16 lg:py-24 border-t border-ccjv-line bg-white"
+      >
         <div className="container">
           <Reveal>
             <div className="mx-auto max-w-3xl text-center">
-              <h2 className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight">
+              <h2
+                data-editable="true"
+                data-editable-type="text"
+                data-field="titre"
+                className="font-serif text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-normal tracking-[-0.02em] leading-tight"
+              >
                 Vous venez pour la première fois ?
               </h2>
-              <p className="mt-3 font-sans text-sm leading-relaxed text-ccjv-ink-secondary">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="lead"
+                className="mt-3 font-sans text-sm leading-relaxed text-ccjv-ink-secondary"
+              >
                 Trois repères simples pour vous sentir immédiatement chez vous.
               </p>
             </div>
@@ -336,11 +395,21 @@ export default async function OuNousTrouverPage() {
                       {point.icon}
                     </div>
 
-                    <h3 className="font-serif text-xl font-semibold leading-snug">
+                    <h3
+                      data-editable="true"
+                      data-editable-type="text"
+                      data-field={`point${index + 1}_titre`}
+                      className="font-serif text-xl font-semibold leading-snug"
+                    >
                       {point.title}
                     </h3>
 
-                    <p className="mt-3 font-sans text-xs leading-relaxed text-ccjv-ink-secondary">
+                    <p
+                      data-editable="true"
+                      data-editable-type="text"
+                      data-field={`point${index + 1}_description`}
+                      className="mt-3 font-sans text-xs leading-relaxed text-ccjv-ink-secondary"
+                    >
                       {point.description}
                     </p>
                   </div>
@@ -354,9 +423,19 @@ export default async function OuNousTrouverPage() {
       {/* =========================================================================
           05 — SECTION FINALE : INVITATION (« NOUS SERONS HEUREUX DE VOUS ACCUEILLIR »)
           ========================================================================= */}
-      <section className="relative overflow-hidden bg-ccjv-black py-24 text-white lg:py-32">
+      <section
+        data-section-id="accueil_chaleureux_visite"
+        data-section-type="invitation_banner"
+        data-variant="defaut"
+        className="relative overflow-hidden bg-ccjv-black py-24 text-white lg:py-32"
+      >
         {/* Photo panoramique de communauté en filigrane sombre */}
-        <div className="absolute inset-0 z-0 opacity-25">
+        <div
+          data-editable="true"
+          data-editable-type="image"
+          data-field="image_fond"
+          className="absolute inset-0 z-0 opacity-25"
+        >
           <Image
             src={images.communaute || "/media/ccjv-30.jpeg"}
             alt="Communauté fraternelle CCJV"
@@ -370,11 +449,21 @@ export default async function OuNousTrouverPage() {
           <Reveal>
             <CrossMark size="md" className="mx-auto text-ccjv-cream mb-6" />
 
-            <h2 className="font-serif text-[clamp(2.2rem,1.6rem+2.6vw,3.8rem)] font-normal leading-tight tracking-[-0.02em] text-white">
+            <h2
+              data-editable="true"
+              data-editable-type="text"
+              data-field="titre"
+              className="font-serif text-[clamp(2.2rem,1.6rem+2.6vw,3.8rem)] font-normal leading-tight tracking-[-0.02em] text-white"
+            >
               Nous serons heureux de vous accueillir.
             </h2>
 
-            <p className="mt-6 font-sans text-sm md:text-base leading-relaxed text-white/80 max-w-[50ch] mx-auto">
+            <p
+              data-editable="true"
+              data-editable-type="text"
+              data-field="texte"
+              className="mt-6 font-sans text-sm md:text-base leading-relaxed text-white/80 max-w-[50ch] mx-auto"
+            >
               N&apos;hésitez pas à nous écrire si vous avez la moindre question avant de venir. Notre équipe est à votre disposition.
             </p>
 
@@ -383,12 +472,18 @@ export default async function OuNousTrouverPage() {
                 href={site.whatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
+                data-editable="true"
+                data-editable-type="text"
+                data-field="cta_whatsapp"
                 className="inline-flex items-center justify-center bg-white px-8 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-ccjv-black uppercase transition-all duration-200 hover:bg-ccjv-cream"
               >
                 Écrire sur WhatsApp
               </a>
               <Link
                 href="/vie-de-leglise/evenements"
+                data-editable="true"
+                data-editable-type="text"
+                data-field="cta_evenements"
                 className="inline-flex items-center justify-center border border-white/40 bg-transparent px-8 py-4 font-sans text-xs font-semibold tracking-[0.16em] text-white uppercase transition-all duration-200 hover:border-white hover:bg-white/10"
               >
                 Voir les prochains événements →

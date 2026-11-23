@@ -23,6 +23,9 @@ export interface HeroProps {
 export function Hero({ featuredTestimony }: HeroProps = {}) {
   return (
     <section
+      data-section-id="hero"
+      data-section-type="hero_banner"
+      data-variant="defaut"
       className="relative grid min-h-svh grid-cols-1 overflow-hidden min-[900px]:grid-cols-2"
       aria-label="Bienvenue au Centre Chrétien Jésus ma Vie"
     >
@@ -33,13 +36,27 @@ export function Hero({ featuredTestimony }: HeroProps = {}) {
       />
 
       {/* Conteneur Image / Diaporama de photos d'assemblée */}
-      <HeroSlideshow />
+      <div data-editable="true" data-editable-type="image" data-field="image_slideshow" className="contents">
+        <HeroSlideshow />
+      </div>
 
       {/* Conteneur Texte : aligné vers le bas de l'écran (items-end), sur l'image sur mobile et colonne gauche sur desktop */}
       <div className="relative z-10 flex min-h-svh items-end bg-transparent px-[clamp(24px,5vw,72px)] pt-[120px] pb-16 text-white min-[900px]:order-1 min-[900px]:bg-ccjv-black min-[900px]:pb-20 max-[900px]:pb-20">
         <div className="max-w-[36rem]">
-          <h1 className="display text-white">Bienvenue dans la maison.</h1>
-          <p className="lead mt-6 text-white/85 min-[900px]:text-white/75">
+          <h1
+            className="display text-white"
+            data-editable="true"
+            data-editable-type="text"
+            data-field="titre"
+          >
+            Bienvenue dans la maison.
+          </h1>
+          <p
+            className="lead mt-6 text-white/85 min-[900px]:text-white/75"
+            data-editable="true"
+            data-editable-type="text"
+            data-field="lead"
+          >
             <CrossMark
               size="md"
               className="mr-3 inline-block align-middle text-ccjv-cream"
@@ -54,10 +71,20 @@ export function Hero({ featuredTestimony }: HeroProps = {}) {
               variant="primary"
               size="lg"
               href="/vie-de-leglise/ou-nous-trouver"
+              data-editable="true"
+              data-editable-type="text"
+              data-field="cta_visite"
             >
               Planifier ma visite
             </Button>
-            <Button variant="inverse" size="lg" href="/vie-de-leglise/ou-nous-trouver">
+            <Button
+              variant="inverse"
+              size="lg"
+              href="/vie-de-leglise/ou-nous-trouver"
+              data-editable="true"
+              data-editable-type="text"
+              data-field="cta_horaires"
+            >
               Voir les horaires
             </Button>
           </div>

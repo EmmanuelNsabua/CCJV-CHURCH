@@ -91,11 +91,21 @@ export default async function EcodimPage() {
       {/* =========================================================================
           SECTION A — INTRODUCTION VISUELLE FORTE (INSPIRÉE DE LA RÉFÉRENCE TRIVISION)
          ========================================================================= */}
-      <section className="relative pt-12 sm:pt-20 pb-16 sm:pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto overflow-hidden">
+      <section
+        data-section-id="hero_ecodim"
+        data-section-type="hero_banner"
+        data-variant="trivision"
+        className="relative pt-12 sm:pt-20 pb-16 sm:pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto overflow-hidden"
+      >
         {/* En-tête typographique étendu — centré verticalement et horizontalement */}
         <div className="space-y-6 sm:space-y-8 max-w-5xl mx-auto flex flex-col items-center justify-center text-center">
           {/* Grand titre imposant occupant la largeur */}
-          <h1 className="font-serif text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-ccjv-ink leading-[1.06] mt-20">
+          <h1
+            data-editable="true"
+            data-editable-type="text"
+            data-field="titre"
+            className="font-serif text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-ccjv-ink leading-[1.06] mt-20"
+          >
             Former les esprits,{" "}
             <span className="text-ccjv-green italic font-normal">
               enraciner les cœurs
@@ -105,7 +115,12 @@ export default async function EcodimPage() {
 
           {/* Texte descriptif centré */}
           <div className="flex flex-col items-center justify-center pt-2 w-full">
-            <p className="max-w-3xl text-base sm:text-lg text-ccjv-ink-secondary leading-relaxed font-sans mx-auto text-center">
+            <p
+              data-editable="true"
+              data-editable-type="text"
+              data-field="lead"
+              className="max-w-3xl text-base sm:text-lg text-ccjv-ink-secondary leading-relaxed font-sans mx-auto text-center"
+            >
               L&apos;Ecodim accueille les enfants chaque dimanche matin pendant le culte général pour leur transmettre
               les fondements immuables des Écritures dans un cadre pédagogique structuré, joyeux et protecteur.
             </p>
@@ -113,7 +128,12 @@ export default async function EcodimPage() {
         </div>
 
         {/* Rangée de quatre photographies authentiques (Composition référence TriVision) */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-12 sm:mt-16">
+        <div
+          data-editable="true"
+          data-editable-type="image"
+          data-field="photos_grille"
+          className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-12 sm:mt-16"
+        >
           <div className="group relative aspect-[4/3] overflow-hidden border border-ccjv-line bg-white shadow-xs">
             <Image
               src={images.foi}
@@ -173,12 +193,23 @@ export default async function EcodimPage() {
       {/* =========================================================================
           SECTION B — SECTION ÉDITORIALE EN DEUX COLONNES (MISSION & RESPIRATION)
          ========================================================================= */}
-      <section id="pedagogie" className="py-16 sm:py-24 bg-white border-y border-ccjv-line">
+      <section
+        id="pedagogie"
+        data-section-id="pedagogie_ecodim"
+        data-section-type="editorial_feature"
+        data-variant="defaut"
+        className="py-16 sm:py-24 bg-white border-y border-ccjv-line"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
             {/* Colonne gauche : Grande photographie avec badge stylisé */}
             <div className="lg:col-span-6 relative">
-              <div className="relative aspect-[4/3] sm:aspect-[16/11] border border-ccjv-line overflow-hidden bg-ccjv-offwhite shadow-sm">
+              <div
+                data-editable="true"
+                data-editable-type="image"
+                data-field="image"
+                className="relative aspect-[4/3] sm:aspect-[16/11] border border-ccjv-line overflow-hidden bg-ccjv-offwhite shadow-sm"
+              >
                 <Image
                   src={images.ecodim}
                   alt="Cadre pédagogique et ecclésiastique de l'Ecodim"
@@ -191,17 +222,33 @@ export default async function EcodimPage() {
 
             {/* Colonne droite : Titre éditorial & explications concises */}
             <div className="lg:col-span-6 space-y-6">
-              <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-ccjv-ink leading-tight">
+              <h2
+                data-editable="true"
+                data-editable-type="text"
+                data-field="titre"
+                className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-ccjv-ink leading-tight"
+              >
                 Une pédagogie spirituelle pour éclairer chaque avenir.
               </h2>
-              <blockquote className="font-serif text-sm text-ccjv-ink">
+              <blockquote
+                data-editable="true"
+                data-editable-type="text"
+                data-field="verset_citation"
+                className="font-serif text-sm text-ccjv-ink"
+              >
                 « Instruis l&apos;enfant selon la voie qu&apos;il doit suivre ; et quand il sera vieux, il ne s&apos;en détournera pas. »
                 <cite className="block not-italic font-sans text-xs font-semibold text-ccjv-green mt-1">
                   — Proverbes 22:6
                 </cite>
               </blockquote>
               <div className="pt-2">
-                <Button variant="outline" href="/publications/enseignements?scope=ECODIM">
+                <Button
+                  variant="outline"
+                  href="/publications/enseignements?scope=ECODIM"
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="cta_enseignements"
+                >
                   Voir les enseignements
                 </Button>
               </div>
@@ -213,21 +260,46 @@ export default async function EcodimPage() {
       {/* =========================================================================
           SECTION C — COMPOSITION PHOTOGRAPHIQUE ASYMÉTRIQUE (VIE À L'ECODIM)
          ========================================================================= */}
-      <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <section
+        data-section-id="vie_ecodim_triptyque"
+        data-section-type="triptych_gallery"
+        data-variant="asymmetric"
+        className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto"
+      >
         <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16 space-y-3">
-          <span className="text-xs font-bold uppercase tracking-[0.2em] text-ccjv-green block">
+          <span
+            data-editable="true"
+            data-editable-type="text"
+            data-field="surtitre"
+            className="text-xs font-bold uppercase tracking-[0.2em] text-ccjv-green block"
+          >
             Au cœur de nos rencontres
           </span>
-          <h2 className="font-serif text-3xl sm:text-4xl font-bold text-ccjv-ink">
+          <h2
+            data-editable="true"
+            data-editable-type="text"
+            data-field="titre"
+            className="font-serif text-3xl sm:text-4xl font-bold text-ccjv-ink"
+          >
             La vie à l&apos;Ecodim au fil des dimanches
           </h2>
-          <p className="text-sm text-ccjv-ink-secondary">
+          <p
+            data-editable="true"
+            data-editable-type="text"
+            data-field="texte"
+            className="text-sm text-ccjv-ink-secondary"
+          >
             Des moments d&apos;apprentissage vivant, d&apos;écoute attentive et de fraternité partagée.
           </p>
         </div>
 
         {/* Triptyque asymétrique harmonieux */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 items-center">
+        <div
+          data-editable="true"
+          data-editable-type="image"
+          data-field="images_triptyque"
+          className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 items-center"
+        >
           {/* Image 1 : Verticale */}
           <div className="relative aspect-[3/4] border border-ccjv-line bg-white overflow-hidden shadow-xs">
             <Image
@@ -278,7 +350,13 @@ export default async function EcodimPage() {
       {/* =========================================================================
           SECTION D — GRAND PANNEAU ÉDITORIAL AVEC CHIFFRES RÉELS & CLASSES D'ÂGE
          ========================================================================= */}
-      <section id="classes" className="py-16 sm:py-24 bg-[#F2EDE2] border-y border-ccjv-line scroll-mt-16">
+      <section
+        id="classes"
+        data-section-id="classes_ecodim"
+        data-section-type="classes_overview"
+        data-variant="defaut"
+        className="py-16 sm:py-24 bg-[#F2EDE2] border-y border-ccjv-line scroll-mt-16"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
           {/* Panneau d'informations chiffrées réelles (Inspiré du panneau TriVision) */}
           <div className="bg-white border border-ccjv-line p-8 sm:p-14 shadow-sm relative overflow-hidden">
@@ -289,15 +367,31 @@ export default async function EcodimPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center relative z-10">
               <div className="lg:col-span-7 space-y-4">
-                <h2 className="font-serif text-3xl sm:text-4xl font-bold text-ccjv-ink">
+                <h2
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="titre"
+                  className="font-serif text-3xl sm:text-4xl font-bold text-ccjv-ink"
+                >
                   Un cadre scolaire ecclésiastique structuré.
                 </h2>
-                <p className="text-sm sm:text-base text-ccjv-ink-secondary leading-relaxed max-w-xl">
+                <p
+                  data-editable="true"
+                  data-editable-type="text"
+                  data-field="texte"
+                  className="text-sm sm:text-base text-ccjv-ink-secondary leading-relaxed max-w-xl"
+                >
                   Pour respecter le rythme cognitif et spirituel de chaque enfant, l&apos;Ecodim organise ses séances
                   par petits groupes guidés par des moniteurs formés et consacrés.
                 </p>
                 <div className="pt-2">
-                  <Button variant="primary" href="#parents">
+                  <Button
+                    variant="primary"
+                    href="#parents"
+                    data-editable="true"
+                    data-editable-type="text"
+                    data-field="cta_inscription"
+                  >
                     Comment inscrire mon enfant ?
                   </Button>
                 </div>
@@ -372,15 +466,35 @@ export default async function EcodimPage() {
       {/* =========================================================================
           SECTION E — TÉMOIGNAGES & PAROLES DE PARENTS ET MONITEURS
          ========================================================================= */}
-      <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <section
+        data-section-id="temoignages_ecodim"
+        data-section-type="community_echoes"
+        data-variant="defaut"
+        className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto"
+      >
         <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16 space-y-3">
-          <span className="text-xs font-bold uppercase tracking-[0.2em] text-ccjv-green block">
+          <span
+            data-editable="true"
+            data-editable-type="text"
+            data-field="surtitre"
+            className="text-xs font-bold uppercase tracking-[0.2em] text-ccjv-green block"
+          >
             Échos de la communauté
           </span>
-          <h2 className="font-serif text-3xl sm:text-4xl font-bold text-ccjv-ink">
+          <h2
+            data-editable="true"
+            data-editable-type="text"
+            data-field="titre"
+            className="font-serif text-3xl sm:text-4xl font-bold text-ccjv-ink"
+          >
             Paroles de parents & de moniteurs
           </h2>
-          <p className="text-sm text-ccjv-ink-secondary">
+          <p
+            data-editable="true"
+            data-editable-type="text"
+            data-field="lead"
+            className="text-sm text-ccjv-ink-secondary"
+          >
             L&apos;impact de la formation chrétienne dans la vie des enfants et des familles.
           </p>
         </div>
@@ -440,7 +554,13 @@ export default async function EcodimPage() {
       {/* =========================================================================
           SECTION F — ENSEIGNEMENTS & ACTUALITÉS ECODIM (DONNÉES DYNAMIQUES)
          ========================================================================= */}
-      <section className="py-16 sm:py-24 bg-white border-t border-ccjv-line">
+      <section
+        data-section-id="enseignements_ecodim"
+        data-section-type="dynamic_teachings"
+        data-editable="false"
+        data-dynamic-source="teachings:ecodim"
+        className="py-16 sm:py-24 bg-white border-t border-ccjv-line"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-ccjv-line pb-6">
             <div>
@@ -503,7 +623,13 @@ export default async function EcodimPage() {
 
           {/* Bloc Publications Ecodim */}
           {publications.length > 0 && (
-            <div className="pt-8 border-t border-ccjv-line space-y-6">
+            <div
+              data-section-id="publications_ecodim"
+              data-section-type="dynamic_publications"
+              data-editable="false"
+              data-dynamic-source="publications:ecodim"
+              className="pt-8 border-t border-ccjv-line space-y-6"
+            >
               <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-[0.2em] text-ccjv-green block">
@@ -558,7 +684,13 @@ export default async function EcodimPage() {
 
           {/* Bloc Événements / Rencontres Ecodim */}
           {events.length > 0 && (
-            <div className="pt-8 border-t border-ccjv-line space-y-6">
+            <div
+              data-section-id="evenements_ecodim"
+              data-section-type="dynamic_events"
+              data-editable="false"
+              data-dynamic-source="events:ecodim"
+              className="pt-8 border-t border-ccjv-line space-y-6"
+            >
               <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-[0.2em] text-ccjv-green block">
@@ -613,17 +745,38 @@ export default async function EcodimPage() {
       {/* =========================================================================
           SECTION G — ESPACE PARENTS & ACCUEIL DU DIMANCHE (INFORMATIONS PRATIQUES)
          ========================================================================= */}
-      <section id="parents" className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto scroll-mt-16">
+      <section
+        id="parents"
+        data-section-id="guide_familles_ecodim"
+        data-section-type="practical_guide"
+        data-variant="defaut"
+        className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto scroll-mt-16"
+      >
         <div className="border border-ccjv-line bg-white p-8 sm:p-14 shadow-sm">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             <div className="lg:col-span-8 space-y-4">
-              <span className="text-xs font-bold uppercase tracking-[0.2em] text-ccjv-green block">
+              <span
+                data-editable="true"
+                data-editable-type="text"
+                data-field="surtitre"
+                className="text-xs font-bold uppercase tracking-[0.2em] text-ccjv-green block"
+              >
                 Guide des familles
               </span>
-              <h2 className="font-serif text-2xl sm:text-3xl font-bold text-ccjv-ink">
+              <h2
+                data-editable="true"
+                data-editable-type="text"
+                data-field="titre"
+                className="font-serif text-2xl sm:text-3xl font-bold text-ccjv-ink"
+              >
                 Comment confier votre enfant ce dimanche ?
               </h2>
-              <p className="text-sm text-ccjv-ink-secondary leading-relaxed max-w-2xl">
+              <p
+                data-editable="true"
+                data-editable-type="text"
+                data-field="texte"
+                className="text-sm text-ccjv-ink-secondary leading-relaxed max-w-2xl"
+              >
                 Dès votre arrivée au Centre Chrétien Jésus ma Vie pour le culte dominical, nos moniteurs vous accueillent
                 dans le hall d&apos;entrée pour enregistrer votre enfant et l&apos;accompagner vers sa salle de classe.
                 À la fin du culte, les parents récupèrent personnellement leurs enfants.
@@ -649,6 +802,9 @@ export default async function EcodimPage() {
                 variant="primary"
                 href="/vie-de-leglise/ou-nous-trouver"
                 size="md"
+                data-editable="true"
+                data-editable-type="text"
+                data-field="cta_trouver"
                 className="w-full sm:w-48 text-center justify-center"
               >
                 Où nous trouver
@@ -658,6 +814,9 @@ export default async function EcodimPage() {
                 href={site.whatsappHref}
                 external
                 size="md"
+                data-editable="true"
+                data-editable-type="text"
+                data-field="cta_ecrire"
                 className="w-full sm:w-48 text-center justify-center"
               >
                 Nous écrire
